@@ -5,7 +5,7 @@ export const BAC_WATER_IMAGE_URL = bacWaterImage;
 const NAME_TO_LOCAL_IMAGE: Array<[string, string]> = [
   ['bacteriostatic', bacWaterImage],
   ['bac-water',      bacWaterImage],
-  ['retatrutide',    '/Reta.png'],
+  ['retatrutide',    '/reta.png'],
   ['tirzepatide',    '/TIRZ.png'],
   ['ghk-cu',         '/GHKCU.png'],
   ['ghk cu',         '/GHKCU.png'],
@@ -23,7 +23,7 @@ const NAME_TO_LOCAL_IMAGE: Array<[string, string]> = [
   ['aod',            '/AOD.png'],
   ['epithalon',      '/epithnon.png'],
   ['epithnon',       '/epithnon.png'],
-  ['kisspeptin',     '/KISSPEPTIN.webp'],
+  ['kisspeptin',     '/Kisspeptin.png'],
   ['ss-31',          '/SS-31.png'],
   ['ss31',           '/SS-31.png'],
   ['klow',           '/KLOW.png'],
