@@ -12,7 +12,7 @@ import { getLocalBusinessSchema, getServiceAreaSchema } from '../utils/localSeoS
 
 const TrustpilotSection = lazy(() => import('../components/TrustpilotSection'));
 
-const BEST_SELLERS = ['1', '2', '7', '14'].map(
+const BEST_SELLERS = ['1', '12', '13', '3'].map(
   id => PRODUCTS.find(p => p.id === id)!
 ).filter(Boolean);
 
