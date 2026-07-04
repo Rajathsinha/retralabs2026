@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { getProductImageUrl } from '../utils/imageUrl';
 import { ProductWithVariants, ProductVariant } from '../types';
 import { useCart } from '../context/CartContext';
@@ -111,25 +110,13 @@ export default function ProductDetailPage() {
 
   async function loadProduct(productId: string) {
     setLoading(true);
-    if (!isSupabaseConfigured()) {
-      const p = PRODUCTS.find(p => p.id === productId);
-      if (p) { setProduct(p); if (p.variants.length) setSelectedVariant(p.variants[0]); if (!p.name.includes('Bacteriostatic')) setBacWater(DEMO_BAC_WATER); }
-      setLoading(false);
-      return;
+    const p = PRODUCTS.find(p => p.id === productId);
+    if (p) {
+      setProduct(p);
+      if (p.variants.length) setSelectedVariant(p.variants[0]);
+      if (!p.name.includes('Bacteriostatic')) setBacWater(DEMO_BAC_WATER);
     }
-    try {
-      const { data: pd } = await supabase.from('products').select('*').eq('id', productId).single();
-      const { data: vd } = pd ? await supabase.from('product_variants').select('*').eq('product_id', productId).order('dosage_mg') : { data: null };
-      if (pd && vd && vd.length > 0) {
-        const pw = { ...pd, variants: vd }; setProduct(pw); if (vd.length) setSelectedVariant(vd[0]);
-        const { data: bw } = await supabase.from('products').select('*').ilike('name', '%Bacteriostatic%').single();
-        if (bw) { const { data: bwv } = await supabase.from('product_variants').select('*').eq('product_id', bw.id).order('dosage_mg'); if (bwv) setBacWater({ ...bw, variants: bwv }); }
-      } else {
-        const p = PRODUCTS.find(p => p.id === productId);
-        if (p) { setProduct(p); if (p.variants.length) setSelectedVariant(p.variants[0]); if (!p.name.includes('Bacteriostatic')) setBacWater(DEMO_BAC_WATER); }
-      }
-    } catch { const p = PRODUCTS.find(p => p.id === productId); if (p) { setProduct(p); if (p.variants.length) setSelectedVariant(p.variants[0]); setBacWater(DEMO_BAC_WATER); } }
-    finally { setLoading(false); }
+    setLoading(false);
   }
 
   const [cartAdded, setCartAdded] = useState(false);

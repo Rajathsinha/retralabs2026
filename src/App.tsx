@@ -1,8 +1,6 @@
 import { lazy, Suspense, Component, ReactNode, useEffect } from 'react';
-import { Routes, Route, Outlet, useLocation, Navigate, useNavigate } from 'react-router-dom';
+import { Routes, Route, Outlet, useLocation } from 'react-router-dom';
 import { CartProvider } from './context/CartContext';
-import { useAuth } from './context/AuthContext';
-import { supabase } from './lib/supabase';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import CodBanner from './components/CodBanner';
@@ -22,11 +20,6 @@ const PaymentFailedPage  = lazy(() => import('./pages/PaymentFailedPage'));
 const PrivacyPolicyPage  = lazy(() => import('./pages/PrivacyPolicyPage'));
 const TermsPage          = lazy(() => import('./pages/TermsPage'));
 const RefundPolicyPage   = lazy(() => import('./pages/RefundPolicyPage'));
-const SignInPage         = lazy(() => import('./pages/SignInPage'));
-const SignUpPage         = lazy(() => import('./pages/SignUpPage'));
-const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
-const ResetPasswordPage  = lazy(() => import('./pages/ResetPasswordPage'));
-const AccountPage        = lazy(() => import('./pages/AccountPage'));
 const ProofPage          = lazy(() => import('./pages/ProofPage'));
 const AdminPage          = lazy(() => import('./pages/AdminPage'));
 const HeroUIWrapper      = lazy(() => import('./providers/HeroUIWrapper'));
@@ -67,57 +60,6 @@ function ScrollToTop() {
   return null;
 }
 
-// ─── Auth Callback Handler ────────────────────────────────────────────────────
-// Safety net: if a Supabase auth email link deposits tokens on a page other
-// than /reset-password (e.g. site URL is misconfigured in the Supabase dashboard),
-// we detect the hash fragment here and redirect to the correct page.
-function AuthCallbackHandler() {
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    const hash = window.location.hash;
-
-    // Password recovery token landed on the wrong page — redirect to /reset-password
-    if (
-      hash.includes('type=recovery') &&
-      !window.location.pathname.includes('/reset-password')
-    ) {
-      navigate('/reset-password', { replace: true });
-      return;
-    }
-
-    // Email verification / magic-link: after SIGNED_IN fires, redirect to /account
-    // We listen once; Supabase will fire SIGNED_IN when the hash is processed.
-    if (hash.includes('type=signup') || hash.includes('type=magiclink')) {
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-        if (event === 'SIGNED_IN') {
-          window.history.replaceState(null, '', window.location.pathname);
-          navigate('/account', { replace: true });
-          subscription.unsubscribe();
-        }
-      });
-      return () => subscription.unsubscribe();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return null;
-}
-
-// ─── Protected Route ──────────────────────────────────────────────────────────
-function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { user, loading } = useAuth();
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="w-8 h-8 border-2 border-slate-200 border-t-slate-900 rounded-full animate-spin" />
-      </div>
-    );
-  }
-  if (!user) return <Navigate to="/signin" replace />;
-  return <>{children}</>;
-}
-
 // ─── Page loading spinner ─────────────────────────────────────────────────────
 function PageLoader() {
   return (
@@ -131,9 +73,7 @@ function PageLoader() {
 function RootLayout() {
   return (
     <div className="min-h-screen flex flex-col bg-white" style={{ overflowX: 'hidden' }}>
-      {/* Header has no HeroUI or Framer → paints immediately after vendor chunk */}
       <Header />
-      {/* HeroUI loads lazily after first paint; pages/footer wait inside it */}
       <Suspense fallback={<div className="flex-1" style={{ minHeight: '100vh' }} />}>
         <HeroUIWrapper>
           <main className="flex-1">
@@ -158,7 +98,6 @@ export default function App() {
     <ErrorBoundary>
       <CartProvider>
         <ScrollToTop />
-        <AuthCallbackHandler />
         <Routes>
           <Route element={<RootLayout />}>
             <Route path="/"                element={<HomePage />} />
@@ -174,11 +113,6 @@ export default function App() {
             <Route path="/privacy"         element={<PrivacyPolicyPage />} />
             <Route path="/terms"           element={<TermsPage />} />
             <Route path="/refund"          element={<RefundPolicyPage />} />
-            <Route path="/signin"          element={<SignInPage />} />
-            <Route path="/register"        element={<SignUpPage />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/reset-password"  element={<ResetPasswordPage />} />
-            <Route path="/account"         element={<ProtectedRoute><AccountPage /></ProtectedRoute>} />
           </Route>
           {/* Admin — no header/footer */}
           <Route path="/admin" element={<Suspense fallback={<div style={{ minHeight: '100vh', background: '#040C1E' }} />}><AdminPage /></Suspense>} />

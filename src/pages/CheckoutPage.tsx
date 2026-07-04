@@ -9,12 +9,10 @@ import {
   Divider,
 } from '@heroui/react';
 import { getProductImageUrl, BAC_WATER_IMAGE_URL } from '../utils/imageUrl';
-import { Minus, Plus, Trash2, Check, MessageCircle, Tag, ShoppingBag, ArrowRight, LogIn, UserPlus, X, GraduationCap, Zap, Clock, Banknote } from 'lucide-react';
+import { Minus, Plus, Trash2, Check, MessageCircle, Tag, ShoppingBag, ArrowRight, X, GraduationCap, Zap, Clock, Banknote } from 'lucide-react';
 import { useCart } from '../context/CartContext';
-import { useAuth } from '../context/AuthContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { OrderFormData } from '../types';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import UpiQrModal from '../components/UpiQrModal';
 
 const FAST_DELIVERY_CHARGE = 800;
@@ -131,7 +129,6 @@ function getCodCharge(orderTotal: number): number {
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
   const { format, currency } = useCurrency();
   const {
     cart,
@@ -189,24 +186,11 @@ export default function CheckoutPage() {
     } catch (_) {}
   }, [formData]);
 
-  /* ── Pre-fill from user profile if signed in (overrides saved) ── */
-  useEffect(() => {
-    if (user) {
-      setFormData(prev => ({
-        ...prev,
-        customer_name:    user.user_metadata?.name    || prev.customer_name,
-        customer_email:   user.email                  || prev.customer_email,
-        customer_phone:   user.user_metadata?.phone   || prev.customer_phone,
-        shipping_address: user.user_metadata?.address || prev.shipping_address,
-      }));
-    }
-  }, [user]);
   const [orderReady, setOrderReady] = useState(false);   // step 2: review screen
   const [submitting, setSubmitting] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [whatsappUrl, setWhatsappUrl] = useState('');
-  const [orderSent,   setOrderSent]   = useState(false); // step 3: done
-  const [savedOrderId, setSavedOrderId] = useState<string | null>(null); // Supabase order ID
+  const [orderSent,   setOrderSent]   = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
   const [orderSnapshot, setOrderSnapshot] = useState<{
     items: string;
@@ -539,15 +523,6 @@ export default function CheckoutPage() {
               </div>
             </div>
           </div>
-
-          {savedOrderId && (
-            <div className="bg-slate-900 rounded-2xl px-5 py-4 text-center mb-5">
-              <p className="text-xs text-slate-400 uppercase tracking-widest mb-1">Order ID</p>
-              <p className="text-2xl font-black text-white tracking-widest">#{savedOrderId}</p>
-              <p className="text-xs text-slate-400 mt-1">Save this to track your order</p>
-            </div>
-          )}
-
 
           {/* Tracking note */}
           <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 mb-4 text-center">

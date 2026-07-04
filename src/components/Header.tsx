@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Menu, X, Search, LogOut, UserCircle2, Calculator, ChevronDown } from 'lucide-react';
+import { Link as RouterLink, useLocation } from 'react-router-dom';
+import { ShoppingCart, Menu, X, Search, Calculator, ChevronDown } from 'lucide-react';
 import { useCart } from '../context/CartContext';
-import { useAuth } from '../context/AuthContext';
 import { useCurrency, CURRENCIES } from '../context/CurrencyContext';
 import Logo from './Logo';
 import SearchModal from './SearchModal';
@@ -16,33 +15,25 @@ const MARQUEE_MESSAGES = [
 ];
 
 const NAV_ITEMS = [
-  { path: '/catalogue',    label: 'Shop' },
-  { path: '/catalogue',    label: 'Peptides' },
-  { path: '/support',      label: 'Resources' },
-  { path: '/proof',        label: 'Reviews' },
-  { path: '/about',        label: 'About Us' },
+  { path: '/catalogue', label: 'Shop' },
+  { path: '/catalogue', label: 'Peptides' },
+  { path: '/support',   label: 'Resources' },
+  { path: '/proof',     label: 'Reviews' },
+  { path: '/about',     label: 'About Us' },
 ];
 
 export default function Header() {
-  const { cart, openCart }  = useCart();
-  const { user, signOut }   = useAuth();
+  const { cart, openCart } = useCart();
   const { currency, setCurrencyCode } = useCurrency();
-  const cartCount           = cart.reduce((n, i) => n + i.quantity, 0);
-  const location            = useLocation();
-  const navigate            = useNavigate();
-  const [mobileOpen,    setMobileOpen]    = useState(false);
-  const [scrolled,      setScrolled]      = useState(false);
-  const [searchOpen,    setSearchOpen]    = useState(false);
-  const [avatarOpen,    setAvatarOpen]    = useState(false);
-  const [calcOpen,      setCalcOpen]      = useState(false);
-  const [currencyOpen,  setCurrencyOpen]  = useState(false);
-  const avatarRef   = useRef<HTMLDivElement>(null);
-  const currencyRef = useRef<HTMLDivElement>(null);
+  const cartCount = cart.reduce((n, i) => n + i.quantity, 0);
+  const location  = useLocation();
 
-  const initials = user
-    ? (user.user_metadata?.name || user.email || 'U')
-        .split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()
-    : '';
+  const [mobileOpen,   setMobileOpen]   = useState(false);
+  const [scrolled,     setScrolled]     = useState(false);
+  const [searchOpen,   setSearchOpen]   = useState(false);
+  const [calcOpen,     setCalcOpen]     = useState(false);
+  const [currencyOpen, setCurrencyOpen] = useState(false);
+  const currencyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
@@ -62,16 +53,6 @@ export default function Header() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, []);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (avatarRef.current && !avatarRef.current.contains(e.target as Node)) {
-        setAvatarOpen(false);
-      }
-    };
-    if (avatarOpen) document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [avatarOpen]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -95,7 +76,7 @@ export default function Header() {
 
       <div className={`sticky top-0 z-50 transition-all duration-300 ${scrolled ? 'shadow-[0_1px_20px_rgba(0,0,0,0.06)]' : ''}`}>
 
-        {/* ── Announcement Bar — 40px, dark, scrolling marquee ── */}
+        {/* ── Announcement Bar ── */}
         <div className="bg-[#111111] overflow-hidden" style={{ height: 40 }}>
           <div className="relative h-full flex items-center">
             <div className="animate-marquee whitespace-nowrap flex items-center h-full">
@@ -197,39 +178,6 @@ export default function Header() {
                   )}
                 </div>
 
-                {/* Account — only shown when signed in */}
-                {user ? (
-                  <div className="relative" ref={avatarRef}>
-                    <button
-                      onClick={() => setAvatarOpen(o => !o)}
-                      className="w-[34px] h-[34px] rounded-full bg-[#111111] flex items-center justify-center text-white text-[11px] font-bold hover:bg-[#2d2d2d] transition-colors duration-200"
-                      aria-label="Account"
-                    >
-                      {initials}
-                    </button>
-                    {avatarOpen && (
-                      <div className="absolute right-0 top-full mt-3 w-48 bg-white border border-[#E5E7EB] rounded-[16px] shadow-[0_12px_40px_rgba(0,0,0,0.12)] overflow-hidden z-50 animate-fade-in-down">
-                        <div className="px-4 py-3 border-b border-[#F3F4F6]">
-                          <p className="text-[13px] font-semibold text-[#111111] truncate">{user.user_metadata?.name || 'Account'}</p>
-                          <p className="text-[11px] text-[#9CA3AF] truncate mt-0.5">{user.email}</p>
-                        </div>
-                        <button
-                          onClick={() => { setAvatarOpen(false); navigate('/account'); }}
-                          className="w-full flex items-center gap-3 px-4 py-3 text-[13px] text-[#374151] hover:bg-[#F9FAFB] transition-colors text-left font-medium"
-                        >
-                          <UserCircle2 className="w-4 h-4" /> My Account
-                        </button>
-                        <button
-                          onClick={async () => { setAvatarOpen(false); await signOut(); navigate('/'); }}
-                          className="w-full flex items-center gap-3 px-4 py-3 text-[13px] text-red-500 hover:bg-red-50 transition-colors text-left font-medium"
-                        >
-                          <LogOut className="w-4 h-4" /> Sign Out
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ) : null}
-
                 {/* Cart */}
                 <button
                   onClick={openCart}
@@ -285,7 +233,7 @@ export default function Header() {
                   </RouterLink>
                 ))}
 
-                <div className="mt-4 pt-4 border-t border-[#F3F4F6] flex flex-col gap-2.5">
+                <div className="mt-4 pt-4 border-t border-[#F3F4F6]">
                   <button
                     onClick={() => { setMobileOpen(false); openCart(); }}
                     className="w-full flex items-center justify-center gap-2.5 bg-[#111111] hover:bg-[#1f1f1f] text-white font-semibold px-5 py-3.5 rounded-[14px] transition-all duration-200 text-[15px]"
@@ -298,22 +246,6 @@ export default function Header() {
                       </span>
                     )}
                   </button>
-                  {user && (
-                    <div className="flex gap-2.5">
-                      <button
-                        onClick={() => { setMobileOpen(false); navigate('/account'); }}
-                        className="flex-1 flex items-center justify-center gap-2 border border-[#E5E7EB] text-[#374151] hover:bg-[#F5F7FA] font-medium px-4 py-3 rounded-[14px] transition-all text-[14px]"
-                      >
-                        <UserCircle2 className="w-4 h-4" /> My Account
-                      </button>
-                      <button
-                        onClick={async () => { setMobileOpen(false); await signOut(); navigate('/'); }}
-                        className="flex items-center gap-1.5 border border-red-100 text-red-500 hover:bg-red-50 px-4 py-3 rounded-[14px] transition-all text-[14px] font-medium"
-                      >
-                        <LogOut className="w-4 h-4" />
-                      </button>
-                    </div>
-                  )}
                 </div>
               </nav>
             </div>

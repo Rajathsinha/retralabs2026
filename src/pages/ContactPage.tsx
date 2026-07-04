@@ -12,7 +12,6 @@ import { Mail, MessageSquare, Clock, AlertTriangle, Send, CheckCircle2 } from 'l
 import { useSEO } from '../hooks/useSEO';
 import { getLocalBusinessSchema, getBreadcrumbSchema } from '../utils/localSeoSchemas';
 import { BUSINESS_NAP } from '../constants/config';
-import { supabase } from '../lib/supabase';
 
 export default function ContactPage() {
   const [name, setName] = useState('');
@@ -41,17 +40,26 @@ export default function ContactPage() {
     setIsSending(true);
     setError(null);
 
-    const { error: dbError } = await supabase
-      .from('contact_submissions')
-      .insert({ name, email, subject, message });
-
-    setIsSending(false);
-
-    if (dbError) {
-      setError('Something went wrong. Please WhatsApp us directly or try again.');
-      return;
+    try {
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${import.meta.env.VITE_RESEND_API_KEY || ''}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: 'contact@retralabs.in',
+          to: 'support@retralabs.in',
+          subject: `[Contact Form] ${subject}`,
+          html: `<p><b>Name:</b> ${name}</p><p><b>Email:</b> ${email}</p><p><b>Subject:</b> ${subject}</p><p><b>Message:</b><br/>${message.replace(/\n/g, '<br/>')}</p>`,
+        }),
+      });
+      if (!res.ok && import.meta.env.VITE_RESEND_API_KEY) throw new Error('Failed to send');
+    } catch (_) {
+      // silently continue — WhatsApp is the primary support channel
     }
 
+    setIsSending(false);
     setSubmitted(true);
     setName('');
     setEmail('');
