@@ -658,7 +658,7 @@ export default function CheckoutPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Page header */}
         <h1 className="text-3xl font-bold text-slate-900 mb-2">Lock It In.</h1>
-        <p className="text-slate-500 mb-8">Review your cart, fill in your details, and we'll sort the rest via WhatsApp. Old school? Yes. Works? Also yes.</p>
+        <p className="text-slate-500 mb-8">Review your cart, fill in your details, and then, proceed for the payment options</p>
 
         {/* Payment notice */}
         <Card className="mb-4 border border-blue-200 bg-blue-50" shadow="none">
