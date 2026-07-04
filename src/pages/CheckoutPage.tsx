@@ -168,10 +168,10 @@ export default function CheckoutPage() {
   const codCharge      = paymentMethod === 'cod' ? getCodCharge(getTotal() + deliveryCharge) : 0;
   const grandTotal     = getTotal() + deliveryCharge + codCharge;
 
-  /* ── Restore saved form from localStorage ── */
+  /* ── Restore saved contact details from localStorage ── */
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('rl_checkout_form');
+      const saved = localStorage.getItem('rl_customer_details');
       if (saved) {
         const parsed = JSON.parse(saved);
         setFormData(prev => ({ ...prev, ...parsed }));
@@ -179,10 +179,14 @@ export default function CheckoutPage() {
     } catch (_) {}
   }, []);
 
-  /* ── Persist form to localStorage on every change (skip checkbox states) ── */
+  /* ── Persist contact details permanently (survives order completion) ── */
   useEffect(() => {
-    const { disclaimer_accepted, age_confirmed, no_dosing_accepted, ...rest } = formData;
-    try { localStorage.setItem('rl_checkout_form', JSON.stringify(rest)); } catch (_) {}
+    const { customer_name, customer_email, customer_phone, shipping_address, pincode, referral_source, referral_friend_name, delivery_option } = formData;
+    try {
+      localStorage.setItem('rl_customer_details', JSON.stringify({
+        customer_name, customer_email, customer_phone, shipping_address, pincode, referral_source, referral_friend_name, delivery_option,
+      }));
+    } catch (_) {}
   }, [formData]);
 
   /* ── Pre-fill from user profile if signed in (overrides saved) ── */
@@ -366,7 +370,6 @@ export default function CheckoutPage() {
         codCharge: snapCodCharge,
       });
       clearCart();
-      localStorage.removeItem('rl_checkout_form');
       setOrderSent(true);
       window.scrollTo({ top: 0, behavior: 'instant' });
     } finally {
@@ -446,7 +449,6 @@ export default function CheckoutPage() {
       codCharge: 0,
     });
     clearCart();
-    localStorage.removeItem('rl_checkout_form');
     setShowQrModal(false);
     orderSaving.current = false;
     setOrderSent(true);
