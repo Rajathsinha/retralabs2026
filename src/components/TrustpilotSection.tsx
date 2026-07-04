@@ -381,7 +381,7 @@ export default function TrustpilotSection() {
             rel="noopener noreferrer"
             className="hover:text-slate-400 transition-colors duration-200"
           >
-            30 verified reviews on Trustpilot ↗
+            37 verified reviews on Trustpilot ↗
           </a>
         </p>
       </motion.div>
