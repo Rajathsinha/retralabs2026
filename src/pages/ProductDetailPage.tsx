@@ -484,7 +484,7 @@ export default function ProductDetailPage() {
                 <p className="text-[#374151] text-[14px] leading-[1.8]">{product.description}</p>
                 <ul className="space-y-2 text-[#374151] text-[14px]">
                   <li className="flex items-start gap-2.5"><Check className="w-4 h-4 text-[#16a34a] mt-0.5 flex-shrink-0" strokeWidth={2.5} /> HPLC-verified purity of {purity}%</li>
-                  <li className="flex items-start gap-2.5"><Check className="w-4 h-4 text-[#16a34a] mt-0.5 flex-shrink-0" strokeWidth={2.5} /> Certificate of Analysis included with every order</li>
+                  <li className="flex items-start gap-2.5"><Check className="w-4 h-4 text-[#16a34a] mt-0.5 flex-shrink-0" strokeWidth={2.5} /> Certificate of Analysis after order you may request</li>
                   <li className="flex items-start gap-2.5"><Check className="w-4 h-4 text-[#16a34a] mt-0.5 flex-shrink-0" strokeWidth={2.5} /> Sterile lyophilised vial, nitrogen sealed</li>
                   <li className="flex items-start gap-2.5"><Check className="w-4 h-4 text-[#16a34a] mt-0.5 flex-shrink-0" strokeWidth={2.5} /> GMP-sourced raw materials</li>
                 </ul>
