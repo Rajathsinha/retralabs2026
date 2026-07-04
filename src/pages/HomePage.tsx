@@ -128,10 +128,10 @@ export default function HomePage() {
           <div className="grid grid-cols-2 gap-4 sm:gap-8 lg:gap-20 items-center">
 
             {/* ── Left Column ── */}
-            <div className="min-w-0">
+            <div className="min-w-0 flex flex-col gap-4 sm:gap-6">
               {/* Badge */}
               <div
-                className="inline-flex items-center gap-1.5 mb-3 sm:mb-6 px-3 py-[5px] rounded-full border border-[#2563EB]/20 bg-[#EFF6FF]"
+                className="inline-flex items-center gap-1.5 px-3 py-[5px] rounded-full border border-[#2563EB]/20 bg-[#EFF6FF] self-start"
               >
                 <div className="w-[5px] h-[5px] rounded-full bg-[#2563EB] animate-pulse" />
                 <span className="text-[#2563EB] text-[9px] sm:text-[11px] font-bold tracking-[0.1em] uppercase">
@@ -148,8 +148,8 @@ export default function HomePage() {
                 }}
               >
                 <h1
-                  className="text-[#111111] leading-[1.05] tracking-[-0.03em] mb-3 sm:mb-7"
-                  style={{ fontSize: 'clamp(16px, 3.5vw, 64px)', fontWeight: 800 }}
+                  className="text-[#111111] leading-[1.08] tracking-[-0.03em]"
+                  style={{ fontSize: 'clamp(18px, 3.5vw, 64px)', fontWeight: 800 }}
                 >
                   {slide.lines[0]}<br />
                   {slide.lines[1]}<br />
@@ -158,7 +158,7 @@ export default function HomePage() {
               </div>
 
               {/* Slide dots */}
-              <div className="flex items-center gap-1.5 mb-2 sm:mb-5">
+              <div className="flex items-center gap-1.5">
                 {HERO_SLIDES.map((_, i) => (
                   <button
                     key={i}
@@ -180,14 +180,16 @@ export default function HomePage() {
               </div>
 
               {/* Body */}
-              <p className="text-[#374151] text-[clamp(11px,1.2vw,17px)] leading-[1.7] mb-1 sm:mb-3">
-                No grey market. No compromises. Verified compounds, direct sourcing,
-                and <span className="text-[#2563EB] font-semibold">fastest delivery in India</span> —
-                straight to your door.
-              </p>
-              <p className="hidden sm:block text-[#9CA3AF] text-[clamp(10px,1vw,15px)] leading-[1.6] mb-5 sm:mb-8">
-                That's the whole story. Everything else is just good products at honest prices.
-              </p>
+              <div className="space-y-2 sm:space-y-3">
+                <p className="text-[#374151] text-[clamp(11px,1.2vw,17px)] leading-[1.75]">
+                  No grey market. No compromises. Verified compounds, direct sourcing,
+                  and <span className="text-[#2563EB] font-semibold">fastest delivery in India</span> —
+                  straight to your door.
+                </p>
+                <p className="hidden sm:block text-[#9CA3AF] text-[clamp(10px,1vw,15px)] leading-[1.7]">
+                  That's the whole story. Everything else is just good products at honest prices.
+                </p>
+              </div>
 
               {/* CTAs */}
               <div className="flex flex-wrap items-center gap-2 sm:gap-3">
@@ -215,17 +217,15 @@ export default function HomePage() {
             {/* ── Right Column — Product Image ── */}
             <div className="relative">
               <div
-                className="relative overflow-hidden bg-[#F5F7FA]"
+                className="relative overflow-hidden bg-white"
                 style={{ borderRadius: 'clamp(12px,2vw,24px)', height: 'clamp(160px, 40vw, 560px)' }}
               >
                 <img
-                  src="/peptide.png"
-                  alt="RetraLabs Premium Research Peptide Vials"
-                  className="w-full h-full object-cover"
+                  src="/reta.png"
+                  alt="RetraLabs GLP-3 Retatrutide Research Peptide Vial"
+                  className="w-full h-full object-contain"
                   style={{ objectPosition: 'center center' }}
                 />
-                {/* Soft overlay at bottom for premium depth */}
-                <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/5 to-transparent pointer-events-none" />
               </div>
 
               {/* Floating badges */}
