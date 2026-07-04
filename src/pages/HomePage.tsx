@@ -281,24 +281,24 @@ export default function HomePage() {
         <div className="max-w-[1440px] mx-auto px-0 lg:px-4">
           <Reveal>
             <div
-              className="bg-[#F0FDF4] border border-[#BBF7D0] px-8 lg:px-10 py-7 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6"
-              style={{ borderRadius: 18, boxShadow: '0 2px 8px rgba(22,163,74,0.04)' }}
+              className="bg-white border border-[#E5E7EB] px-8 lg:px-10 py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6"
+              style={{ borderRadius: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}
             >
-              <div className="flex items-start gap-4">
-                <div className="w-11 h-11 rounded-[12px] bg-[#16a34a]/10 flex items-center justify-center flex-shrink-0">
-                  <CheckCircle className="w-5 h-5 text-[#16a34a]" strokeWidth={2} />
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-[#DCFCE7] flex items-center justify-center flex-shrink-0">
+                  <CheckCircle className="w-4.5 h-4.5 text-[#16a34a]" strokeWidth={2} />
                 </div>
                 <div>
-                  <h3 className="text-[#111111] text-[16px] font-bold leading-snug">
+                  <h3 className="text-[#111111] text-[15px] font-semibold leading-snug">
                     Cash on Delivery (COD) Available
                   </h3>
-                  <p className="text-[#6B7280] text-[14px] mt-1 leading-relaxed">
+                  <p className="text-[#6B7280] text-[13px] mt-0.5 leading-relaxed">
                     Pay only when your package arrives. Available across every city in India.
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-4 flex-shrink-0">
-                <span className="inline-flex items-center gap-1.5 bg-[#16a34a] text-white text-[12px] font-bold px-4 py-2.5 rounded-full shadow-sm">
+                <span className="inline-flex items-center gap-1.5 bg-[#16a34a] text-white text-[12px] font-bold px-4 py-2 rounded-full">
                   <CheckCircle className="w-3.5 h-3.5" strokeWidth={2.5} />
                   COD
                 </span>
