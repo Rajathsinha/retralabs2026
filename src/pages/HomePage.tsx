@@ -128,66 +128,68 @@ export default function HomePage() {
           <div className="grid grid-cols-2 gap-4 sm:gap-8 lg:gap-20 items-center">
 
             {/* ── Left Column ── */}
-            <div className="min-w-0">
+            <div className="min-w-0 flex flex-col" style={{ gap: 'clamp(10px, 2vw, 28px)' }}>
               {/* Badge */}
-              <div
-                className="inline-flex items-center gap-1.5 mb-3 sm:mb-6 px-3 py-[5px] rounded-full border border-[#2563EB]/20 bg-[#EFF6FF]"
-              >
-                <div className="w-[5px] h-[5px] rounded-full bg-[#2563EB] animate-pulse" />
+              <div className="inline-flex items-center gap-1.5 w-fit px-3 py-[5px] rounded-full border border-[#2563EB]/20 bg-[#EFF6FF]">
+                <div className="w-[5px] h-[5px] rounded-full bg-[#2563EB] animate-pulse flex-shrink-0" />
                 <span className="text-[#2563EB] text-[9px] sm:text-[11px] font-bold tracking-[0.1em] uppercase">
                   India's Most Trusted Peptide Source
                 </span>
               </div>
 
-              {/* Headline */}
-              <div
-                style={{
-                  opacity: visible ? 1 : 0,
-                  transform: visible ? 'translateY(0)' : 'translateY(10px)',
-                  transition: 'opacity 0.4s ease, transform 0.4s ease',
-                }}
-              >
-                <h1
-                  className="text-[#111111] leading-[1.05] tracking-[-0.03em] mb-3 sm:mb-7"
-                  style={{ fontSize: 'clamp(16px, 3.5vw, 64px)', fontWeight: 800 }}
+              {/* Headline + dots */}
+              <div>
+                <div
+                  style={{
+                    opacity: visible ? 1 : 0,
+                    transform: visible ? 'translateY(0)' : 'translateY(10px)',
+                    transition: 'opacity 0.4s ease, transform 0.4s ease',
+                  }}
                 >
-                  {slide.lines[0]}<br />
-                  {slide.lines[1]}<br />
-                  <span className="text-[#2563EB]">{slide.accent}</span>
-                </h1>
-              </div>
+                  <h1
+                    className="text-[#111111] leading-[1.08] tracking-[-0.03em]"
+                    style={{ fontSize: 'clamp(18px, 3.6vw, 64px)', fontWeight: 800 }}
+                  >
+                    {slide.lines[0]}<br />
+                    {slide.lines[1]}<br />
+                    <span className="text-[#2563EB]">{slide.accent}</span>
+                  </h1>
+                </div>
 
-              {/* Slide dots */}
-              <div className="flex items-center gap-1.5 mb-2 sm:mb-5">
-                {HERO_SLIDES.map((_, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    aria-label={`Slide ${i + 1}`}
-                    onClick={() => { setVisible(false); setTimeout(() => { setSlideIndex(i); setVisible(true); }, 400); }}
-                    className="transition-all duration-300"
-                    style={{
-                      width: i === slideIndex ? 20 : 6,
-                      height: 6,
-                      borderRadius: 999,
-                      background: i === slideIndex ? '#2563EB' : '#D1D5DB',
-                      border: 'none',
-                      padding: 0,
-                      cursor: 'pointer',
-                    }}
-                  />
-                ))}
+                {/* Slide dots */}
+                <div className="flex items-center gap-1.5 mt-3 sm:mt-5">
+                  {HERO_SLIDES.map((_, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      aria-label={`Slide ${i + 1}`}
+                      onClick={() => { setVisible(false); setTimeout(() => { setSlideIndex(i); setVisible(true); }, 400); }}
+                      className="transition-all duration-300"
+                      style={{
+                        width: i === slideIndex ? 20 : 6,
+                        height: 6,
+                        borderRadius: 999,
+                        background: i === slideIndex ? '#2563EB' : '#D1D5DB',
+                        border: 'none',
+                        padding: 0,
+                        cursor: 'pointer',
+                      }}
+                    />
+                  ))}
+                </div>
               </div>
 
               {/* Body */}
-              <p className="text-[#374151] text-[clamp(11px,1.2vw,17px)] leading-[1.7] mb-1 sm:mb-3">
-                No grey market. No compromises. Verified compounds, direct sourcing,
-                and <span className="text-[#2563EB] font-semibold">fastest delivery in India</span> —
-                straight to your door.
-              </p>
-              <p className="hidden sm:block text-[#9CA3AF] text-[clamp(10px,1vw,15px)] leading-[1.6] mb-5 sm:mb-8">
-                That's the whole story. Everything else is just good products at honest prices.
-              </p>
+              <div>
+                <p className="text-[#374151] text-[clamp(11px,1.2vw,17px)] leading-[1.7]">
+                  No grey market. No compromises. Verified compounds, direct sourcing,
+                  and <span className="text-[#2563EB] font-semibold">fastest delivery in India</span> —
+                  straight to your door.
+                </p>
+                <p className="hidden sm:block text-[#9CA3AF] text-[clamp(10px,1vw,15px)] leading-[1.6] mt-2">
+                  That's the whole story. Everything else is just good products at honest prices.
+                </p>
+              </div>
 
               {/* CTAs */}
               <div className="flex flex-wrap items-center gap-2 sm:gap-3">
@@ -213,32 +215,44 @@ export default function HomePage() {
             </div>
 
             {/* ── Right Column — Product Image ── */}
-            <div className="relative">
+            <div className="relative flex items-center justify-center" style={{ height: 'clamp(200px, 46vw, 620px)' }}>
+              {/* Glow halo behind image */}
               <div
-                className="relative overflow-hidden bg-[#F5F7FA]"
-                style={{ borderRadius: 'clamp(12px,2vw,24px)', height: 'clamp(160px, 40vw, 560px)' }}
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background: 'radial-gradient(ellipse 70% 65% at 50% 52%, rgba(37,99,235,0.10) 0%, rgba(37,99,235,0.04) 50%, transparent 80%)',
+                  borderRadius: '50%',
+                  transform: 'scale(1.15)',
+                }}
+              />
+
+              {/* Image — no hard container edges, fades at perimeter */}
+              <div
+                className="relative w-full h-full"
+                style={{
+                  WebkitMaskImage: 'radial-gradient(ellipse 82% 78% at 50% 50%, black 38%, transparent 80%)',
+                  maskImage: 'radial-gradient(ellipse 82% 78% at 50% 50%, black 38%, transparent 80%)',
+                }}
               >
                 <img
                   src="/peptide.png"
                   alt="RetraLabs Premium Research Peptide Vials"
-                  className="w-full h-full object-cover"
-                  style={{ objectPosition: 'center center' }}
+                  className="w-full h-full object-contain"
+                  style={{ objectPosition: 'center center', transform: 'scale(1.08)' }}
                 />
-                {/* Soft overlay at bottom for premium depth */}
-                <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/5 to-transparent pointer-events-none" />
               </div>
 
               {/* Floating badges */}
               <div
-                className="hidden sm:block absolute top-8 left-8 bg-white border border-[#E5E7EB] px-5 py-3.5 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.08)]"
-                style={{ borderRadius: 16 }}
+                className="hidden sm:block absolute top-6 left-4 bg-white border border-[#E5E7EB] px-5 py-3.5 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.10)]"
+                style={{ borderRadius: 16, zIndex: 2 }}
               >
                 <p className="text-[#111111] text-[13px] font-bold leading-tight">99%+ Purity</p>
                 <p className="text-[#9CA3AF] text-[11px] mt-0.5 font-medium">HPLC Verified</p>
               </div>
               <div
-                className="hidden sm:block absolute bottom-8 right-8 bg-white border border-[#E5E7EB] px-5 py-3.5 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.08)]"
-                style={{ borderRadius: 16 }}
+                className="hidden sm:block absolute bottom-6 right-4 bg-white border border-[#E5E7EB] px-5 py-3.5 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.10)]"
+                style={{ borderRadius: 16, zIndex: 2 }}
               >
                 <p className="text-[#111111] text-[13px] font-bold leading-tight">2,400+ Orders</p>
                 <p className="text-[#9CA3AF] text-[11px] mt-0.5 font-medium">Shipped India-wide</p>
