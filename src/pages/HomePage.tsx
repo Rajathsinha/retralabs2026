@@ -9,6 +9,7 @@ import { PRODUCTS } from '../data/products';
 import ProductCard from '../components/ProductCard';
 import { useSEO } from '../hooks/useSEO';
 import { getLocalBusinessSchema, getServiceAreaSchema } from '../utils/localSeoSchemas';
+import { BUSINESS_NAP } from '../constants/config';
 
 const TrustpilotSection = lazy(() => import('../components/TrustpilotSection'));
 
@@ -203,15 +204,16 @@ export default function HomePage() {
                   Shop the Real Stuff
                   <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 transition-transform duration-200 group-hover:translate-x-0.5" />
                 </button>
-                <button
-                  type="button"
-                  onClick={() => navigate('/proof')}
+                <a
+                  href={BUSINESS_NAP.social.trustpilot}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="group flex items-center gap-2 border-[1.5px] border-[#E5E7EB] hover:border-[#111111] text-[#374151] hover:text-[#111111] font-semibold px-3 py-2 sm:px-7 sm:py-4 bg-white transition-all duration-200 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
                   style={{ fontSize: 'clamp(10px,1.1vw,15px)', borderRadius: 10 }}
                 >
                   Read Our Reviews
                   <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-                </button>
+                </a>
               </div>
             </div>
 

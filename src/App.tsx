@@ -20,7 +20,6 @@ const PaymentFailedPage  = lazy(() => import('./pages/PaymentFailedPage'));
 const PrivacyPolicyPage  = lazy(() => import('./pages/PrivacyPolicyPage'));
 const TermsPage          = lazy(() => import('./pages/TermsPage'));
 const RefundPolicyPage   = lazy(() => import('./pages/RefundPolicyPage'));
-const ProofPage          = lazy(() => import('./pages/ProofPage'));
 const AdminPage          = lazy(() => import('./pages/AdminPage'));
 const HeroUIWrapper      = lazy(() => import('./providers/HeroUIWrapper'));
 
@@ -104,7 +103,6 @@ export default function App() {
             <Route path="/catalogue"       element={<CataloguePage />} />
             <Route path="/product/:id"     element={<ProductDetailPage />} />
             <Route path="/checkout"        element={<CheckoutPage />} />
-            <Route path="/proof"           element={<ProofPage />} />
             <Route path="/about"           element={<AboutPage />} />
             <Route path="/contact"         element={<ContactPage />} />
             <Route path="/support"         element={<SupportPage />} />

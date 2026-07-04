@@ -6,6 +6,7 @@ import { useCurrency, CURRENCIES } from '../context/CurrencyContext';
 import Logo from './Logo';
 import SearchModal from './SearchModal';
 import ReconstitutionCalculator from './ReconstitutionCalculator';
+import { BUSINESS_NAP } from '../constants/config';
 
 const MARQUEE_MESSAGES = [
   '\u00A0\u00A0\u00A0🚚 FREE SHIPPING ACROSS INDIA\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0',
@@ -14,11 +15,11 @@ const MARQUEE_MESSAGES = [
   '\u00A0\u00A0\u00A0🔬 99%+ HPLC VERIFIED PURITY\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0',
 ];
 
-const NAV_ITEMS = [
+const NAV_ITEMS: { path: string; label: string; external?: boolean }[] = [
   { path: '/catalogue', label: 'Shop' },
   { path: '/catalogue', label: 'Peptides' },
   { path: '/support',   label: 'Resources' },
-  { path: '/proof',     label: 'Reviews' },
+  { path: BUSINESS_NAP.social.trustpilot, label: 'Reviews', external: true },
   { path: '/about',     label: 'About Us' },
 ];
 
@@ -105,24 +106,35 @@ export default function Header() {
 
               {/* CENTER — Desktop nav */}
               <nav className="hidden lg:flex items-center gap-1">
-                {NAV_ITEMS.map(({ path, label }, i) => (
-                  <RouterLink
-                    key={`${label}-${i}`}
-                    to={path}
-                    className={`relative px-4 py-2 text-[14px] font-medium transition-all duration-200 group ${
-                      active(path) && label !== 'Peptides' && label !== 'Resources'
-                        ? 'text-[#111111]'
-                        : 'text-[#6B7280] hover:text-[#111111]'
-                    }`}
-                  >
-                    {label}
-                    <span className={`absolute bottom-0 left-4 right-4 h-[2px] bg-[#111111] rounded-full transition-transform duration-200 origin-left ${
-                      active(path) && label !== 'Peptides' && label !== 'Resources'
-                        ? 'scale-x-100'
-                        : 'scale-x-0 group-hover:scale-x-100'
-                    }`} />
-                  </RouterLink>
-                ))}
+                {NAV_ITEMS.map(({ path, label, external }, i) => {
+                  const isActive = !external && active(path) && label !== 'Peptides' && label !== 'Resources';
+                  const className = `relative px-4 py-2 text-[14px] font-medium transition-all duration-200 group ${
+                    isActive ? 'text-[#111111]' : 'text-[#6B7280] hover:text-[#111111]'
+                  }`;
+                  const content = (
+                    <>
+                      {label}
+                      <span className={`absolute bottom-0 left-4 right-4 h-[2px] bg-[#111111] rounded-full transition-transform duration-200 origin-left ${
+                        isActive ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-100'
+                      }`} />
+                    </>
+                  );
+                  return external ? (
+                    <a
+                      key={`${label}-${i}`}
+                      href={path}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={className}
+                    >
+                      {content}
+                    </a>
+                  ) : (
+                    <RouterLink key={`${label}-${i}`} to={path} className={className}>
+                      {content}
+                    </RouterLink>
+                  );
+                })}
               </nav>
 
               {/* RIGHT — Icons */}
@@ -219,19 +231,29 @@ export default function Header() {
                   <Search className="w-[18px] h-[18px]" /> Search products...
                 </button>
 
-                {NAV_ITEMS.map(({ path, label }, i) => (
-                  <RouterLink
-                    key={`m-${label}-${i}`}
-                    to={path}
-                    className={`flex items-center px-4 py-3.5 rounded-[14px] text-[15px] font-medium transition-all ${
-                      active(path) && label !== 'Peptides' && label !== 'Resources'
-                        ? 'text-[#111111] bg-[#F5F7FA]'
-                        : 'text-[#374151] hover:text-[#111111] hover:bg-[#F5F7FA]'
-                    }`}
-                  >
-                    {label}
-                  </RouterLink>
-                ))}
+                {NAV_ITEMS.map(({ path, label, external }, i) => {
+                  const className = `flex items-center px-4 py-3.5 rounded-[14px] text-[15px] font-medium transition-all ${
+                    !external && active(path) && label !== 'Peptides' && label !== 'Resources'
+                      ? 'text-[#111111] bg-[#F5F7FA]'
+                      : 'text-[#374151] hover:text-[#111111] hover:bg-[#F5F7FA]'
+                  }`;
+                  return external ? (
+                    <a
+                      key={`m-${label}-${i}`}
+                      href={path}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setMobileOpen(false)}
+                      className={className}
+                    >
+                      {label}
+                    </a>
+                  ) : (
+                    <RouterLink key={`m-${label}-${i}`} to={path} className={className}>
+                      {label}
+                    </RouterLink>
+                  );
+                })}
 
                 <div className="mt-4 pt-4 border-t border-[#F3F4F6]">
                   <button

@@ -3,6 +3,18 @@ command = "npx vite build"
 publish = "dist"
 
 [[redirects]]
+from = "/proof"
+to = "https://www.trustpilot.com/review/retralabs.in"
+status = 301
+force = true
+
+[[redirects]]
+from = "/reviews"
+to = "https://www.trustpilot.com/review/retralabs.in"
+status = 301
+force = true
+
+[[redirects]]
 from = "/*"
 to = "/index.html"
 status = 200
