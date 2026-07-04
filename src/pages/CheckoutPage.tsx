@@ -23,14 +23,18 @@ async function saveToAirtable(payload: Record<string, unknown>): Promise<string 
   const token  = import.meta.env.VITE_AIRTABLE_TOKEN;
   const baseId = import.meta.env.VITE_AIRTABLE_BASE_ID;
   const table  = import.meta.env.VITE_AIRTABLE_TABLE  || 'Orders';
-  if (!token || !baseId) return null;
+  if (!token || !baseId) throw new Error('Order database is not configured (missing Airtable credentials)');
   const res = await fetch(`https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ fields: payload, typecast: true }),
   });
-  const json = await res.json();
-  return json.id || null;
+  const json: any = await res.json().catch(() => null);
+  if (!res.ok) {
+    const detail = typeof json?.error === 'string' ? json.error : json?.error?.message;
+    throw new Error(detail ? `Airtable: ${detail}` : `Airtable request failed (HTTP ${res.status})`);
+  }
+  return json?.id || null;
 }
 
 async function uploadScreenshot(recordId: string, file: File) {
@@ -46,7 +50,7 @@ async function uploadScreenshot(recordId: string, file: File) {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
-  await fetch(
+  const res = await fetch(
     `https://content.airtable.com/v0/${baseId}/${recordId}/Screenshot/uploadAttachment`,
     {
       method: 'POST',
@@ -54,6 +58,11 @@ async function uploadScreenshot(recordId: string, file: File) {
       body: JSON.stringify({ contentType: file.type, filename: file.name, file: base64 }),
     }
   );
+  if (!res.ok) {
+    const json: any = await res.json().catch(() => null);
+    const detail = typeof json?.error === 'string' ? json.error : json?.error?.message;
+    throw new Error(detail ? `Screenshot upload: ${detail}` : `Screenshot upload failed (HTTP ${res.status})`);
+  }
 }
 
 // ── Email HTML builder ────────────────────────────────────────────────────────
@@ -87,21 +96,25 @@ function buildOrderEmailHtml(o: { name: string; phone: string; address: string; 
 // ── Resend email to customer ─────────────────────────────────────────────────
 async function sendResendEmail(to: string, subject: string, html: string) {
   const key = import.meta.env.VITE_RESEND_API_KEY;
-  if (!key) return;
-  await fetch('https://api.resend.com/emails', {
+  if (!key) throw new Error('email service is not configured');
+  const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ from: 'orders@retralabs.in', to, subject, html }),
   });
+  if (!res.ok) {
+    const json: any = await res.json().catch(() => null);
+    throw new Error(json?.message || `email failed (HTTP ${res.status})`);
+  }
 }
 
 // ── Interakt WhatsApp to customer ────────────────────────────────────────────
 async function sendInteraktWhatsApp(phone: string, bodyValues: string[]) {
   const apiKey = import.meta.env.VITE_INTERAKT_API_KEY;
-  if (!apiKey) return;
+  if (!apiKey) throw new Error('WhatsApp service is not configured');
   // Strip country code — Interakt wants bare 10-digit number + countryCode separately
   const bare = phone.replace(/^\+?91/, '').replace(/\D/g, '').slice(-10);
-  await fetch('https://api.interakt.ai/v1/public/message/', {
+  const res = await fetch('https://api.interakt.ai/v1/public/message/', {
     method: 'POST',
     headers: {
       Authorization: `Basic ${apiKey}`,
@@ -119,6 +132,15 @@ async function sendInteraktWhatsApp(phone: string, bodyValues: string[]) {
       },
     }),
   });
+  if (!res.ok) {
+    const json: any = await res.json().catch(() => null);
+    throw new Error(json?.message || `WhatsApp failed (HTTP ${res.status})`);
+  }
+}
+
+function describeError(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  return String(err);
 }
 
 function getCodCharge(orderTotal: number): number {
@@ -192,6 +214,8 @@ export default function CheckoutPage() {
   const [whatsappUrl, setWhatsappUrl] = useState('');
   const [orderSent,   setOrderSent]   = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
+  const [submitError,   setSubmitError]   = useState<string | null>(null); // fatal: order not saved
+  const [notifyWarning, setNotifyWarning] = useState<string | null>(null); // order saved, confirmations failed
   const [orderSnapshot, setOrderSnapshot] = useState<{
     items: string;
     total: number;
@@ -288,6 +312,8 @@ export default function CheckoutPage() {
     if (orderSaving.current || confirming) return;
     orderSaving.current = true;
     setConfirming(true);
+    setSubmitError(null);
+    setNotifyWarning(null);
 
     // Capture everything before any awaits so values are never stale
     const cartSnapshot = cart.map(item => ({ ...item }));
@@ -322,27 +348,31 @@ export default function CheckoutPage() {
       payment: snapPaymentMethod === 'cod' ? 'Cash on Delivery' : 'UPI / Online',
     });
 
-    try {
-      await Promise.all([
-        saveToAirtable({
-          'Name':     snapFormData.customer_name,
-          'Email':    snapFormData.customer_email,
-          'Phone':    snapFormData.customer_phone,
-          'Address':  `${snapFormData.shipping_address}, PIN: ${snapFormData.pincode}`,
-          'Items':    itemsSummary,
-          'Total':    snapTotal,
-          'Payment':  snapPaymentMethod === 'cod' ? 'COD' : 'UPI/Prepay',
-          'Delivery': snapFormData.delivery_option === 'fast' ? 'Express' : 'Standard',
-          'Referral': snapFormData.referral_source,
-          'Status':   'New',
-          'Created':  new Date().toISOString().slice(0, 10),
-        }),
+      // Critical: the order record must exist before we show success
+      await saveToAirtable({
+        'Name':      snapFormData.customer_name,
+        'Email':     snapFormData.customer_email,
+        'Phone':     snapFormData.customer_phone,
+        'Address':   `${snapFormData.shipping_address}, PIN: ${snapFormData.pincode}`,
+        'Items':     itemsSummary,
+        'Total (₹)': snapTotal,
+        'Payment':   snapPaymentMethod === 'cod' ? 'COD' : 'UPI/Prepay',
+        'Delivery':  snapFormData.delivery_option === 'fast' ? 'Express' : 'Standard',
+        'Referral':  snapFormData.referral_source,
+        'Status':    'New',
+        'Created':   new Date().toISOString().slice(0, 10),
+      });
+
+      // Non-critical: customer notifications — surface failures without blocking the order
+      const [waResult, emailResult] = await Promise.allSettled([
         sendInteraktWhatsApp(snapFormData.customer_phone, interaktValues),
         sendResendEmail(snapFormData.customer_email, 'Your RetraLabs Order is Confirmed!', emailHtml),
       ]);
-    } catch (_) {
-      // non-blocking
-    }
+      const notifyFailures = [
+        waResult.status === 'rejected' ? `WhatsApp: ${describeError(waResult.reason)}` : null,
+        emailResult.status === 'rejected' ? `Email: ${describeError(emailResult.reason)}` : null,
+      ].filter(Boolean);
+      if (notifyFailures.length) setNotifyWarning(notifyFailures.join(' · '));
 
       setOrderSnapshot({
         items: itemsSummaryFlat,
@@ -356,6 +386,8 @@ export default function CheckoutPage() {
       clearCart();
       setOrderSent(true);
       window.scrollTo({ top: 0, behavior: 'instant' });
+    } catch (err) {
+      setSubmitError(`Your order could not be saved — ${describeError(err)}. Please try again, or message us on WhatsApp and we'll take your order manually.`);
     } finally {
       setConfirming(false);
       orderSaving.current = false;
@@ -365,6 +397,8 @@ export default function CheckoutPage() {
   const handleQrPaymentConfirmed = async (txnRef: string, screenshot: File | null) => {
     if (orderSaving.current) return;
     orderSaving.current = true;
+    setSubmitError(null);
+    setNotifyWarning(null);
 
     // Capture everything before any awaits
     const cartSnapshot = cart.map(item => ({ ...item }));
@@ -398,44 +432,53 @@ export default function CheckoutPage() {
     });
 
     try {
-      const [recordId] = await Promise.all([
-        saveToAirtable({
-          'Name':        snapFormData.customer_name,
-          'Email':       snapFormData.customer_email,
-          'Phone':       snapFormData.customer_phone,
-          'Address':     `${snapFormData.shipping_address}, PIN: ${snapFormData.pincode}`,
-          'Items':       itemsSummary,
-          'Total':       snapTotal,
-          'Payment':     'UPI QR',
-          'Delivery':    snapFormData.delivery_option === 'fast' ? 'Express' : 'Standard',
-          'Referral':    snapFormData.referral_source,
-          'Transaction': txnRef,
-          'Status':      'Paid',
-          'Created':     new Date().toISOString().slice(0, 10),
-        }),
+      // Critical: the order record must exist before we show success
+      const recordId = await saveToAirtable({
+        'Name':        snapFormData.customer_name,
+        'Email':       snapFormData.customer_email,
+        'Phone':       snapFormData.customer_phone,
+        'Address':     `${snapFormData.shipping_address}, PIN: ${snapFormData.pincode}`,
+        'Items':       itemsSummary,
+        'Total (₹)':   snapTotal,
+        'Payment':     'UPI QR',
+        'Delivery':    snapFormData.delivery_option === 'fast' ? 'Express' : 'Standard',
+        'Referral':    snapFormData.referral_source,
+        'Transaction': txnRef,
+        'Status':      'Paid',
+        'Created':     new Date().toISOString().slice(0, 10),
+      });
+
+      // Non-critical: notifications + payment screenshot — surface failures without blocking
+      const [waResult, emailResult, shotResult] = await Promise.allSettled([
         sendInteraktWhatsApp(snapFormData.customer_phone, interaktValues),
         sendResendEmail(snapFormData.customer_email, 'Your RetraLabs Order is Confirmed!', emailHtml),
+        recordId && screenshot ? uploadScreenshot(recordId, screenshot) : Promise.resolve(),
       ]);
-      if (recordId && screenshot) {
-        await uploadScreenshot(recordId, screenshot);
-      }
-    } catch (_) {
-      // non-blocking
-    }
+      const notifyFailures = [
+        waResult.status === 'rejected' ? `WhatsApp: ${describeError(waResult.reason)}` : null,
+        emailResult.status === 'rejected' ? `Email: ${describeError(emailResult.reason)}` : null,
+        shotResult.status === 'rejected' ? describeError(shotResult.reason) : null,
+      ].filter(Boolean);
+      if (notifyFailures.length) setNotifyWarning(notifyFailures.join(' · '));
 
-    setOrderSnapshot({
-      items: itemsSummaryFlat,
-      total: snapTotal,
-      cartItems: cartSnapshot.map(i => ({ name: i.product.name, config: i.variant.vial_configuration || `${i.variant.dosage_mg}mg`, qty: i.quantity, price: i.variant.price_inr })),
-      deliveryOption: snapFormData.delivery_option,
-      paymentMethod: 'prepay',
-      deliveryCharge: snapDeliveryCharge,
-      codCharge: 0,
-    });
-    clearCart();
-    setShowQrModal(false);
-    orderSaving.current = false;
-    setOrderSent(true);
+      setOrderSnapshot({
+        items: itemsSummaryFlat,
+        total: snapTotal,
+        cartItems: cartSnapshot.map(i => ({ name: i.product.name, config: i.variant.vial_configuration || `${i.variant.dosage_mg}mg`, qty: i.quantity, price: i.variant.price_inr })),
+        deliveryOption: snapFormData.delivery_option,
+        paymentMethod: 'prepay',
+        deliveryCharge: snapDeliveryCharge,
+        codCharge: 0,
+      });
+      clearCart();
+      setShowQrModal(false);
+      setOrderSent(true);
+    } catch (err) {
+      setShowQrModal(false);
+      setSubmitError(`Your payment reference (${txnRef}) was received but the order could not be saved — ${describeError(err)}. Please message us on WhatsApp with this reference so we can record your order manually.`);
+    } finally {
+      orderSaving.current = false;
+    }
   };
 
   /* ── Step 3: order confirmed screen ── */
@@ -461,19 +504,33 @@ export default function CheckoutPage() {
             </p>
           </div>
 
-          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-5 flex items-start gap-3">
-            <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-              <Check className="w-4 h-4 text-white" />
+          {notifyWarning ? (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-5 flex items-start gap-3">
+              <div className="w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Check className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-amber-900 mb-0.5">Order saved — but some confirmations failed</p>
+                <p className="text-xs text-amber-700 leading-relaxed break-words">
+                  {notifyWarning}. Don't worry — your order is recorded and we'll be in touch.
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-bold text-emerald-900 mb-0.5">Confirmation sent</p>
-              <p className="text-xs text-emerald-700 leading-relaxed">
-                A successful order confirmation has been sent to your WhatsApp
-                <span className="font-semibold"> ({formData.customer_phone})</span> and email
-                <span className="font-semibold"> ({formData.customer_email})</span>.
-              </p>
+          ) : (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-5 flex items-start gap-3">
+              <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Check className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-emerald-900 mb-0.5">Confirmation sent</p>
+                <p className="text-xs text-emerald-700 leading-relaxed">
+                  A successful order confirmation has been sent to your WhatsApp
+                  <span className="font-semibold"> ({formData.customer_phone})</span> and email
+                  <span className="font-semibold"> ({formData.customer_email})</span>.
+                </p>
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-5">
             <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Your Order Details</p>
@@ -607,6 +664,19 @@ export default function CheckoutPage() {
             <div className="flex justify-between"><span className="text-slate-500">Address</span><span className="font-semibold text-slate-900 text-right max-w-[60%]">{formData.shipping_address}, PIN: {formData.pincode}</span></div>
             <div className="flex justify-between"><span className="text-slate-500">Payment</span><span className="font-semibold text-slate-900">{isCodReview ? 'Cash on Delivery' : 'UPI / Online'}</span></div>
           </div>
+
+          {/* Error banner — order could not be saved */}
+          {submitError && (
+            <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-4 flex items-start gap-3">
+              <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                <X className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-red-900 mb-0.5">Order not placed</p>
+                <p className="text-xs text-red-700 leading-relaxed break-words">{submitError}</p>
+              </div>
+            </div>
+          )}
 
           {/* CTAs — behaviour differs by payment method */}
           {isCodReview ? (
