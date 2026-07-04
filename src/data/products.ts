@@ -204,7 +204,7 @@ export const PRODUCTS: ProductWithVariants[] = [
     name: 'Kisspeptin-10',
     description: 'Neuropeptide that regulates GnRH secretion and reproductive hormone pathways, researched for hormonal and metabolic applications.',
     category: 'research-peptide',
-    image_url: '/KISSPEPTIN.webp',
+    image_url: '/Kisspeptin.png',
     created_at: new Date().toISOString(),
     variants: [
       { id: '17a', product_id: '17', dosage_mg: 10, price_inr: 3500, in_stock: true, vial_configuration: '1×10mg',  created_at: new Date().toISOString() },

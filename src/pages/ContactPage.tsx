@@ -8,10 +8,11 @@ import {
   Input,
   Textarea,
 } from '@heroui/react';
-import { Mail, MessageSquare, Clock, AlertTriangle, Send } from 'lucide-react';
+import { Mail, MessageSquare, Clock, AlertTriangle, Send, CheckCircle2 } from 'lucide-react';
 import { useSEO } from '../hooks/useSEO';
 import { getLocalBusinessSchema, getBreadcrumbSchema } from '../utils/localSeoSchemas';
 import { BUSINESS_NAP } from '../constants/config';
+import { supabase } from '../lib/supabase';
 
 export default function ContactPage() {
   const [name, setName] = useState('');
@@ -19,6 +20,8 @@ export default function ContactPage() {
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useSEO({
     title: `Contact RetraLabs | Research Peptide Support | ${BUSINESS_NAP.address.city}, India`,
@@ -33,21 +36,27 @@ export default function ContactPage() {
     ],
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSending(true);
+    setError(null);
 
-    const body = `Name: ${name}\nEmail: ${email}\n\n${message}`;
-    const mailtoUrl = `mailto:support@retralabs.in?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.open(mailtoUrl, '_blank');
+    const { error: dbError } = await supabase
+      .from('contact_submissions')
+      .insert({ name, email, subject, message });
 
-    setTimeout(() => {
-      setIsSending(false);
-      setName('');
-      setEmail('');
-      setSubject('');
-      setMessage('');
-    }, 1000);
+    setIsSending(false);
+
+    if (dbError) {
+      setError('Something went wrong. Please WhatsApp us directly or try again.');
+      return;
+    }
+
+    setSubmitted(true);
+    setName('');
+    setEmail('');
+    setSubject('');
+    setMessage('');
   };
 
   const contactMethods = [
@@ -154,51 +163,77 @@ export default function ContactPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <Input
-              label="Your Name"
-              placeholder="Full name"
-              variant="bordered"
-              isRequired
-              value={name}
-              onValueChange={setName}
-            />
-            <Input
-              label="Email Address"
-              placeholder="you@email.com"
-              type="email"
-              variant="bordered"
-              isRequired
-              value={email}
-              onValueChange={setEmail}
-            />
-            <Input
-              label="Subject"
-              placeholder="How can we help?"
-              variant="bordered"
-              isRequired
-              value={subject}
-              onValueChange={setSubject}
-            />
-            <Textarea
-              label="Message"
-              placeholder="Describe your inquiry in detail..."
-              variant="bordered"
-              minRows={5}
-              isRequired
-              value={message}
-              onValueChange={setMessage}
-            />
-            <Button
-              type="submit"
-              color="primary"
-              size="lg"
-              fullWidth
-              isLoading={isSending}
-              startContent={!isSending && <Send className="w-4 h-4" />}
-              className="font-semibold"
-            >
-              {isSending ? 'Opening email client...' : 'Send Message'}
-            </Button>
+            {submitted ? (
+              <div className="flex flex-col items-center justify-center py-10 text-center gap-3">
+                <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center mb-1">
+                  <CheckCircle2 className="w-7 h-7 text-emerald-600" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900">Message received!</h3>
+                <p className="text-sm text-slate-500 max-w-xs">
+                  We'll get back to you within 24 hours. For anything urgent, WhatsApp us directly.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setSubmitted(false)}
+                  className="mt-2 text-sm text-brand-600 hover:text-brand-700 font-semibold transition-colors"
+                >
+                  Send another message
+                </button>
+              </div>
+            ) : (
+              <>
+                <Input
+                  label="Your Name"
+                  placeholder="Full name"
+                  variant="bordered"
+                  isRequired
+                  value={name}
+                  onValueChange={setName}
+                />
+                <Input
+                  label="Email Address"
+                  placeholder="you@email.com"
+                  type="email"
+                  variant="bordered"
+                  isRequired
+                  value={email}
+                  onValueChange={setEmail}
+                />
+                <Input
+                  label="Subject"
+                  placeholder="How can we help?"
+                  variant="bordered"
+                  isRequired
+                  value={subject}
+                  onValueChange={setSubject}
+                />
+                <Textarea
+                  label="Message"
+                  placeholder="Describe your inquiry in detail..."
+                  variant="bordered"
+                  minRows={5}
+                  isRequired
+                  value={message}
+                  onValueChange={setMessage}
+                />
+                {error && (
+                  <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+                    {error}
+                  </p>
+                )}
+                <Button
+                  type="submit"
+                  color="primary"
+                  size="lg"
+                  fullWidth
+                  isLoading={isSending}
+                  startContent={!isSending && <Send className="w-4 h-4" />}
+                  className="font-semibold"
+                >
+                  {isSending ? 'Sending...' : 'Send Message'}
+                </Button>
+              </>
+            )}
           </form>
         </div>
       </div>
