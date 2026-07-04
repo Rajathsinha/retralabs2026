@@ -238,7 +238,7 @@ export default function HomePage() {
                 <img
                   src="/peptide.png"
                   alt="RetraLabs Premium Research Peptide Vials"
-                  fetchPriority="high"
+                  fetchpriority="high"
                   decoding="async"
                   className="w-full h-full object-contain"
                   style={{ objectPosition: 'center center', transform: 'scale(1.08)' }}
