@@ -57,7 +57,7 @@ export default function CartDrawer() {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', stiffness: 340, damping: 36 }}
-            className="fixed right-0 top-0 bottom-0 z-[9991] w-full max-w-[420px] flex flex-col bg-white shadow-2xl"
+            className="fixed right-0 top-0 bottom-0 z-[9991] w-full sm:max-w-[420px] flex flex-col bg-white shadow-2xl"
           >
             {/* ── Header ── */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-950">
@@ -99,7 +99,7 @@ export default function CartDrawer() {
             ) : (
               <>
                 {/* Items list */}
-                <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+                <div className="flex-1 overflow-y-auto divide-y divide-slate-100 scroll-touch overscroll-contain">
                   {cart.map((item) => {
                     const config = item.variant.vial_configuration;
                     const label = config || `${item.variant.dosage_mg}mg`;
@@ -110,6 +110,10 @@ export default function CartDrawer() {
                           <img
                             src={getProductImageUrl(item.product.image_url, item.product.name)}
                             alt={item.product.name}
+                            width={56}
+                            height={56}
+                            loading="lazy"
+                            decoding="async"
                             className="w-full h-full object-cover"
                             onError={(e) => { (e.target as HTMLImageElement).src = BAC_WATER_IMAGE_URL; }}
                           />

@@ -99,14 +99,15 @@ export default function HomePage() {
   const [syringeType,   setSyringeType]   = useState<'u100' | 'u40'>('u100');
 
   useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout>;
     const interval = setInterval(() => {
       setVisible(false);
-      setTimeout(() => {
+      timeoutId = setTimeout(() => {
         setSlideIndex(i => (i + 1) % HERO_SLIDES.length);
         setVisible(true);
       }, 400);
     }, 4000);
-    return () => clearInterval(interval);
+    return () => { clearInterval(interval); clearTimeout(timeoutId); };
   }, []);
 
   const slide = HERO_SLIDES[slideIndex];
@@ -181,7 +182,7 @@ export default function HomePage() {
 
               {/* Body */}
               <div>
-                <p className="text-[#374151] text-[clamp(11px,1.2vw,17px)] leading-[1.7]">
+                <p className="text-[#374151] text-[clamp(13px,1.2vw,17px)] leading-[1.7]">
                   No grey market. No compromises. Verified compounds, direct sourcing,
                   and <span className="text-[#2563EB] font-semibold">fastest delivery in India</span> —
                   straight to your door.
@@ -237,12 +238,14 @@ export default function HomePage() {
                 <img
                   src="/peptide.png"
                   alt="RetraLabs Premium Research Peptide Vials"
+                  fetchPriority="high"
+                  decoding="async"
                   className="w-full h-full object-contain"
                   style={{ objectPosition: 'center center', transform: 'scale(1.08)' }}
                 />
               </div>
 
-              {/* Floating badges */}
+              {/* Floating badges — visible on sm+, inline trust row on mobile */}
               <div
                 className="hidden sm:block absolute top-6 left-4 bg-white border border-[#E5E7EB] px-5 py-3.5 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.10)]"
                 style={{ borderRadius: 16, zIndex: 2 }}
@@ -259,6 +262,16 @@ export default function HomePage() {
               </div>
             </div>
 
+          </div>
+
+          {/* Mobile trust badges row — only visible on xs */}
+          <div className="flex sm:hidden items-center justify-center gap-3 mt-3">
+            <div className="flex items-center gap-2 bg-[#F8FAFF] border border-[#DBEAFE] px-3 py-2 rounded-[10px]">
+              <p className="text-[#2563EB] text-[11px] font-bold">99%+ Purity</p>
+            </div>
+            <div className="flex items-center gap-2 bg-[#F8FAFF] border border-[#DBEAFE] px-3 py-2 rounded-[10px]">
+              <p className="text-[#2563EB] text-[11px] font-bold">2,400+ Orders</p>
+            </div>
           </div>
         </div>
       </section>

@@ -8,16 +8,25 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
+    /* Prevent layout shift from scrollbar appearance */
+    scrollbar-gutter: stable;
   }
   body {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     overflow-x: hidden;
     background-color: #ffffff;
     color: #111111;
+    /* iOS momentum scrolling */
+    -webkit-overflow-scrolling: touch;
   }
   ::selection {
     background-color: rgba(37, 99, 235, 0.12);
     color: #1e40af;
+  }
+  /* Prevent images from causing layout shift */
+  img {
+    max-width: 100%;
+    height: auto;
   }
 }
 
@@ -36,6 +45,11 @@
     scrollbar-width: none;
   }
   .scrollbar-hide::-webkit-scrollbar { display: none; }
+  /* iOS momentum scroll for overflow containers */
+  .scroll-touch {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
 }
 
 /* ── Marquee animation for announcement bar ── */
@@ -50,4 +64,13 @@
   .animate-marquee {
     animation: none;
   }
+}
+
+/* ── Smooth fade-in for dropdowns ── */
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in-down {
+  animation: fadeInDown 0.15s ease-out forwards;
 }

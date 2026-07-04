@@ -366,7 +366,7 @@ export default function CataloguePage() {
               </div>
 
               {/* Row 2: Mobile category pills (own row, scrollable) */}
-              <div className="flex items-center gap-2 lg:hidden overflow-x-auto pb-0.5 scrollbar-none">
+              <div className="flex items-center gap-2 lg:hidden overflow-x-auto pb-0.5 scrollbar-hide scroll-touch">
                 {CATEGORIES.map(cat => (
                   <button
                     key={cat.id}

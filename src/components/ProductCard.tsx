@@ -34,12 +34,13 @@ export default function ProductCard({ product }: ProductCardProps) {
       onClick={() => navigate(`/product/${product.id}`)}
     >
       {/* Image container */}
-      <div className="relative w-full aspect-[4/5] bg-[#F8F9FA] overflow-hidden">
+      <div className="relative w-full aspect-square sm:aspect-[4/5] bg-[#F8F9FA] overflow-hidden">
         <img
           src={getProductImageUrl(product.image_url, product.name)}
           alt={product.name}
           loading="lazy"
-          className="w-full h-full object-contain p-5 sm:p-7 transition-transform duration-500 ease-out group-hover:scale-[1.04]"
+          decoding="async"
+          className="w-full h-full object-contain p-4 sm:p-7 transition-transform duration-500 ease-out group-hover:scale-[1.04]"
         />
       </div>
 
