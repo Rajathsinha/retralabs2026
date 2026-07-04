@@ -327,37 +327,21 @@ export default function CataloguePage() {
           <div className="flex-1 min-w-0">
 
             {/* Toolbar */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-              {/* Search */}
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" strokeWidth={1.8} />
-                <input
-                  type="text"
-                  placeholder="Search peptides..."
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2.5 border border-[#E5E7EB] text-[13px] text-[#111111] placeholder-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10 transition-all bg-white"
-                  style={{ borderRadius: 10 }}
-                />
-              </div>
+            <div className="flex flex-col gap-3 mb-6">
 
+              {/* Row 1: Search + Sort + Count */}
               <div className="flex items-center gap-3">
-                {/* Mobile category filter */}
-                <div className="flex items-center gap-2 lg:hidden overflow-x-auto pb-0.5 flex-1">
-                  {CATEGORIES.map(cat => (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => setActiveCategory(cat.id)}
-                      className={`flex-shrink-0 px-3 py-1.5 text-[12px] font-semibold rounded-full border transition-all ${
-                        activeCategory === cat.id
-                          ? 'bg-[#111111] text-white border-[#111111]'
-                          : 'bg-white text-[#374151] border-[#E5E7EB] hover:border-[#111111]'
-                      }`}
-                    >
-                      {cat.label}
-                    </button>
-                  ))}
+                {/* Search */}
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" strokeWidth={1.8} />
+                  <input
+                    type="text"
+                    placeholder="Search peptides..."
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2.5 border border-[#E5E7EB] text-[13px] text-[#111111] placeholder-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10 transition-all bg-white"
+                    style={{ borderRadius: 10 }}
+                  />
                 </div>
 
                 {/* Sort */}
@@ -380,6 +364,25 @@ export default function CataloguePage() {
                   {filtered.length} products
                 </span>
               </div>
+
+              {/* Row 2: Mobile category pills (own row, scrollable) */}
+              <div className="flex items-center gap-2 lg:hidden overflow-x-auto pb-0.5 scrollbar-none">
+                {CATEGORIES.map(cat => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setActiveCategory(cat.id)}
+                    className={`flex-shrink-0 px-3 py-1.5 text-[12px] font-semibold rounded-full border transition-all ${
+                      activeCategory === cat.id
+                        ? 'bg-[#111111] text-white border-[#111111]'
+                        : 'bg-white text-[#374151] border-[#E5E7EB] hover:border-[#111111]'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+
             </div>
 
             {/* Grid */}
