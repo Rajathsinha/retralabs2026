@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# Disallow admin/internal paths
+Disallow: /payment-success
+Disallow: /payment-failed
+
+Sitemap: https://retralabs.in/sitemap.xml
