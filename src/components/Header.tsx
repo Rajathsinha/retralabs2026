@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Menu, X, Search, LogOut, UserCircle2 } from 'lucide-react';
+import { ShoppingCart, Menu, X, Search, LogOut, UserCircle2, Calculator, ChevronDown } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import { useCurrency, CURRENCIES } from '../context/CurrencyContext';
 import Logo from './Logo';
 import SearchModal from './SearchModal';
 import ReconstitutionCalculator from './ReconstitutionCalculator';
@@ -25,15 +26,18 @@ const NAV_ITEMS = [
 export default function Header() {
   const { cart, openCart }  = useCart();
   const { user, signOut }   = useAuth();
+  const { currency, setCurrencyCode } = useCurrency();
   const cartCount           = cart.reduce((n, i) => n + i.quantity, 0);
   const location            = useLocation();
   const navigate            = useNavigate();
-  const [mobileOpen,  setMobileOpen]  = useState(false);
-  const [scrolled,    setScrolled]    = useState(false);
-  const [searchOpen,  setSearchOpen]  = useState(false);
-  const [avatarOpen,  setAvatarOpen]  = useState(false);
-  const [calcOpen,    setCalcOpen]    = useState(false);
-  const avatarRef = useRef<HTMLDivElement>(null);
+  const [mobileOpen,    setMobileOpen]    = useState(false);
+  const [scrolled,      setScrolled]      = useState(false);
+  const [searchOpen,    setSearchOpen]    = useState(false);
+  const [avatarOpen,    setAvatarOpen]    = useState(false);
+  const [calcOpen,      setCalcOpen]      = useState(false);
+  const [currencyOpen,  setCurrencyOpen]  = useState(false);
+  const avatarRef   = useRef<HTMLDivElement>(null);
+  const currencyRef = useRef<HTMLDivElement>(null);
 
   const initials = user
     ? (user.user_metadata?.name || user.email || 'U')
@@ -68,6 +72,16 @@ export default function Header() {
     if (avatarOpen) document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [avatarOpen]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (currencyRef.current && !currencyRef.current.contains(e.target as Node)) {
+        setCurrencyOpen(false);
+      }
+    };
+    if (currencyOpen) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [currencyOpen]);
 
   const active = (path: string) =>
     path === '/' ? location.pathname === '/' : location.pathname.startsWith(path);
@@ -141,6 +155,47 @@ export default function Header() {
                 >
                   <Search className="w-[20px] h-[20px]" strokeWidth={1.8} />
                 </button>
+
+                {/* Reconstitution Calculator */}
+                <button
+                  onClick={() => setCalcOpen(true)}
+                  aria-label="Reconstitution calculator"
+                  className="w-10 h-10 flex items-center justify-center rounded-full text-[#374151] hover:text-[#111111] hover:bg-[#F5F5F5] transition-all duration-200"
+                >
+                  <Calculator className="w-[20px] h-[20px]" strokeWidth={1.8} />
+                </button>
+
+                {/* Currency selector */}
+                <div className="relative" ref={currencyRef}>
+                  <button
+                    onClick={() => setCurrencyOpen(o => !o)}
+                    aria-label="Select currency"
+                    className="h-10 flex items-center gap-1 px-2.5 rounded-full text-[#374151] hover:text-[#111111] hover:bg-[#F5F5F5] transition-all duration-200 text-[13px] font-semibold"
+                  >
+                    <span>{currency.flag}</span>
+                    <span>{currency.code}</span>
+                    <ChevronDown className="w-3.5 h-3.5 text-[#9CA3AF]" />
+                  </button>
+                  {currencyOpen && (
+                    <div className="absolute right-0 top-full mt-2 w-44 bg-white border border-[#E5E7EB] rounded-[14px] shadow-[0_12px_40px_rgba(0,0,0,0.12)] overflow-hidden z-50 animate-fade-in-down">
+                      {Object.values(CURRENCIES).map(c => (
+                        <button
+                          key={c.code}
+                          onClick={() => { setCurrencyCode(c.code); setCurrencyOpen(false); }}
+                          className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-[13px] transition-colors ${
+                            currency.code === c.code
+                              ? 'bg-[#F5F7FA] text-[#111111] font-semibold'
+                              : 'text-[#374151] hover:bg-[#F9FAFB]'
+                          }`}
+                        >
+                          <span>{c.flag}</span>
+                          <span className="font-medium">{c.code}</span>
+                          <span className="text-[#9CA3AF] text-[11px] ml-auto">{c.symbol}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 {/* Account — only shown when signed in */}
                 {user ? (
