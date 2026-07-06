@@ -7,6 +7,8 @@ interface SEOProps {
   canonical?: string;
   ogImage?: string;
   schema?: object | object[];
+  /** Set on checkout/payment/admin pages so they never get indexed. */
+  noindex?: boolean;
 }
 
 function setMeta(selector: string, attr: string, attrValue: string, content: string) {
@@ -19,10 +21,15 @@ function setMeta(selector: string, attr: string, attrValue: string, content: str
   el.setAttribute('content', content);
 }
 
-export function useSEO({ title, description, keywords, canonical, ogImage, schema }: SEOProps) {
+export function useSEO({ title, description, keywords, canonical, ogImage, schema, noindex }: SEOProps) {
   useEffect(() => {
     // ── Title
     document.title = title;
+
+    // ── Robots
+    if (noindex) {
+      setMeta('meta[name="robots"]', 'name', 'robots', 'noindex, nofollow');
+    }
 
     // ── Meta tags
     setMeta('meta[name="description"]',         'name',     'description',         description);
@@ -39,7 +46,7 @@ export function useSEO({ title, description, keywords, canonical, ogImage, schem
       setMeta('meta[name="twitter:image"]', 'name', 'twitter:image', ogImage);
     }
 
-    // ── Canonical
+    // ── Canonical (+ og:url kept in sync)
     if (canonical) {
       let link = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
       if (!link) {
@@ -48,6 +55,7 @@ export function useSEO({ title, description, keywords, canonical, ogImage, schem
         document.head.appendChild(link);
       }
       link.setAttribute('href', canonical);
+      setMeta('meta[property="og:url"]', 'property', 'og:url', canonical);
     }
 
     // ── Structured data (page-specific, injected fresh per route)
@@ -66,5 +74,5 @@ export function useSEO({ title, description, keywords, canonical, ogImage, schem
     return () => {
       document.querySelectorAll('script[data-page-schema]').forEach(el => el.remove());
     };
-  }, [title, description, keywords, canonical, ogImage, JSON.stringify(schema)]);
+  }, [title, description, keywords, canonical, ogImage, noindex, JSON.stringify(schema)]);
 }

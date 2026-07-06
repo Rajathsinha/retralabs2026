@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -151,6 +152,7 @@ function getCodCharge(orderTotal: number): number {
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
+  useSEO({ title: 'Checkout | RetraLabs', description: 'Secure checkout for your RetraLabs research order.', noindex: true });
   const { format, currency } = useCurrency();
   const {
     cart,

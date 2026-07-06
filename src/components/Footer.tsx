@@ -182,7 +182,7 @@ export default function Footer() {
 
       {/* Main Footer Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-14 pb-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-10 mb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-10 mb-12">
 
           {/* Brand Column */}
           <div className="md:col-span-1">
@@ -258,6 +258,21 @@ export default function Footer() {
                   <FooterLink href={link.to}>{link.label}</FooterLink>
                 </li>
               ))}
+            </ul>
+          </div>
+
+          {/* Popular Peptides Column — keyword-anchored internal links */}
+          <div>
+            <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-5">
+              Popular Peptides
+            </h4>
+            <ul className="space-y-3">
+              <li><FooterLink href="/product/1">Buy Retatrutide India</FooterLink></li>
+              <li><FooterLink href="/product/2">Buy Tirzepatide India</FooterLink></li>
+              <li><FooterLink href="/product/3">Buy GHK-Cu India</FooterLink></li>
+              <li><FooterLink href="/product/7">Buy BPC-157 India</FooterLink></li>
+              <li><FooterLink href="/product/4">Buy Semax India</FooterLink></li>
+              <li><FooterLink href="/catalogue">All Research Peptides</FooterLink></li>
             </ul>
           </div>
 

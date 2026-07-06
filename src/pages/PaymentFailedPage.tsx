@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import { useNavigate } from 'react-router-dom';
 import { XCircle, RefreshCw, MessageSquare } from 'lucide-react';
 import {
@@ -10,6 +11,7 @@ import {
 
 export default function PaymentFailedPage() {
   const navigate = useNavigate();
+  useSEO({ title: 'Payment Failed | RetraLabs', description: 'Your payment could not be completed.', noindex: true });
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">

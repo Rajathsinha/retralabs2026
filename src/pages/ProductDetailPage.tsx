@@ -8,6 +8,7 @@ import { useSEO } from '../hooks/useSEO';
 import { getBreadcrumbSchema } from '../utils/localSeoSchemas';
 import { WHATSAPP_NUMBER } from '../constants/config';
 import { PRODUCTS } from '../data/products';
+import { PRODUCT_CONTENT } from '../data/productContent';
 import {
   ChevronRight, Star, Check, Package, Truck, Shield,
   ShieldCheck, FlaskConical, FileCheck, MessageCircle,
@@ -105,6 +106,7 @@ export default function ProductDetailPage() {
   const highestPrice = product ? Math.max(...product.variants.map(v => v.price_inr)) : 0;
   const canonicalUrl = `https://retralabs.in/product/${id}`;
   const productReviews = product ? REVIEWS_MAP[product.name] : undefined;
+  const content = product ? PRODUCT_CONTENT[product.name] : undefined;
 
   const productImage = product
     ? (() => {
@@ -164,6 +166,17 @@ export default function ProductDetailPage() {
               { name: 'Catalogue', url: 'https://retralabs.in/catalogue' },
               { name: product.name, url: canonicalUrl },
             ]),
+            ...(content && content.faqs.length
+              ? [{
+                  '@context': 'https://schema.org',
+                  '@type': 'FAQPage',
+                  mainEntity: content.faqs.map(f => ({
+                    '@type': 'Question',
+                    name: f.q,
+                    acceptedAnswer: { '@type': 'Answer', text: f.a },
+                  })),
+                }]
+              : []),
           ],
         }
       : {}),
@@ -519,6 +532,9 @@ export default function ProductDetailPage() {
             {activeTab === 'description' && (
               <div className="space-y-4">
                 <p className="text-[#374151] text-[14px] leading-[1.8]">{product.description}</p>
+                {content?.intro.map((para, i) => (
+                  <p key={i} className="text-[#374151] text-[14px] leading-[1.8]">{para}</p>
+                ))}
                 <ul className="space-y-2 text-[#374151] text-[14px]">
                   <li className="flex items-start gap-2.5"><Check className="w-4 h-4 text-[#16a34a] mt-0.5 flex-shrink-0" strokeWidth={2.5} /> HPLC-verified purity of {purity}%</li>
                   <li className="flex items-start gap-2.5"><Check className="w-4 h-4 text-[#16a34a] mt-0.5 flex-shrink-0" strokeWidth={2.5} /> Certificate of Analysis after order you may request</li>
@@ -581,6 +597,36 @@ export default function ProductDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* ─── SEO content + FAQ (always visible, never tab-gated) ─────────── */}
+      {content && (
+        <div className="border-t border-[#E5E7EB] bg-white">
+          <div className="max-w-[820px] mx-auto px-6 py-14">
+            <h2 className="text-[#111111] text-[24px] sm:text-[28px] font-bold tracking-[-0.02em] mb-6">
+              {content.heading ?? `Buy ${product.name} in India`}
+            </h2>
+            <div className="space-y-4 mb-12">
+              {content.intro.map((para, i) => (
+                <p key={i} className="text-[#374151] text-[15px] leading-[1.8]">{para}</p>
+              ))}
+            </div>
+            <h2 className="text-[#111111] text-[22px] sm:text-[26px] font-bold tracking-[-0.02em] mb-5">
+              {product.name} — Frequently Asked Questions
+            </h2>
+            <div className="flex flex-col gap-3">
+              {content.faqs.map((faq, i) => (
+                <details key={i} className="group bg-white border border-[#E5E7EB] rounded-[14px] px-5 py-4 open:shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-shadow">
+                  <summary className="flex items-center justify-between gap-4 cursor-pointer list-none">
+                    <h3 className="text-[#111111] text-[15px] font-semibold">{faq.q}</h3>
+                    <ChevronRight className="w-4 h-4 text-[#9CA3AF] flex-shrink-0 transition-transform group-open:rotate-90" strokeWidth={2} />
+                  </summary>
+                  <p className="text-[#6B7280] text-[14px] leading-[1.7] mt-3">{faq.a}</p>
+                </details>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── Related Products ────────────────────────────────────────────── */}
       <div className="border-t border-[#E5E7EB] bg-[#FAFAFA]">

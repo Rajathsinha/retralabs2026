@@ -1,3 +1,4 @@
+import { useSEO } from '../hooks/useSEO';
 import { useState, useEffect, useCallback } from 'react';
 import { Download, RefreshCw, LogOut, ChevronDown } from 'lucide-react';
 
@@ -86,6 +87,7 @@ function PasswordGate({ onAuth }: { onAuth: () => void }) {
 // ── Main dashboard ────────────────────────────────────────────────────────────
 export default function AdminPage() {
   const [authed, setAuthed] = useState(() => sessionStorage.getItem('admin_auth') === '1');
+  useSEO({ title: 'Admin | RetraLabs', description: 'Internal dashboard.', noindex: true });
   const [records, setRecords] = useState<AirtableRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');

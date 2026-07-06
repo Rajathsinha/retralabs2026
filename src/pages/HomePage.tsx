@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import {
   ArrowRight, Star, CheckCircle, Zap, Truck, Lock,
   FlaskConical, Shield, Package, Microscope,
@@ -621,6 +621,7 @@ export default function HomePage() {
               </h2>
               <p className="text-[#6B7280] text-[15px] mt-2 max-w-[560px] mx-auto leading-relaxed">
                 Everything researchers ask before ordering research-grade peptides from RetraLabs.
+                Looking for a specific compound? <RouterLink to="/product/1" className="text-[#2563EB] font-semibold hover:underline">Buy Retatrutide in India</RouterLink> or <RouterLink to="/product/2" className="text-[#2563EB] font-semibold hover:underline">Tirzepatide</RouterLink>.
               </p>
             </div>
           </Reveal>

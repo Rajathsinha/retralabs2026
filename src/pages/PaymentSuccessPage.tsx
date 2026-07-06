@@ -1,9 +1,11 @@
+import { useSEO } from '../hooks/useSEO';
 import { useNavigate } from 'react-router-dom';
 import { Check, Package } from 'lucide-react';
 import { Card, CardBody, Button } from '@heroui/react';
 
 export default function PaymentSuccessPage() {
   const navigate = useNavigate();
+  useSEO({ title: 'Payment Successful | RetraLabs', description: 'Your payment was received.', noindex: true });
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
