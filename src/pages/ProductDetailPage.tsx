@@ -5,6 +5,7 @@ import { ProductWithVariants, ProductVariant } from '../types';
 import { useCart } from '../context/CartContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { useSEO } from '../hooks/useSEO';
+import { getBreadcrumbSchema } from '../utils/localSeoSchemas';
 import { WHATSAPP_NUMBER } from '../constants/config';
 import { PRODUCTS } from '../data/products';
 import {
@@ -101,9 +102,71 @@ export default function ProductDetailPage() {
   // SEO
   const seoPurity = product ? (PURITY_MAP[product.name] ?? '99+') : '99+';
   const lowestPrice = product ? Math.min(...product.variants.map(v => v.price_inr)) : 0;
+  const highestPrice = product ? Math.max(...product.variants.map(v => v.price_inr)) : 0;
+  const canonicalUrl = `https://retralabs.in/product/${id}`;
+  const productReviews = product ? REVIEWS_MAP[product.name] : undefined;
+
+  const productImage = product
+    ? (() => {
+        const p = getProductImageUrl('', product.name);
+        return p.startsWith('http') ? p : `https://retralabs.in${p.startsWith('/') ? '' : '/'}${p}`;
+      })()
+    : undefined;
+
+  const productSchema = product
+    ? {
+        '@context': 'https://schema.org',
+        '@type': 'Product',
+        name: `${product.name} India`,
+        description: `Research-grade ${product.name} in India. ${seoPurity}% HPLC-verified purity with Certificate of Analysis. For laboratory research use only.`,
+        image: productImage,
+        brand: { '@type': 'Brand', name: 'RetraLabs' },
+        category: 'Research Peptides',
+        offers: {
+          '@type': 'AggregateOffer',
+          priceCurrency: 'INR',
+          lowPrice: lowestPrice,
+          highPrice: highestPrice,
+          offerCount: product.variants.length,
+          availability: 'https://schema.org/InStock',
+          url: canonicalUrl,
+          seller: { '@type': 'Organization', name: 'RetraLabs' },
+        },
+        ...(productReviews
+          ? {
+              aggregateRating: {
+                '@type': 'AggregateRating',
+                ratingValue: productReviews.avg,
+                reviewCount: productReviews.count,
+                bestRating: 5,
+              },
+            }
+          : {}),
+      }
+    : undefined;
+
   useSEO({
     title: product ? `Buy ${product.name} India | ${seoPurity}% Purity | ${format(lowestPrice)} | RetraLabs` : 'Research Peptides India | RetraLabs',
     description: product ? `Buy ${product.name} in India. ${seoPurity}% HPLC-verified purity, COA included. From ${format(lowestPrice)}. Free shipping.` : '',
+    canonical: canonicalUrl,
+    ...(product
+      ? {
+          keywords: `buy ${product.name.toLowerCase()} india, ${product.name.toLowerCase()} india, ${product.name.toLowerCase()} price india, where to buy ${product.name.toLowerCase()} india, research ${product.name.toLowerCase()}`,
+          ogImage: productImage,
+        }
+      : {}),
+    ...(product && productSchema
+      ? {
+          schema: [
+            productSchema,
+            getBreadcrumbSchema([
+              { name: 'Home', url: 'https://retralabs.in/' },
+              { name: 'Catalogue', url: 'https://retralabs.in/catalogue' },
+              { name: product.name, url: canonicalUrl },
+            ]),
+          ],
+        }
+      : {}),
   });
 
   useEffect(() => { if (id) loadProduct(id); }, [id]);

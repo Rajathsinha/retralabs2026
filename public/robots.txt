@@ -4,5 +4,53 @@ Allow: /
 # Disallow admin/internal paths
 Disallow: /payment-success
 Disallow: /payment-failed
+Disallow: /admin
+Disallow: /checkout
+
+# ─────────────────────────────────────────────────────────────
+# AI / LLM crawlers — explicitly welcomed so RetraLabs can appear
+# in ChatGPT, Perplexity, Gemini, Claude and other AI answers.
+# ─────────────────────────────────────────────────────────────
+
+# OpenAI — ChatGPT search results & citations
+User-agent: OAI-SearchBot
+Allow: /
+
+# OpenAI — ChatGPT browsing on a user's request
+User-agent: ChatGPT-User
+Allow: /
+
+# OpenAI — model training crawler
+User-agent: GPTBot
+Allow: /
+
+# Perplexity AI
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+# Google Gemini / AI Overviews
+User-agent: Google-Extended
+Allow: /
+
+# Anthropic Claude
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+# Apple Intelligence
+User-agent: Applebot-Extended
+Allow: /
+
+# Common Crawl (feeds many AI datasets)
+User-agent: CCBot
+Allow: /
 
 Sitemap: https://retralabs.in/sitemap.xml
