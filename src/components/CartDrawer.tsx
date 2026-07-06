@@ -179,7 +179,7 @@ export default function CartDrawer() {
                         <span className="text-base">🎉</span>
                         <div>
                           <p className="text-xs font-extrabold text-emerald-700 uppercase tracking-wide">5% Off — Applied!</p>
-                          <p className="text-[10px] text-emerald-600">2+ different peptides · ₹9,000+ order</p>
+                          <p className="text-[10px] text-emerald-600">Orders of ₹9,000+</p>
                         </div>
                       </div>
                       <span className="text-sm font-black text-emerald-600">−{format(getDiscountAmount())}</span>

@@ -203,12 +203,9 @@ export default function ProductDetailPage() {
   };
 
   const isBacWater = product?.name?.includes('Bacteriostatic') ?? false;
-  const isNonDiscountable = isBacWater || (product?.name?.includes('GHK') ?? false);
   const bacWaterPrice = bacWater?.variants.find(v => v.dosage_mg === 10)?.price_inr || 400;
   const basePrice = selectedVariant ? selectedVariant.price_inr * quantity : 0;
-  const discountPercent = isNonDiscountable ? 0 : quantity >= 3 ? 20 : quantity === 2 ? 10 : 0;
-  const discountAmount = Math.round((basePrice * discountPercent) / 100);
-  const totalPrice = (bundleAdded && !isBacWater ? basePrice + bacWaterPrice : basePrice) - discountAmount;
+  const totalPrice = bundleAdded && !isBacWater ? basePrice + bacWaterPrice : basePrice;
 
   const handleAddToCart = () => {
     if (!product || !selectedVariant) return;
@@ -340,11 +337,6 @@ export default function ProductDetailPage() {
               <span className="text-[#111111] text-[28px] font-bold tracking-[-0.02em]">
                 {selectedVariant ? format(selectedVariant.price_inr) : '—'}
               </span>
-              {discountPercent > 0 && (
-                <span className="text-[#9CA3AF] text-[16px] line-through">
-                  {format(Math.round(selectedVariant!.price_inr * 1.15))}
-                </span>
-              )}
               <span className="text-[#16a34a] text-[13px] font-semibold">Free Shipping</span>
             </div>
 
@@ -409,11 +401,6 @@ export default function ProductDetailPage() {
                     <Plus className="w-4 h-4" strokeWidth={2.5} />
                   </button>
                 </div>
-                {quantity >= 2 && !isNonDiscountable && (
-                  <span className="text-[#16a34a] text-[12px] font-semibold bg-[#F0FDF4] px-3 py-1.5 rounded-full border border-[#BBF7D0]">
-                    {discountPercent}% volume discount
-                  </span>
-                )}
               </div>
             </div>
 
