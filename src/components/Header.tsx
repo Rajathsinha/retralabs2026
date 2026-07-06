@@ -34,7 +34,15 @@ export default function Header() {
   const [searchOpen,   setSearchOpen]   = useState(false);
   const [calcOpen,     setCalcOpen]     = useState(false);
   const [currencyOpen, setCurrencyOpen] = useState(false);
+  const [cartBump,     setCartBump]     = useState(0);
   const currencyRef = useRef<HTMLDivElement>(null);
+  const prevCountRef = useRef(cartCount);
+
+  // Bounce the cart icon whenever an item lands in the cart
+  useEffect(() => {
+    if (cartCount > prevCountRef.current) setCartBump(b => b + 1);
+    prevCountRef.current = cartCount;
+  }, [cartCount]);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
@@ -192,13 +200,18 @@ export default function Header() {
 
                 {/* Cart */}
                 <button
-                  onClick={openCart}
+                  onClick={() => { setCartBump(b => b + 1); openCart(); }}
                   aria-label="Cart"
-                  className="relative w-10 h-10 flex items-center justify-center rounded-full text-[#374151] hover:text-[#111111] hover:bg-[#F5F5F5] transition-all duration-200"
+                  className="relative w-10 h-10 flex items-center justify-center rounded-full text-[#374151] hover:text-[#111111] hover:bg-[#F5F5F5] transition-all duration-200 active:scale-90"
                 >
-                  <ShoppingCart className="w-[20px] h-[20px]" strokeWidth={1.8} />
+                  <span key={cartBump} className={cartBump > 0 ? 'animate-cart-bounce inline-flex' : 'inline-flex'}>
+                    <ShoppingCart className="w-[20px] h-[20px]" strokeWidth={1.8} />
+                  </span>
                   {cartCount > 0 && (
-                    <span className="absolute top-1 right-1 bg-[#2563EB] text-white text-[9px] font-bold w-[16px] h-[16px] rounded-full flex items-center justify-center leading-none">
+                    <span
+                      key={`badge-${cartCount}`}
+                      className="absolute top-1 right-1 bg-[#2563EB] text-white text-[9px] font-bold w-[16px] h-[16px] rounded-full flex items-center justify-center leading-none animate-badge-pop"
+                    >
                       {cartCount}
                     </span>
                   )}

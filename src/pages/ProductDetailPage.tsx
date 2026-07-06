@@ -450,7 +450,7 @@ export default function ProductDetailPage() {
                 onClick={handleAddToCart}
                 className={`w-full flex items-center justify-center gap-2.5 py-4 text-[15px] font-bold transition-all duration-200 disabled:opacity-40 ${
                   cartAdded
-                    ? 'bg-[#16a34a] text-white'
+                    ? 'bg-[#16a34a] text-white animate-btn-success'
                     : 'text-white hover:opacity-90 active:scale-[0.98]'
                 }`}
                 style={{ borderRadius: 14, background: cartAdded ? undefined : accent }}
@@ -687,8 +687,8 @@ export default function ProductDetailPage() {
             type="button"
             disabled={!selectedVariant}
             onClick={handleAddToCart}
-            className={`w-12 h-12 rounded-[12px] border-2 flex items-center justify-center flex-shrink-0 transition-all disabled:opacity-40 ${
-              cartAdded ? 'bg-[#F0FDF4] border-[#16a34a] text-[#16a34a]' : 'border-[#E5E7EB] text-[#374151] hover:border-[#111111]'
+            className={`w-12 h-12 rounded-[12px] border-2 flex items-center justify-center flex-shrink-0 transition-all disabled:opacity-40 active:scale-90 ${
+              cartAdded ? 'bg-[#F0FDF4] border-[#16a34a] text-[#16a34a] animate-btn-success' : 'border-[#E5E7EB] text-[#374151] hover:border-[#111111]'
             }`}
           >
             {cartAdded ? <Check className="w-5 h-5" /> : <ShoppingCart className="w-5 h-5" />}

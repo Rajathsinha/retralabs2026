@@ -175,7 +175,7 @@ export default function CataloguePage() {
   });
 
   const navigate = useNavigate();
-  const { addToCart } = useCart();
+  const { addToCart, openCart } = useCart();
 
   const [activeCategory, setActiveCategory] = useState('all');
   const [sortBy, setSortBy]                 = useState<SortKey>('default');
@@ -185,9 +185,17 @@ export default function CataloguePage() {
 
   const handleAddToCart = useCallback((product: ProductWithVariants, variant: ProductVariant) => {
     addToCart(product, variant);
+    // Auto-bundle bac water with every peptide (matches product-page behaviour)
+    const isBac = product.name.toLowerCase().includes('bacteriostatic');
+    const bacWater = PRODUCTS.find(p => p.name.toLowerCase().includes('bacteriostatic'));
+    if (!isBac && bacWater) {
+      const bv = bacWater.variants.find(v => v.dosage_mg === 10);
+      if (bv) addToCart(bacWater, bv);
+    }
     setAddedVariantId(variant.id);
     setTimeout(() => setAddedVariantId(null), 2000);
-  }, [addToCart]);
+    openCart();
+  }, [addToCart, openCart]);
 
   const filtered = useMemo(() => {
     let list = [...PRODUCTS];

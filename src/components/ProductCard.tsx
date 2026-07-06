@@ -4,6 +4,9 @@ import { Star, ShoppingCart, Check } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { ProductWithVariants } from '../types';
 import { getProductImageUrl } from '../utils/imageUrl';
+import { PRODUCTS } from '../data/products';
+
+const BAC_WATER = PRODUCTS.find(p => p.name.toLowerCase().includes('bacteriostatic'));
 
 interface ProductCardProps {
   product: ProductWithVariants;
@@ -22,6 +25,12 @@ export default function ProductCard({ product }: ProductCardProps) {
     e.stopPropagation();
     if (!cheapestVariant) return;
     addToCart(product, cheapestVariant);
+    // Auto-bundle bac water with every peptide (matches product-page behaviour)
+    const isBac = product.name.toLowerCase().includes('bacteriostatic');
+    if (!isBac && BAC_WATER) {
+      const bv = BAC_WATER.variants.find(v => v.dosage_mg === 10);
+      if (bv) addToCart(BAC_WATER, bv);
+    }
     setAdded(true);
     openCart();
     setTimeout(() => setAdded(false), 2000);
@@ -76,7 +85,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           disabled={!cheapestVariant}
           className={`w-full flex items-center justify-center gap-2 py-3 text-[14px] font-semibold transition-all duration-200 mt-1 ${
             added
-              ? 'bg-[#16a34a] text-white'
+              ? 'bg-[#16a34a] text-white animate-btn-success'
               : 'bg-[#111111] hover:bg-[#222222] hover:shadow-[0_4px_12px_rgba(0,0,0,0.15)] text-white active:scale-[0.97]'
           } disabled:opacity-30 disabled:cursor-not-allowed`}
           style={{ borderRadius: 14 }}

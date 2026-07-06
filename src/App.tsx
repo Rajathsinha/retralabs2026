@@ -70,6 +70,7 @@ function PageLoader() {
 
 // ─── Root layout ──────────────────────────────────────────────────────────────
 function RootLayout() {
+  const { pathname } = useLocation();
   return (
     <div className="min-h-screen flex flex-col bg-white" style={{ overflowX: 'hidden' }}>
       <Header />
@@ -77,7 +78,9 @@ function RootLayout() {
         <HeroUIWrapper>
           <main className="flex-1">
             <Suspense fallback={<PageLoader />}>
-              <Outlet />
+              <div key={pathname} className="animate-page-in">
+                <Outlet />
+              </div>
             </Suspense>
           </main>
           <Footer />

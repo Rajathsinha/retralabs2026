@@ -144,6 +144,7 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
           <button
             onClick={handleConfirm}
             disabled={!txnRef.trim() || confirming}
+            className="active:scale-[0.96]"
             style={{
               width: '100%', padding: '14px', borderRadius: 12, border: 'none',
               background: txnRef.trim() ? 'linear-gradient(135deg,#00C896,#00A3FF)' : 'rgba(255,255,255,0.08)',
