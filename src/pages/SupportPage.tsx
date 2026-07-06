@@ -22,6 +22,11 @@ import {
 
 const FAQS = [
   {
+    question: 'Where to buy peptides in India?',
+    answer:
+      'You can buy research-grade peptides in India from RetraLabs (retralabs.in). We supply HPLC-verified Retatrutide, Tirzepatide, GHK-Cu, BPC-157, TB-500, and more — each with 99%+ purity and a Certificate of Analysis. Order online with fast India-wide shipping from Bengaluru, temperature-controlled packaging, and Cash on Delivery available.',
+  },
+  {
     question: 'What are the shipping timelines?',
     answer:
       'Orders are typically processed within 1-2 business days. Shipping times vary by location: 3-5 business days for metro cities, 5-7 business days for other locations. You will receive tracking information once your order ships.',

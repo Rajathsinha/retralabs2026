@@ -46,6 +46,27 @@ const FEATURE_BLOCKS = [
   { icon: Package,      title: 'Discreet Packaging',   caption: 'Plain outer packaging. No product markings.' },
 ];
 
+// Visible FAQ — mirrors the FAQPage structured data in index.html so the
+// on-page content matches the schema (Google requires FAQ text to be visible).
+const HOME_FAQS = [
+  {
+    q: 'Where to buy peptides in India?',
+    a: "RetraLabs (retralabs.in) is India's trusted source to buy research-grade peptides online. We supply HPLC-verified Retatrutide, Tirzepatide, GHK-Cu, BPC-157, TB-500, Semax, and more — each with 99%+ purity and a Certificate of Analysis. Order online with fast India-wide shipping from Bengaluru, temperature-controlled packaging, and Cash on Delivery available.",
+  },
+  {
+    q: 'Where can I buy Retatrutide in India?',
+    a: "You can buy research-grade Retatrutide in India from RetraLabs. Every vial is HPLC-verified at 99.2% purity with a Certificate of Analysis, starting from a 10mg starter vial. We ship India-wide with temperature-controlled packaging.",
+  },
+  {
+    q: 'How to buy research peptides in India?',
+    a: 'Browse our catalogue of Retatrutide, Tirzepatide, GHK-Cu, BPC-157, and more, select your variant, and add it to cart or enquire via WhatsApp. Every compound is HPLC-verified with 99%+ purity and ships with a Certificate of Analysis. Cash on Delivery is available across India.',
+  },
+  {
+    q: 'Are research peptides legal in India?',
+    a: 'Research peptides such as Retatrutide, Tirzepatide, and GHK-Cu are supplied strictly for laboratory and analytical research purposes. RetraLabs sells exclusively to qualified researchers and institutions. Products are not for human consumption.',
+  },
+];
+
 function useInView(threshold = 0.15) {
   const ref = useRef<HTMLDivElement>(null);
   const [inView, setInView] = useState(false);
@@ -87,7 +108,7 @@ export default function HomePage() {
   useSEO({
     title: 'Buy Research Peptides India | Retatrutide, Tirzepatide | RetraLabs Bengaluru',
     description: 'Buy HPLC-verified research peptides in India from RetraLabs, Bengaluru. Retatrutide, Tirzepatide, GHK-Cu with 99%+ purity and COA. Fast India-wide shipping from Karnataka.',
-    keywords: 'buy research peptides india, retatrutide india, tirzepatide india, peptide supplier bengaluru, research peptides karnataka, buy peptides bangalore',
+    keywords: 'where to buy peptides in india, buy peptides india, buy peptides online india, buy research peptides india, retatrutide india, tirzepatide india, peptide supplier bengaluru, research peptides karnataka, buy peptides bangalore',
     canonical: 'https://retralabs.in/',
     schema: [getLocalBusinessSchema(), getServiceAreaSchema()],
   });
@@ -582,6 +603,55 @@ export default function HomePage() {
                   </div>
                 </div>
               </div>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ═══════════════════ FAQ ═══════════════════ */}
+      <section className="border-t border-[#E5E7EB] bg-white" style={{ paddingTop: 80, paddingBottom: 80, paddingLeft: 24, paddingRight: 24 }}>
+        <div className="max-w-[820px] mx-auto">
+          <Reveal>
+            <div className="text-center mb-10">
+              <p className="text-[#2563EB] text-[11px] font-bold uppercase tracking-[0.15em] mb-2.5">
+                Buying Guide
+              </p>
+              <h2 className="text-[#111111] text-[28px] sm:text-[32px] font-bold tracking-[-0.02em]">
+                Where to Buy Peptides in India
+              </h2>
+              <p className="text-[#6B7280] text-[15px] mt-2 max-w-[560px] mx-auto leading-relaxed">
+                Everything researchers ask before ordering research-grade peptides from RetraLabs.
+              </p>
+            </div>
+          </Reveal>
+
+          <Reveal delay={0.1}>
+            <div className="flex flex-col gap-3">
+              {HOME_FAQS.map((faq, i) => (
+                <details
+                  key={i}
+                  className="group bg-white border border-[#E5E7EB] rounded-[14px] px-5 py-4 open:shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-shadow"
+                >
+                  <summary className="flex items-center justify-between gap-4 cursor-pointer list-none">
+                    <h3 className="text-[#111111] text-[15px] font-semibold">{faq.q}</h3>
+                    <ChevronDown className="w-4 h-4 text-[#9CA3AF] flex-shrink-0 transition-transform group-open:rotate-180" strokeWidth={2} />
+                  </summary>
+                  <p className="text-[#6B7280] text-[14px] leading-[1.7] mt-3">{faq.a}</p>
+                </details>
+              ))}
+            </div>
+          </Reveal>
+
+          <Reveal delay={0.15}>
+            <div className="text-center mt-8">
+              <button
+                type="button"
+                onClick={() => navigate('/catalogue')}
+                className="group inline-flex items-center gap-2 bg-[#111111] hover:bg-[#1a1a1a] text-white font-semibold px-6 py-3 rounded-[10px] transition-all duration-200 text-[14px]"
+              >
+                Browse the Full Catalogue
+                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+              </button>
             </div>
           </Reveal>
         </div>
