@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSEO } from '../hooks/useSEO';
+import { getBreadcrumbSchema } from '../utils/localSeoSchemas';
 import {
   Accordion,
   AccordionItem,
@@ -102,6 +104,27 @@ const REFERRAL_SOURCES = ['YouTube', 'Instagram', 'Reddit', 'Friend', 'Google', 
 
 export default function SupportPage() {
   const navigate = useNavigate();
+
+  useSEO({
+    title: 'Support & FAQ | Research Peptides India | RetraLabs',
+    description: 'RetraLabs support — shipping timelines, peptide storage, documentation (COA), and order help. Research peptide support across India via WhatsApp and email.',
+    canonical: 'https://retralabs.in/support',
+    schema: [
+      {
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        mainEntity: FAQS.map(f => ({
+          '@type': 'Question',
+          name: f.question,
+          acceptedAnswer: { '@type': 'Answer', text: f.answer },
+        })),
+      },
+      getBreadcrumbSchema([
+        { name: 'Home', url: 'https://retralabs.in/' },
+        { name: 'Support', url: 'https://retralabs.in/support' },
+      ]),
+    ],
+  });
 
   const [referralSource, setReferralSource] = useState('');
   const [friendName, setFriendName] = useState('');
