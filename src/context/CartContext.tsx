@@ -15,6 +15,7 @@ const COUPONS: Record<string, CouponDiscount> = {
   'goodwill600': { type: 'flat',    value: 600  },
   'bacwater400': { type: 'flat',    value: 400  },
   'bacwater800': { type: 'flat',    value: 800  },
+  'student':     { type: 'flat',    value: 500  },
 };
 
 interface CartContextType {
@@ -101,9 +102,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
       isBacWater(item.product.name) ? total : total + item.variant.price_inr * item.quantity
     , 0);
 
-  // 5% discount: peptide subtotal ≥₹9,000 (BAC water excluded)
+  // Count of distinct peptide products (bac water never counts)
+  const getDistinctPeptides = () =>
+    new Set(
+      cart.filter(item => !isBacWater(item.product.name)).map(item => item.product.id)
+    ).size;
+
+  // 5% discount: only when 2+ different peptide products are in the cart.
+  // Buying one product in a 3/4/5-vial pack does NOT qualify; bac water is
+  // allowed in the cart but doesn't count toward the two-product requirement.
   const getDiscount = (): number => {
-    return getDiscountableSubtotal() >= 9000 ? 5 : 0;
+    return getDistinctPeptides() >= 2 ? 5 : 0;
   };
 
   const getDiscountAmount = () => {
