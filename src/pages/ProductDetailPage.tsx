@@ -115,6 +115,31 @@ export default function ProductDetailPage() {
       })()
     : undefined;
 
+  // Price stays valid ~1 year out (satisfies Merchant listing priceValidUntil)
+  const priceValidUntil = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+  // Free India-wide shipping — resolves the Merchant "shippingDetails" warning
+  const shippingDetails = {
+    '@type': 'OfferShippingDetails',
+    shippingRate: { '@type': 'MonetaryAmount', value: 0, currency: 'INR' },
+    shippingDestination: { '@type': 'DefinedRegion', addressCountry: 'IN' },
+    deliveryTime: {
+      '@type': 'ShippingDeliveryTime',
+      handlingTime: { '@type': 'QuantitativeValue', minValue: 0, maxValue: 1, unitCode: 'DAY' },
+      transitTime: { '@type': 'QuantitativeValue', minValue: 1, maxValue: 4, unitCode: 'DAY' },
+    },
+  };
+
+  // Replacement within 48h for damaged/incorrect — resolves the return-policy warning
+  const merchantReturnPolicy = {
+    '@type': 'MerchantReturnPolicy',
+    applicableCountry: 'IN',
+    returnPolicyCategory: 'https://schema.org/MerchantReturnFiniteReturnWindow',
+    merchantReturnDays: 2,
+    returnMethod: 'https://schema.org/ReturnByMail',
+    returnFees: 'https://schema.org/FreeReturn',
+  };
+
   const productSchema = product
     ? {
         '@context': 'https://schema.org',
@@ -122,6 +147,8 @@ export default function ProductDetailPage() {
         name: `${product.name} India`,
         description: `Research-grade ${product.name} in India. ${seoPurity}% HPLC-verified purity with Certificate of Analysis. For laboratory research use only.`,
         image: productImage,
+        sku: product.id,
+        mpn: `RL-${product.id}`,
         brand: { '@type': 'Brand', name: 'RetraLabs' },
         category: 'Research Peptides',
         offers: {
@@ -131,8 +158,12 @@ export default function ProductDetailPage() {
           highPrice: highestPrice,
           offerCount: product.variants.length,
           availability: 'https://schema.org/InStock',
+          itemCondition: 'https://schema.org/NewCondition',
+          priceValidUntil,
           url: canonicalUrl,
           seller: { '@type': 'Organization', name: 'RetraLabs' },
+          shippingDetails,
+          hasMerchantReturnPolicy: merchantReturnPolicy,
         },
         ...(productReviews
           ? {
