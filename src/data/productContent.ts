@@ -22,15 +22,20 @@ export const PRODUCT_CONTENT: Record<string, ProductContent> = {
   'Retatrutide': {
     heading: 'Where to Buy Retatrutide in India',
     intro: [
-      'Retatrutide (LY3437943) is a triple receptor agonist acting on the GLP-1, GIP, and glucagon receptors, studied in metabolic and obesity research for its effects on energy expenditure and body composition. RetraLabs supplies research-grade Retatrutide in India at 99.2% HPLC-verified purity, with a Certificate of Analysis included on every order.',
-      'RetraLabs is India’s trusted source to buy Retatrutide online for laboratory use. Each vial is a sterile, nitrogen-sealed lyophilised powder sourced from GMP-certified manufacturers and independently HPLC tested. Pricing starts at ₹3,600 for a 10mg starter vial, with multi-vial packs at lower per-vial cost.',
-      `Retatrutide is available across India — Bengaluru, Mumbai, Delhi, Chennai, Hyderabad, Pune and beyond. ${shipping} All products are strictly for laboratory and analytical research; not for human consumption.`,
+      'Retatrutide (LY3437943) is a triple receptor agonist acting on the GLP-1, GIP, and glucagon receptors, studied in metabolic and obesity research for its effects on energy expenditure, glucose regulation and body composition. It is one of the most-researched next-generation incretin peptides, and RetraLabs supplies it in India at 99.2% HPLC-verified purity with a Certificate of Analysis included on every order.',
+      'RetraLabs is India’s trusted source to buy Retatrutide online for laboratory use. Each vial is a sterile, nitrogen-sealed lyophilised powder sourced from GMP-certified manufacturers and independently HPLC tested batch by batch. Pricing starts at ₹3,600 for a 10mg starter vial, with 10mg×2 and 10mg×5 multi-vial packs at progressively lower per-vial cost for ongoing research programs.',
+      'Every batch is verified by high-performance liquid chromatography (HPLC) before it ships, and the Certificate of Analysis documents purity, batch number and identity. This matters because the research-peptide market in India is full of unverified grey-market sellers — a COA and an HPLC trace are how you confirm you are working with what the label claims. If you have been scammed by fake vials before, this is exactly the verification RetraLabs was built to provide.',
+      'How to buy Retatrutide in India from RetraLabs: choose your vial configuration above, add it to cart (bacteriostatic water for reconstitution is bundled automatically), and check out with UPI, bank transfer, or Cash on Delivery. Orders dispatch same-day when placed before 2 PM.',
+      `Retatrutide is available across India — Bengaluru, Mumbai, Delhi, Chennai, Hyderabad, Pune, Kolkata, Ahmedabad and beyond. ${shipping} All products are strictly for laboratory and analytical research; not for human consumption.`,
     ],
     faqs: [
       { q: 'Where can I buy Retatrutide in India?', a: 'You can buy research-grade Retatrutide in India from RetraLabs (retralabs.in). Every vial is 99.2% HPLC-verified with a Certificate of Analysis, shipped India-wide from Bengaluru with Cash on Delivery available.' },
       { q: 'What is the price of Retatrutide in India?', a: 'At RetraLabs, Retatrutide starts at ₹3,600 for a 10mg starter vial, with lower per-vial pricing on 10mg×2 and 10mg×5 packs. All include a COA and HPLC report.' },
       { q: 'Is Retatrutide legal to buy in India?', a: 'Retatrutide is supplied strictly for laboratory and analytical research purposes. RetraLabs sells only to qualified researchers. It is not approved for human consumption.' },
-      { q: 'How is Retatrutide shipped and stored?', a: 'It ships as a lyophilised powder in temperature-controlled, discreet packaging. Store lyophilised vials at -20°C; once reconstituted, store at 2–8°C and avoid repeated freeze-thaw cycles.' },
+      { q: 'How do I verify Retatrutide purity and quality?', a: 'Every RetraLabs order includes a Certificate of Analysis (COA) with the HPLC purity result (99.2%), batch number and identity confirmation. You can request the batch HPLC report to independently verify what you received.' },
+      { q: 'How is Retatrutide shipped and stored?', a: 'It ships as a lyophilised powder in temperature-controlled, discreet packaging, dispatched same-day for orders before 2 PM. Store lyophilised vials at -20°C; once reconstituted, store at 2–8°C and avoid repeated freeze-thaw cycles.' },
+      { q: 'What is the difference between Retatrutide and Tirzepatide?', a: 'Tirzepatide is a dual GIP/GLP-1 receptor agonist, while Retatrutide (LY3437943) adds a third target — the glucagon receptor — making it a triple agonist studied for broader metabolic effects. RetraLabs supplies both in India with COA and HPLC verification.' },
+      { q: 'Do you offer Cash on Delivery for Retatrutide?', a: 'Yes. RetraLabs offers Cash on Delivery across India, alongside UPI and bank transfer, with temperature-controlled discreet packaging.' },
     ],
   },
 
@@ -38,13 +43,17 @@ export const PRODUCT_CONTENT: Record<string, ProductContent> = {
     heading: 'Where to Buy Tirzepatide in India',
     intro: [
       'Tirzepatide is a dual GIP and GLP-1 receptor agonist widely studied in metabolic and glucose-regulation research. RetraLabs supplies research-grade Tirzepatide in India at 99.4% HPLC-verified purity with a Certificate of Analysis on every order.',
-      'RetraLabs is a trusted source to buy Tirzepatide online in India for laboratory use. Each vial is a sterile, nitrogen-sealed lyophilised powder from GMP-certified manufacturers, independently HPLC tested, starting at ₹2,800.',
-      `Tirzepatide ships across India with COA included. ${shipping} For research use only; not for human consumption.`,
+      'RetraLabs is a trusted source to buy Tirzepatide online in India for laboratory use. Each vial is a sterile, nitrogen-sealed lyophilised powder from GMP-certified manufacturers, independently HPLC tested batch by batch, starting at ₹2,800 with lower per-vial pricing on 10mg×2 and 10mg×5 packs.',
+      'Every Tirzepatide batch ships with a Certificate of Analysis documenting the 99.4% HPLC purity, batch number and identity — the verification that separates a genuine research supplier from the grey-market sellers common in India. You can request the HPLC report to independently confirm what you received.',
+      'How to buy Tirzepatide in India from RetraLabs: pick your vial pack above, add to cart (bacteriostatic water is bundled automatically for reconstitution), and check out with UPI, bank transfer or Cash on Delivery. Same-day dispatch before 2 PM.',
+      `Tirzepatide ships India-wide with COA included. ${shipping} For research use only; not for human consumption.`,
     ],
     faqs: [
       { q: 'Where to buy Tirzepatide in India?', a: 'Tirzepatide for research use is available in India at RetraLabs — 99.4% HPLC-verified with a COA, shipped India-wide with Cash on Delivery available.' },
       { q: 'What is the price of Tirzepatide in India?', a: 'RetraLabs Tirzepatide starts at ₹2,800 per vial with lower per-vial pricing on multi-vial packs. Every order includes a COA and HPLC report.' },
       { q: 'Is Tirzepatide legal to buy in India?', a: 'Tirzepatide is supplied strictly for laboratory and analytical research. RetraLabs sells only to qualified researchers; it is not for human consumption.' },
+      { q: 'How do I verify Tirzepatide quality?', a: 'Every order includes a Certificate of Analysis with the HPLC purity result (99.4%), batch number and identity. You can request the batch HPLC trace to independently verify it.' },
+      { q: 'Do you offer Cash on Delivery for Tirzepatide?', a: 'Yes. RetraLabs offers COD across India along with UPI and bank transfer, in temperature-controlled discreet packaging.' },
     ],
   },
 

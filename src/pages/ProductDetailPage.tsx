@@ -179,8 +179,8 @@ export default function ProductDetailPage() {
     : undefined;
 
   useSEO({
-    title: product ? `Buy ${product.name} India | ${seoPurity}% Purity | ${format(lowestPrice)} | RetraLabs` : 'Research Peptides India | RetraLabs',
-    description: product ? `Buy ${product.name} in India. ${seoPurity}% HPLC-verified purity, COA included. From ${format(lowestPrice)}. Free shipping.` : '',
+    title: product ? `Buy ${product.name} India — ${seoPurity}% Pure, COA | From ${format(lowestPrice)}` : 'Research Peptides India | RetraLabs',
+    description: product ? `Buy ${product.name} in India — ${seoPurity}% HPLC-verified with COA on every order. From ${format(lowestPrice)}. Cash on Delivery, same-day dispatch & fast India-wide shipping.` : '',
     canonical: canonicalUrl,
     ...(product
       ? {
@@ -658,6 +658,37 @@ export default function ProductDetailPage() {
           </div>
         </div>
       )}
+
+      {/* ─── Trust / E-E-A-T signals (always visible → prerendered) ──────── */}
+      <div className="border-t border-[#E5E7EB] bg-[#F5F7FA]">
+        <div className="max-w-[1000px] mx-auto px-6 py-14">
+          <h2 className="text-[#111111] text-[24px] sm:text-[28px] font-bold tracking-[-0.02em] mb-3 text-center">
+            Why Researchers Trust RetraLabs
+          </h2>
+          <p className="text-[#6B7280] text-[15px] leading-[1.8] max-w-[680px] mx-auto text-center mb-10">
+            India&apos;s research-peptide market is full of grey-market sellers and fake vials.
+            RetraLabs was built by researchers who&apos;d been scammed — every batch is verified
+            before it ships, and the proof travels with your order. That&apos;s why the
+            r/retralabs community and Trustpilot reviewers keep coming back.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {[
+              { icon: FlaskConical, title: 'Independent HPLC Testing', body: 'Every batch is verified by high-performance liquid chromatography to 99%+ purity before it leaves the lab.' },
+              { icon: FileCheck,    title: 'COA With Every Order',     body: 'A Certificate of Analysis documents purity, batch number and identity — request the full HPLC trace anytime.' },
+              { icon: ShieldCheck,  title: 'GMP-Certified Sourcing',   body: 'Compounds are sourced directly from GMP-certified manufacturers with full batch traceability. No middlemen.' },
+              { icon: Truck,        title: 'Cold-Chain, Discreet Shipping', body: 'Temperature-controlled, unmarked packaging shipped India-wide with same-day dispatch and COD available.' },
+            ].map((item, i) => (
+              <div key={i} className="bg-white border border-[#E5E7EB] rounded-[16px] p-6 flex flex-col gap-3">
+                <div className="w-11 h-11 rounded-[12px] bg-[#EFF6FF] flex items-center justify-center">
+                  <item.icon className="w-[22px] h-[22px] text-[#2563EB]" strokeWidth={1.8} />
+                </div>
+                <h3 className="text-[#111111] text-[15px] font-bold">{item.title}</h3>
+                <p className="text-[#6B7280] text-[13px] leading-[1.7]">{item.body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
 
       {/* ─── Related Products ────────────────────────────────────────────── */}
       <div className="border-t border-[#E5E7EB] bg-[#FAFAFA]">
