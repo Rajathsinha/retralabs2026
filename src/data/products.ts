@@ -21,9 +21,12 @@ export const PRODUCTS: ProductWithVariants[] = [
     image_url: '/TIRZ.png',
     created_at: new Date().toISOString(),
     variants: [
-      { id: '2x', product_id: '2', dosage_mg: 10, price_inr: 2800, in_stock: true, vial_configuration: 'Single vial',  created_at: new Date().toISOString() },
-      { id: '2a', product_id: '2', dosage_mg: 20, price_inr: 5400, in_stock: true, vial_configuration: '10mg × 2',     created_at: new Date().toISOString() },
-      { id: '2b', product_id: '2', dosage_mg: 50, price_inr: 9000, in_stock: true, vial_configuration: '10mg × 5',     created_at: new Date().toISOString() },
+      { id: '2x', product_id: '2', dosage_mg: 10,  price_inr: 2800,  in_stock: true, vial_configuration: 'Single vial',  created_at: new Date().toISOString() },
+      { id: '2a', product_id: '2', dosage_mg: 20,  price_inr: 5400,  in_stock: true, vial_configuration: '10mg × 2',     created_at: new Date().toISOString() },
+      { id: '2b', product_id: '2', dosage_mg: 50,  price_inr: 9000,  in_stock: true, vial_configuration: '10mg × 5',     created_at: new Date().toISOString() },
+      { id: '2c', product_id: '2', dosage_mg: 40,  price_inr: 7000,  in_stock: true, vial_configuration: '40mg Single',  created_at: new Date().toISOString() },
+      { id: '2d', product_id: '2', dosage_mg: 80,  price_inr: 13000, in_stock: true, vial_configuration: '40mg × 2',     created_at: new Date().toISOString() },
+      { id: '2e', product_id: '2', dosage_mg: 200, price_inr: 35000, in_stock: true, vial_configuration: '40mg × 5',     created_at: new Date().toISOString() },
     ],
   },
   {
