@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { X, Trash2, ShoppingBag, Tag, ChevronRight, Minus, Plus } from 'lucide-react';
+import { X, Trash2, ShoppingBag, Tag, ChevronRight, Minus, Plus, MessageCircle } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { getProductImageUrl, BAC_WATER_IMAGE_URL } from '../utils/imageUrl';
+import { shareCartToWhatsApp, CartShareData } from '../utils/cartShare';
+import { WHATSAPP_NUMBER } from '../constants/config';
 
 export default function CartDrawer() {
   const navigate = useNavigate();
@@ -19,8 +21,33 @@ export default function CartDrawer() {
   const [couponInput,  setCouponInput]  = useState('');
   const [couponStatus, setCouponStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [couponMsg,    setCouponMsg]    = useState('');
+  const [sharing,      setSharing]      = useState(false);
 
   const totalItems = cart.reduce((s, i) => s + i.quantity, 0);
+
+  async function handleDiscussWhatsApp() {
+    if (!cart.length || sharing) return;
+    setSharing(true);
+    try {
+      const data: CartShareData = {
+        lines: cart.map(item => ({
+          name: item.product.name,
+          config: item.variant.vial_configuration || `${item.variant.dosage_mg}mg`,
+          qty: item.quantity,
+          lineTotal: item.variant.price_inr * item.quantity,
+        })),
+        subtotal: getSubtotal(),
+        discountPct: getDiscount(),
+        discountAmount: getDiscountAmount(),
+        couponCode,
+        couponAmount: getCouponAmount(),
+        total: getTotal(),
+      };
+      await shareCartToWhatsApp(data, WHATSAPP_NUMBER);
+    } finally {
+      setSharing(false);
+    }
+  }
 
   function handleApplyCoupon() {
     if (!couponInput.trim()) return;
@@ -258,6 +285,16 @@ export default function CartDrawer() {
                   >
                     Proceed to Checkout
                     <ChevronRight className="w-4 h-4" />
+                  </button>
+
+                  {/* Discuss on WhatsApp — shares a cart image / text summary */}
+                  <button
+                    onClick={handleDiscussWhatsApp}
+                    disabled={sharing}
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-[1.5px] border-[#25D366] text-[#128C7E] font-semibold text-sm hover:bg-[#25D366]/5 active:scale-[0.98] transition-all disabled:opacity-60"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    {sharing ? 'Preparing…' : 'Discuss Prices on WhatsApp'}
                   </button>
 
                   {/* Clear cart */}
