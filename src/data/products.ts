@@ -76,10 +76,10 @@ export const PRODUCTS: ProductWithVariants[] = [
     image_url: '/BPC.png',
     created_at: new Date().toISOString(),
     variants: [
-      { id: '7a', product_id: '7', dosage_mg: 10,  price_inr: 2700,  in_stock: true, created_at: new Date().toISOString() },
-      { id: '7b', product_id: '7', dosage_mg: 20,  price_inr: 5000,  in_stock: true, created_at: new Date().toISOString() },
-      { id: '7c', product_id: '7', dosage_mg: 50,  price_inr: 12000, in_stock: true, created_at: new Date().toISOString() },
-      { id: '7d', product_id: '7', dosage_mg: 100, price_inr: 16000, in_stock: true, created_at: new Date().toISOString() },
+      { id: '7a', product_id: '7', dosage_mg: 10,  price_inr: 2800,  in_stock: true, vial_configuration: 'Single vial', created_at: new Date().toISOString() },
+      { id: '7b', product_id: '7', dosage_mg: 20,  price_inr: 5400,  in_stock: true, vial_configuration: '10mg × 2',    created_at: new Date().toISOString() },
+      { id: '7c', product_id: '7', dosage_mg: 50,  price_inr: 13000, in_stock: true, vial_configuration: '10mg × 5',    created_at: new Date().toISOString() },
+      { id: '7d', product_id: '7', dosage_mg: 100, price_inr: 21000, in_stock: true, vial_configuration: '10mg × 10',   created_at: new Date().toISOString() },
     ],
   },
   {
@@ -90,10 +90,8 @@ export const PRODUCTS: ProductWithVariants[] = [
     image_url: '/NAD+.png',
     created_at: new Date().toISOString(),
     variants: [
-      { id: '8a', product_id: '8', dosage_mg: 10,  price_inr: 4500,  in_stock: true, created_at: new Date().toISOString() },
-      { id: '8b', product_id: '8', dosage_mg: 20,  price_inr: 8000,  in_stock: true, created_at: new Date().toISOString() },
-      { id: '8c', product_id: '8', dosage_mg: 50,  price_inr: 17000, in_stock: true, created_at: new Date().toISOString() },
-      { id: '8d', product_id: '8', dosage_mg: 100, price_inr: 30000, in_stock: true, created_at: new Date().toISOString() },
+      { id: '8a', product_id: '8', dosage_mg: 500,  price_inr: 4000, in_stock: true, vial_configuration: '500mg Single', created_at: new Date().toISOString() },
+      { id: '8b', product_id: '8', dosage_mg: 1000, price_inr: 7200, in_stock: true, vial_configuration: '500mg × 2',    created_at: new Date().toISOString() },
     ],
   },
   {
@@ -144,9 +142,8 @@ export const PRODUCTS: ProductWithVariants[] = [
     image_url: '/KLOW.png',
     created_at: new Date().toISOString(),
     variants: [
-      { id: '12a', product_id: '12', dosage_mg: 80,  price_inr: 5200,  in_stock: true, vial_configuration: '1×80mg', created_at: new Date().toISOString() },
-      { id: '12b', product_id: '12', dosage_mg: 160, price_inr: 9000,  in_stock: true, vial_configuration: '2×80mg', created_at: new Date().toISOString() },
-      { id: '12c', product_id: '12', dosage_mg: 400, price_inr: 21000, in_stock: true, vial_configuration: '5×80mg', created_at: new Date().toISOString() },
+      { id: '12a', product_id: '12', dosage_mg: 80,  price_inr: 6000,  in_stock: true, vial_configuration: '1×80mg', created_at: new Date().toISOString() },
+      { id: '12b', product_id: '12', dosage_mg: 160, price_inr: 11000, in_stock: true, vial_configuration: '2×80mg', created_at: new Date().toISOString() },
     ],
   },
   {
@@ -158,8 +155,8 @@ export const PRODUCTS: ProductWithVariants[] = [
     created_at: new Date().toISOString(),
     variants: [
       { id: '13a', product_id: '13', dosage_mg: 10,  price_inr: 3700,  in_stock: true, vial_configuration: '1 vial (5mg+5mg)',  created_at: new Date().toISOString() },
-      { id: '13b', product_id: '13', dosage_mg: 20,  price_inr: 6300,  in_stock: true, vial_configuration: '2 vials (5mg+5mg)', created_at: new Date().toISOString() },
-      { id: '13c', product_id: '13', dosage_mg: 50,  price_inr: 12800, in_stock: true, vial_configuration: '5 vials (5mg+5mg)', created_at: new Date().toISOString() },
+      { id: '13b', product_id: '13', dosage_mg: 20,  price_inr: 6800,  in_stock: true, vial_configuration: '2 vials (5mg+5mg)', created_at: new Date().toISOString() },
+      { id: '13c', product_id: '13', dosage_mg: 50,  price_inr: 14100, in_stock: true, vial_configuration: '5 vials (5mg+5mg)', created_at: new Date().toISOString() },
     ],
   },
   {
@@ -171,8 +168,8 @@ export const PRODUCTS: ProductWithVariants[] = [
     created_at: new Date().toISOString(),
     variants: [
       { id: '14a', product_id: '14', dosage_mg: 10,  price_inr: 3900,  in_stock: true, vial_configuration: '1 vial (5mg+5mg)',  created_at: new Date().toISOString() },
-      { id: '14b', product_id: '14', dosage_mg: 20,  price_inr: 5800,  in_stock: true, vial_configuration: '2 vials (5mg+5mg)', created_at: new Date().toISOString() },
-      { id: '14c', product_id: '14', dosage_mg: 50,  price_inr: 12500, in_stock: true, vial_configuration: '5 vials (5mg+5mg)', created_at: new Date().toISOString() },
+      { id: '14b', product_id: '14', dosage_mg: 20,  price_inr: 7100,  in_stock: true, vial_configuration: '2 vials (5mg+5mg)', created_at: new Date().toISOString() },
+      { id: '14c', product_id: '14', dosage_mg: 50,  price_inr: 15150, in_stock: true, vial_configuration: '5 vials (5mg+5mg)', created_at: new Date().toISOString() },
     ],
   },
   {
