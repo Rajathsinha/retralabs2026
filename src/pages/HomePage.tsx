@@ -147,11 +147,11 @@ export default function HomePage() {
 
       {/* ═══════════════════════════ HERO ═══════════════════════════ */}
       <section className="relative overflow-hidden">
-        <div className="max-w-[1440px] mx-auto px-4 lg:px-10" style={{ paddingTop: 'clamp(32px,5vw,80px)', paddingBottom: 'clamp(32px,5vw,80px)' }}>
-          <div className="grid grid-cols-2 gap-4 sm:gap-8 lg:gap-20 items-center">
+        <div className="max-w-[1440px] mx-auto px-3 sm:px-6 lg:px-10" style={{ paddingTop: 'clamp(40px,8vw,100px)', paddingBottom: 'clamp(40px,8vw,100px)' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 lg:gap-20 items-center">
 
             {/* ── Left Column ── */}
-            <div className="min-w-0 flex flex-col" style={{ gap: 'clamp(10px, 2vw, 28px)' }}>
+            <div className="min-w-0 flex flex-col" style={{ gap: 'clamp(16px, 3vw, 32px)' }}>
               {/* Badge */}
               <div className="inline-flex items-center gap-1.5 w-fit px-3 py-[5px] rounded-full border border-[#2563EB]/20 bg-[#EFF6FF]">
                 <div className="w-[5px] h-[5px] rounded-full bg-[#2563EB] animate-pulse flex-shrink-0" />
@@ -215,25 +215,25 @@ export default function HomePage() {
               </div>
 
               {/* CTAs */}
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-3 w-full sm:w-auto">
                 <button
                   type="button"
                   onClick={() => navigate('/catalogue')}
-                  className="group flex items-center gap-2 bg-[#111111] hover:bg-[#1a1a1a] text-white font-semibold px-3 py-2 sm:px-7 sm:py-4 transition-all duration-200 hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.3)] active:scale-[0.97]"
-                  style={{ fontSize: 'clamp(10px,1.1vw,15px)', borderRadius: 10 }}
+                  className="group flex items-center justify-center gap-2 bg-[#111111] hover:bg-[#1a1a1a] text-white font-semibold px-6 py-3 sm:px-7 sm:py-4 transition-all duration-200 hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.3)] active:scale-[0.97] flex-1 sm:flex-none"
+                  style={{ fontSize: 'clamp(13px,1.1vw,15px)', borderRadius: 10 }}
                 >
                   Shop the Real Stuff
-                  <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                  <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform duration-200 group-hover:translate-x-0.5" />
                 </button>
                 <a
                   href={BUSINESS_NAP.social.trustpilot}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group flex items-center gap-2 border-[1.5px] border-[#E5E7EB] hover:border-[#111111] text-[#374151] hover:text-[#111111] font-semibold px-3 py-2 sm:px-7 sm:py-4 bg-white transition-all duration-200 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]"
-                  style={{ fontSize: 'clamp(10px,1.1vw,15px)', borderRadius: 10 }}
+                  className="group flex items-center justify-center gap-2 border-[1.5px] border-[#E5E7EB] hover:border-[#111111] text-[#374151] hover:text-[#111111] font-semibold px-6 py-3 sm:px-7 sm:py-4 bg-white transition-all duration-200 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] flex-1 sm:flex-none"
+                  style={{ fontSize: 'clamp(13px,1.1vw,15px)', borderRadius: 10 }}
                 >
                   Read Our Reviews
-                  <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                  <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform duration-200 group-hover:translate-x-0.5" />
                 </a>
               </div>
             </div>
