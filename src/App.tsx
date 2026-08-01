@@ -4,7 +4,6 @@ import { CartProvider } from './context/CartContext';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import CodBanner from './components/CodBanner';
-import CodAnnouncementModal from './components/CodAnnouncementModal';
 const WhatsAppButton = lazy(() => import('./components/WhatsAppButton'));
 const CartDrawer     = lazy(() => import('./components/CartDrawer'));
 
@@ -89,7 +88,6 @@ function RootLayout() {
           <CodBanner />
         </HeroUIWrapper>
       </Suspense>
-      <CodAnnouncementModal />
     </div>
   );
 }
