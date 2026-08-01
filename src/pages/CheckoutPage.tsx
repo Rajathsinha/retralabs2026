@@ -622,87 +622,125 @@ export default function CheckoutPage() {
   if (orderReady) {
     const isCodReview = paymentMethod === 'cod';
     return (
-      <div className="min-h-screen bg-slate-50 px-4 py-10">
-        <div className="w-full max-w-md mx-auto">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-4 py-8">
+        <div className="w-full max-w-2xl mx-auto">
 
-          <div className="text-center mb-7">
-            <h2 className="text-2xl font-bold text-slate-900 mb-1">Review Your Order</h2>
-            <p className="text-slate-500 text-sm">Confirm below — we'll send details to your WhatsApp and email instantly.</p>
+          {/* Header */}
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-black text-white mb-2">Review & Pay</h1>
+            <p className="text-slate-300 text-sm">Confirm your order details and complete payment</p>
           </div>
 
-          {/* Order summary */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-4">
-            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Items</p>
-            <div className="space-y-2 mb-4">
+          {/* Order summary card */}
+          <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl p-6 mb-6">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">Order Summary</h3>
+            <div className="space-y-2 mb-4 pb-4 border-b border-slate-700">
               {cart.map((item) => (
-                <div key={item.variant.id} className="flex justify-between items-center">
+                <div key={item.variant.id} className="flex justify-between items-start">
                   <div>
-                    <p className="text-sm font-semibold text-slate-800">{item.product.name}</p>
-                    <p className="text-xs text-slate-400">{item.variant.vial_configuration || `${item.variant.dosage_mg}mg`} · qty {item.quantity}</p>
+                    <p className="text-sm font-semibold text-white">{item.product.name}</p>
+                    <p className="text-xs text-slate-400">{item.variant.vial_configuration || `${item.variant.dosage_mg}mg`} · qty ×{item.quantity}</p>
                   </div>
-                  <p className="text-sm font-bold text-slate-900">{format(item.variant.price_inr * item.quantity)}</p>
+                  <p className="text-sm font-bold text-emerald-400">{format(item.variant.price_inr * item.quantity)}</p>
                 </div>
               ))}
             </div>
-            {(getDiscount() > 0 || getCouponAmount() > 0 || deliveryCharge > 0 || isCodReview) && (
-              <div className="border-t border-slate-100 pt-3 space-y-1.5">
-                {getDiscount() > 0 && <div className="flex justify-between text-sm text-emerald-600"><span>5% Discount 🎉</span><span>&minus;{format(getDiscountAmount())}</span></div>}
-                {couponCode && getCouponAmount() > 0 && <div className="flex justify-between text-sm text-emerald-600"><span>Coupon ({couponCode.toUpperCase()})</span><span>&minus;{format(getCouponAmount())}</span></div>}
-                {deliveryCharge > 0 && <div className="flex justify-between text-sm text-amber-600"><span className="flex items-center gap-1"><Zap className="w-3.5 h-3.5" />Express Delivery</span><span>+{format(deliveryCharge)}</span></div>}
-                {isCodReview && <div className="flex justify-between text-sm text-orange-600"><span className="flex items-center gap-1"><Banknote className="w-3.5 h-3.5" />COD Fee</span><span>+{format(codCharge)}</span></div>}
-              </div>
-            )}
-            <div className="border-t border-slate-100 pt-3 flex justify-between items-center mt-2">
-              <span className="font-semibold text-slate-700">Total</span>
-              <span className="text-xl font-black text-slate-900">{format(grandTotal)}</span>
+
+            {/* Price breakdown */}
+            <div className="space-y-2 text-sm mb-4 pb-4 border-b border-slate-700">
+              {getDiscount() > 0 && <div className="flex justify-between text-emerald-400"><span>5% Discount 🎉</span><span>−{format(getDiscountAmount())}</span></div>}
+              {couponCode && getCouponAmount() > 0 && <div className="flex justify-between text-emerald-400"><span>Coupon ({couponCode})</span><span>−{format(getCouponAmount())}</span></div>}
+              {deliveryCharge > 0 && <div className="flex justify-between text-amber-400"><span className="flex items-center gap-1"><Zap className="w-3.5 h-3.5" />Express Delivery</span><span>+{format(deliveryCharge)}</span></div>}
+              {isCodReview && <div className="flex justify-between text-orange-400"><span className="flex items-center gap-1"><Banknote className="w-3.5 h-3.5" />COD Fee</span><span>+{format(codCharge)}</span></div>}
+            </div>
+
+            {/* Total */}
+            <div className="flex justify-between items-center">
+              <span className="text-slate-300 font-semibold">Total Amount</span>
+              <span className="text-3xl font-black text-emerald-400">{format(grandTotal)}</span>
             </div>
           </div>
 
-          {/* Customer + shipping info */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-6 space-y-1.5 text-sm">
-            <div className="flex justify-between"><span className="text-slate-500">Name</span><span className="font-semibold text-slate-900">{formData.customer_name}</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">Phone</span><span className="font-semibold text-slate-900">{formData.customer_phone}</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">Email</span><span className="font-semibold text-slate-900 text-right max-w-[60%] break-all">{formData.customer_email}</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">Address</span><span className="font-semibold text-slate-900 text-right max-w-[60%]">{formData.shipping_address}, PIN: {formData.pincode}</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">Payment</span><span className="font-semibold text-slate-900">{isCodReview ? 'Cash on Delivery' : 'UPI / Online'}</span></div>
+          {/* Customer details card */}
+          <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl p-6 mb-6">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">Delivery Details</h3>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between"><span className="text-slate-400">Name</span><span className="font-semibold text-white">{formData.customer_name}</span></div>
+              <div className="flex justify-between"><span className="text-slate-400">Phone</span><span className="font-semibold text-white">{formData.customer_phone}</span></div>
+              <div className="flex justify-between"><span className="text-slate-400">Email</span><span className="font-semibold text-white text-right max-w-[60%] break-all">{formData.customer_email}</span></div>
+              <div className="pt-2 border-t border-slate-700"><span className="text-slate-400 block mb-1">Address</span><span className="font-semibold text-white text-sm">{formData.shipping_address}, PIN: {formData.pincode}</span></div>
+            </div>
           </div>
 
-          {/* Error banner — order could not be saved */}
+          {/* Error banner */}
           {submitError && (
-            <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-4 flex items-start gap-3">
+            <div className="bg-red-500/20 border border-red-500/50 rounded-2xl p-4 mb-6 flex items-start gap-3">
               <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
                 <X className="w-4 h-4 text-white" />
               </div>
               <div>
-                <p className="text-sm font-bold text-red-900 mb-0.5">Order not placed</p>
-                <p className="text-xs text-red-700 leading-relaxed break-words">{submitError}</p>
+                <p className="text-sm font-bold text-red-300 mb-0.5">Order not placed</p>
+                <p className="text-xs text-red-300 leading-relaxed break-words">{submitError}</p>
               </div>
             </div>
           )}
 
-          {/* CTAs — behaviour differs by payment method */}
+          {/* Payment options */}
           {isCodReview ? (
             /* COD: single confirm button */
-            <button
-              onClick={handleConfirmOrder}
-              disabled={confirming}
-              className="w-full flex items-center justify-center gap-3 bg-slate-900 hover:bg-slate-700 disabled:opacity-60 text-white font-bold text-lg py-4 rounded-2xl transition-all duration-200 shadow-lg"
-            >
-              {confirming ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <><Check className="w-5 h-5" />Confirm COD Order</>
-              )}
-            </button>
+            <div className="space-y-3 mb-6">
+              <button
+                onClick={handleConfirmOrder}
+                disabled={confirming}
+                className="w-full flex items-center justify-center gap-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-bold text-base py-4 rounded-xl transition-all duration-200 shadow-lg"
+              >
+                {confirming ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <><Check className="w-5 h-5" />Confirm COD Order</>
+                )}
+              </button>
+            </div>
           ) : (
-            /* Prepay: UPI QR is the primary action */
-            <button
-              onClick={() => setShowQrModal(true)}
-              disabled={confirming}
-              className="w-full flex items-center justify-center gap-3 bg-slate-900 hover:bg-slate-700 disabled:opacity-60 text-white font-bold text-lg py-4 rounded-2xl transition-all duration-200 shadow-lg"
-            >
-              <Check className="w-5 h-5" />Pay via UPI QR
-            </button>
+            /* Prepay: Multiple payment options */
+            <div className="space-y-3 mb-6">
+              <p className="text-xs text-slate-400 text-center uppercase tracking-wider font-semibold mb-3">Pay via UPI</p>
+
+              <div className="grid grid-cols-3 gap-3">
+                {/* UPI QR */}
+                <button
+                  onClick={() => setShowQrModal(true)}
+                  className="flex flex-col items-center gap-2 p-4 bg-slate-800/50 hover:bg-slate-700 border border-slate-700 hover:border-blue-500 rounded-xl transition-all duration-200"
+                >
+                  <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                    <div className="w-6 h-6 border-2 border-blue-400 rounded" />
+                  </div>
+                  <span className="text-xs font-semibold text-white text-center">UPI QR Code</span>
+                </button>
+
+                {/* PAYTM */}
+                <a
+                  href={`upi://pay?pa=7019917927@superyes&pn=RetraLabs&am=${grandTotal}&tn=RetraLabs%20Order`}
+                  className="flex flex-col items-center gap-2 p-4 bg-slate-800/50 hover:bg-slate-700 border border-slate-700 hover:border-blue-600 rounded-xl transition-all duration-200"
+                >
+                  <div className="w-12 h-12 bg-blue-600/20 rounded-lg flex items-center justify-center">
+                    <span className="text-xl font-black text-blue-400">₹</span>
+                  </div>
+                  <span className="text-xs font-semibold text-white text-center">Paytm</span>
+                </a>
+
+                {/* GPAY */}
+                <a
+                  href={`upi://pay?pa=7019917927@superyes&pn=RetraLabs&am=${grandTotal}&tn=RetraLabs%20Order`}
+                  className="flex flex-col items-center gap-2 p-4 bg-slate-800/50 hover:bg-slate-700 border border-slate-700 hover:border-blue-400 rounded-xl transition-all duration-200"
+                >
+                  <div className="w-12 h-12 bg-blue-400/20 rounded-lg flex items-center justify-center">
+                    <span className="text-lg font-black text-blue-300">G</span>
+                  </div>
+                  <span className="text-xs font-semibold text-white text-center">Google Pay</span>
+                </a>
+              </div>
+            </div>
           )}
 
           <UpiQrModal
@@ -715,7 +753,7 @@ export default function CheckoutPage() {
 
           <button
             onClick={() => { setOrderReady(false); window.scrollTo({ top: 0, behavior: 'instant' }); }}
-            className="w-full mt-3 text-sm text-slate-400 hover:text-slate-600 transition-colors py-2"
+            className="w-full text-center text-sm text-slate-400 hover:text-slate-300 transition-colors py-3"
           >
             ← Go back and edit
           </button>
