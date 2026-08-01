@@ -3,7 +3,6 @@ import { Routes, Route, Outlet, useLocation } from 'react-router-dom';
 import { CartProvider } from './context/CartContext';
 import Header from './components/Header';
 import Footer from './components/Footer';
-import CodBanner from './components/CodBanner';
 const WhatsAppButton = lazy(() => import('./components/WhatsAppButton'));
 const CartDrawer     = lazy(() => import('./components/CartDrawer'));
 
@@ -85,7 +84,6 @@ function RootLayout() {
           <Footer />
           <WhatsAppButton />
           <CartDrawer />
-          <CodBanner />
         </HeroUIWrapper>
       </Suspense>
     </div>

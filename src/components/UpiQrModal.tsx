@@ -37,15 +37,15 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
   if (!isOpen) return null;
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 16, overflow: 'auto' }}>
       {/* Backdrop */}
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)' }} onClick={onClose} />
 
       {/* Modal */}
       <div style={{
-        position: 'relative', zIndex: 1, width: '100%', maxWidth: 400,
+        position: 'relative', zIndex: 1, width: '100%', maxWidth: 420, marginTop: 'max(20px, 10vh)',
         background: '#040C1E', border: '1px solid rgba(255,255,255,0.1)',
-        borderRadius: 24, overflow: 'hidden', boxShadow: '0 32px 100px rgba(0,0,0,0.8)',
+        borderRadius: 24, overflow: 'hidden', boxShadow: '0 32px 100px rgba(0,0,0,0.8)', marginBottom: 20,
       }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 20px 0' }}>
