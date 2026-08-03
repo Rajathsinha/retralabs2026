@@ -7,11 +7,13 @@ import Logo from './Logo';
 import SearchModal from './SearchModal';
 import { BUSINESS_NAP } from '../constants/config';
 
-const MARQUEE_MESSAGES = [
-  '\u00A0\u00A0\u00A0🚚 FREE SHIPPING ACROSS INDIA\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0',
-  '\u00A0\u00A0\u00A0⚡ FASTEST DELIVERY IN INDIA\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0',
-  '\u00A0\u00A0\u00A0✅ CASH ON DELIVERY AVAILABLE\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0',
-  '\u00A0\u00A0\u00A0🔬 99%+ HPLC VERIFIED PURITY\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0',
+const MARQUEE_ITEMS = [
+  { dot: '#22C55E', text: 'Free Shipping Across India' },
+  { dot: '#3B82F6', text: 'Cash on Delivery Available' },
+  { dot: '#F59E0B', text: 'Fastest Delivery · 1–2 Days' },
+  { dot: '#22C55E', text: '99%+ HPLC Verified Purity' },
+  { dot: '#3B82F6', text: 'Direct Manufacturer Sourcing' },
+  { dot: '#F59E0B', text: 'Discreet Packaging Guaranteed' },
 ];
 
 const NAV_ITEMS: { path: string; label: string; external?: boolean }[] = [
@@ -75,7 +77,7 @@ export default function Header() {
   const active = (path: string) =>
     path === '/' ? location.pathname === '/' : location.pathname.startsWith(path);
 
-  const marqueeText = MARQUEE_MESSAGES.join('');
+
 
   return (
     <>
@@ -84,12 +86,18 @@ export default function Header() {
       <div className={`sticky top-0 z-50 transition-all duration-300 ${scrolled ? 'shadow-[0_1px_20px_rgba(0,0,0,0.06)]' : ''}`}>
 
         {/* ── Announcement Bar ── */}
-        <div className="bg-[#111111] overflow-hidden" style={{ height: 40 }}>
+        <div className="bg-[#0A0A0A] border-b border-white/5 overflow-hidden" style={{ height: 36 }}>
           <div className="relative h-full flex items-center">
-            <div className="animate-marquee whitespace-nowrap flex items-center h-full">
-              <span className="text-white/90 text-[11px] font-semibold tracking-[0.08em] uppercase">
-                {marqueeText}{marqueeText}
-              </span>
+            <div className="animate-marquee whitespace-nowrap inline-flex items-center gap-0">
+              {[...MARQUEE_ITEMS, ...MARQUEE_ITEMS].map((item, i) => (
+                <span key={i} className="inline-flex items-center">
+                  <span className="inline-flex items-center gap-2 px-8">
+                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: item.dot }} />
+                    <span className="text-white/80 text-[11px] font-medium tracking-[0.06em] uppercase">{item.text}</span>
+                  </span>
+                  <span className="text-white/15 text-[10px]">|</span>
+                </span>
+              ))}
             </div>
           </div>
         </div>

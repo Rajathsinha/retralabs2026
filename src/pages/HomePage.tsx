@@ -264,17 +264,19 @@ export default function HomePage() {
                 >
                   {/* Pulsing glow */}
                   <div
+                    className="animate-pulse-soft"
                     style={{
                       position: 'absolute',
                       inset: 0,
                       borderRadius: '50%',
-                      background: 'radial-gradient(ellipse 70% 65% at 50% 52%, rgba(37,99,235,0.15) 0%, rgba(37,99,235,0.05) 50%, transparent 80%)',
+                      background: 'radial-gradient(ellipse 70% 65% at 50% 52%, rgba(37,99,235,0.18) 0%, rgba(37,99,235,0.06) 50%, transparent 80%)',
                       pointerEvents: 'none',
                     }}
                   />
 
                   {/* Floating animation */}
                   <div
+                    className="animate-float"
                     style={{ position: 'relative', width: '100%', height: '100%' }}
                   >
                     <img
