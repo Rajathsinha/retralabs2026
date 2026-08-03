@@ -1,5 +1,3 @@
-import { Box } from 'lucide-react';
-
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg';
   variant?: 'light' | 'dark';
@@ -7,35 +5,27 @@ interface LogoProps {
 
 export default function Logo({ size = 'md', variant = 'dark' }: LogoProps) {
   const sizes = {
-    sm: { container: 'w-7 h-7',   icon: 'w-3.5 h-3.5', text: 'text-sm',  dot: 'w-1 h-1' },
-    md: { container: 'w-10 h-10', icon: 'w-5 h-5',     text: 'text-lg',  dot: 'w-1.5 h-1.5' },
-    lg: { container: 'w-12 h-12', icon: 'w-6 h-6',     text: 'text-2xl', dot: 'w-2 h-2' },
+    sm: { img: 'w-7 h-7',   text: 'text-[15px]', dot: 'w-1.5 h-1.5', gap: 'gap-2.5' },
+    md: { img: 'w-9 h-9',   text: 'text-[18px]', dot: 'w-2 h-2',     gap: 'gap-3'   },
+    lg: { img: 'w-11 h-11', text: 'text-[22px]', dot: 'w-2 h-2',     gap: 'gap-3.5' },
   };
 
-  const { container, icon, text, dot } = sizes[size];
-  const isLight = variant === 'light';
-  const textColor = isLight ? 'text-white' : 'text-slate-900';
+  const { img, text, dot, gap } = sizes[size];
+  const textColor = variant === 'light' ? 'text-white' : 'text-slate-900';
 
   return (
-    <div className="flex items-center gap-3">
-      <div
-        className={`${container} rounded-[14px] flex items-center justify-center flex-shrink-0`}
-        style={{
-          background: isLight
-            ? 'rgba(255,255,255,0.12)'
-            : 'linear-gradient(135deg, rgba(43,127,255,0.10) 0%, rgba(99,179,237,0.06) 100%)',
-          border: isLight
-            ? '1px solid rgba(255,255,255,0.18)'
-            : '1px solid rgba(43,127,255,0.18)',
-          boxShadow: isLight
-            ? '0 4px 16px rgba(0,0,0,0.12)'
-            : '0 2px 10px rgba(43,127,255,0.10), inset 0 1px 0 rgba(255,255,255,0.7)',
-        }}
-      >
-        <Box className={`${icon} text-[#2B7FFF]`} strokeWidth={2.2} />
-      </div>
+    <div className={`flex items-center ${gap}`}>
+      <img
+        src="/favicon.png"
+        alt="RetraLabs"
+        className={`${img} rounded-[10px] flex-shrink-0`}
+        style={{ objectFit: 'cover' }}
+      />
       <div className="flex items-baseline gap-1.5">
-        <span className={`${text} font-semibold tracking-tight ${textColor}`} style={{ fontFamily: "'Geist', 'Inter', sans-serif" }}>
+        <span
+          className={`${text} font-semibold tracking-tight ${textColor}`}
+          style={{ fontFamily: "'Geist', 'Inter', system-ui, sans-serif" }}
+        >
           RetraLabs
         </span>
         <span
