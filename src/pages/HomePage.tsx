@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, useMemo } from 'react';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import {
   ArrowRight, Star, CheckCircle, Zap, Truck, Lock,
@@ -67,6 +67,37 @@ const HOME_FAQS = [
   },
 ];
 
+// ── Per-character text reveal (pure CSS, no library) ──────────────────────────
+function CharReveal({ text, className = '', color, staggerMs = 32, delayMs = 0 }: {
+  text: string;
+  className?: string;
+  color?: string;
+  staggerMs?: number;
+  delayMs?: number;
+}) {
+  // Split preserving spaces
+  const chars = useMemo(() => [...text], [text]);
+  return (
+    <span className={className} style={{ display: 'inline', color }} aria-label={text}>
+      {chars.map((ch, i) => (
+        <span
+          key={i}
+          aria-hidden="true"
+          style={{
+            display: 'inline-block',
+            whiteSpace: ch === ' ' ? 'pre' : undefined,
+            opacity: 0,
+            transform: 'translateY(10px)',
+            filter: 'blur(6px)',
+            animation: `charReveal 0.55s cubic-bezier(0.22,1,0.36,1) forwards`,
+            animationDelay: `${delayMs + i * staggerMs}ms`,
+          }}
+        >{ch}</span>
+      ))}
+    </span>
+  );
+}
+
 function useInView(threshold = 0.15) {
   const ref = useRef<HTMLDivElement>(null);
   const [inView, setInView] = useState(false);
@@ -103,7 +134,6 @@ function Reveal({ children, delay = 0, className = '' }: { children: React.React
 export default function HomePage() {
   const navigate = useNavigate();
   const [slideIndex, setSlideIndex] = useState(0);
-  const [visible, setVisible] = useState(true);
 
   useSEO({
     title: 'Buy Research Peptides India | Retatrutide, Tirzepatide | RetraLabs Bengaluru',
@@ -123,13 +153,9 @@ export default function HomePage() {
   useEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout>;
     const interval = setInterval(() => {
-      setVisible(false);
-      timeoutId = setTimeout(() => {
-        setSlideIndex(i => (i + 1) % HERO_SLIDES.length);
-        setVisible(true);
-      }, 400);
+      setSlideIndex(i => (i + 1) % HERO_SLIDES.length);
     }, 4000);
-    return () => { clearInterval(interval); clearTimeout(timeoutId); };
+    return () => clearInterval(interval);
   }, []);
 
   const slide = HERO_SLIDES[slideIndex];
@@ -164,22 +190,22 @@ export default function HomePage() {
 
               {/* Headline + dots */}
               <div>
-                <div
-                  style={{
-                    opacity: visible ? 1 : 0,
-                    transform: visible ? 'translateY(0)' : 'translateY(10px)',
-                    transition: 'opacity 0.35s ease, transform 0.35s ease',
-                  }}
-                >
-                    <h1 className="text-[#111111] text-[clamp(32px,6vw,64px)] font-bold tracking-[-0.03em] leading-[1.05]">
-                      {`${slide.lines[0]} ${slide.lines[1]}`}
+                <div key={slideIndex}>
+                    <h1
+                      className="text-[#111111] text-[clamp(32px,6vw,64px)] tracking-[-0.03em] leading-[1.05]"
+                      style={{ fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 700 }}
+                    >
+                      <CharReveal text={`${slide.lines[0]} ${slide.lines[1]}`} staggerMs={28} />
                     </h1>
                     <div style={{ marginTop: '0.5rem' }}>
-                      <h2 className="text-[#2563EB] text-[clamp(32px,6vw,64px)] font-bold tracking-[-0.03em] leading-[1.05]">
-                        {slide.accent}
+                      <h2
+                        className="text-[#2563EB] text-[clamp(32px,6vw,64px)] tracking-[-0.03em] leading-[1.05]"
+                        style={{ fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 700 }}
+                      >
+                        <CharReveal text={slide.accent} staggerMs={35} delayMs={slide.lines[0].length + slide.lines[1].length + 1} />
                       </h2>
                     </div>
-                  </div>
+                </div>
 
                 {/* Slide dots */}
                 <div className="flex items-center gap-1.5 mt-3 sm:mt-5">
@@ -188,7 +214,7 @@ export default function HomePage() {
                       key={i}
                       type="button"
                       aria-label={`Slide ${i + 1}`}
-                      onClick={() => { setVisible(false); setTimeout(() => { setSlideIndex(i); setVisible(true); }, 400); }}
+                      onClick={() => setSlideIndex(i)}
                       className="transition-all duration-300"
                       style={{
                         width: i === slideIndex ? 20 : 6,

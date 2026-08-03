@@ -124,3 +124,23 @@
     animation: none;
   }
 }
+
+/* ── Per-character hero text reveal ── */
+@keyframes charReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+    filter: blur(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  @keyframes charReveal {
+    0% { opacity: 0; }
+    100% { opacity: 1; transform: none; filter: none; }
+  }
+}
