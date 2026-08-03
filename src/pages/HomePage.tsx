@@ -333,13 +333,31 @@ export default function HomePage() {
               </div>
 
               {/* Floating badges — visible on sm+, inline trust row on mobile */}
-              <div className="hidden sm:block absolute top-6 left-4 bg-white border border-[#E5E7EB] px-5 py-3.5 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.10)]" style={{ borderRadius: 16, zIndex: 2 }}>
-                <p className="text-[#111111] text-[13px] font-bold leading-tight">99%+ Purity</p>
-                <p className="text-[#9CA3AF] text-[11px] mt-0.5 font-medium">HPLC Verified</p>
+              <div className="hidden sm:block absolute top-6 left-4 px-5 py-3.5 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.12)]"
+                style={{
+                  borderRadius: 16,
+                  zIndex: 2,
+                  background: 'rgba(255,255,255,0.55)',
+                  backdropFilter: 'blur(16px) saturate(180%)',
+                  WebkitBackdropFilter: 'blur(16px) saturate(180%)',
+                  border: '1px solid rgba(255,255,255,0.6)',
+                }}
+              >
+                <p className="text-[#111111] text-[13px] font-extrabold leading-tight tracking-tight">99%+ Purity</p>
+                <p className="text-[#374151] text-[11px] mt-0.5 font-bold">HPLC Verified</p>
               </div>
-              <div className="hidden sm:block absolute bottom-6 right-4 bg-white border border-[#E5E7EB] px-5 py-3.5 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.10)]" style={{ borderRadius: 16, zIndex: 2 }}>
-                <p className="text-[#111111] text-[13px] font-bold leading-tight">2,400+ Orders</p>
-                <p className="text-[#9CA3AF] text-[11px] mt-0.5 font-medium">Shipped India-wide</p>
+              <div className="hidden sm:block absolute bottom-6 right-4 px-5 py-3.5 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.12)]"
+                style={{
+                  borderRadius: 16,
+                  zIndex: 2,
+                  background: 'rgba(255,255,255,0.55)',
+                  backdropFilter: 'blur(16px) saturate(180%)',
+                  WebkitBackdropFilter: 'blur(16px) saturate(180%)',
+                  border: '1px solid rgba(255,255,255,0.6)',
+                }}
+              >
+                <p className="text-[#111111] text-[13px] font-extrabold leading-tight tracking-tight">2,400+ Orders</p>
+                <p className="text-[#374151] text-[11px] mt-0.5 font-bold">Shipped India-wide</p>
               </div>
             </div>
 
