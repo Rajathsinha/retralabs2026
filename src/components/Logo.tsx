@@ -15,12 +15,14 @@ export default function Logo({ size = 'md', variant = 'dark' }: LogoProps) {
 
   return (
     <div className={`flex items-center ${gap}`}>
-      <img
-        src="/favicon.png"
-        alt="RetraLabs"
-        className={`${img} rounded-[10px] flex-shrink-0`}
-        style={{ objectFit: 'cover' }}
-      />
+      <div className={`${img} rounded-[10px] flex-shrink-0 bg-white border border-[#EAECF0] flex items-center justify-center overflow-hidden`}>
+        <img
+          src="/favicon.png"
+          alt="RetraLabs"
+          className="w-full h-full"
+          style={{ objectFit: 'cover' }}
+        />
+      </div>
       <span
         className={`${text} font-semibold tracking-[-0.02em] ${textColor}`}
         style={{ fontFamily: "'Geist', 'Inter', system-ui, sans-serif" }}
