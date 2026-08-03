@@ -19,95 +19,36 @@ import UpiQrModal from '../components/UpiQrModal';
 const FAST_DELIVERY_CHARGE = 800;
 const WHATSAPP_SUPPORT_NUMBER = '918217824384';
 
-// ── Airtable ────────────────────────────────────────────────────────────────
-async function saveToAirtable(payload: Record<string, unknown>): Promise<string | null> {
-  const token  = import.meta.env.VITE_AIRTABLE_TOKEN;
-  const baseId = import.meta.env.VITE_AIRTABLE_BASE_ID;
-  const table  = import.meta.env.VITE_AIRTABLE_TABLE  || 'Orders';
-  if (!token || !baseId) throw new Error('Order database is not configured (missing Airtable credentials)');
-  const res = await fetch(`https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}`, {
+// ── Airtable (via Netlify Function — token stays server-side) ────────────────
+async function saveOrder(fields: Record<string, unknown>, screenshot?: { contentType: string; filename: string; base64: string }): Promise<string | null> {
+  const res = await fetch('/.netlify/functions/create-order', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fields: payload, typecast: true }),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields, screenshot }),
   });
   const json: any = await res.json().catch(() => null);
-  if (!res.ok) {
-    const detail = typeof json?.error === 'string' ? json.error : json?.error?.message;
-    throw new Error(detail ? `Airtable: ${detail}` : `Airtable request failed (HTTP ${res.status})`);
+  if (!res.ok || !json?.success) {
+    const detail = json?.error || `Order save failed (HTTP ${res.status})`;
+    throw new Error(detail);
   }
-  return json?.id || null;
+  if (json.screenshotWarning) console.warn(json.screenshotWarning);
+  return json.recordId || null;
 }
 
-async function uploadScreenshot(recordId: string, file: File) {
-  const token  = import.meta.env.VITE_AIRTABLE_TOKEN;
-  const baseId = import.meta.env.VITE_AIRTABLE_BASE_ID;
-  if (!token || !baseId) return;
-  const base64 = await new Promise<string>((resolve, reject) => {
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result as string;
-      resolve(result.split(',')[1]); // strip "data:image/...;base64," prefix
+      resolve(result.split(',')[1]);
     };
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
-  const res = await fetch(
-    `https://content.airtable.com/v0/${baseId}/${recordId}/Screenshot/uploadAttachment`,
-    {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contentType: file.type, filename: file.name, file: base64 }),
-    }
-  );
-  if (!res.ok) {
-    const json: any = await res.json().catch(() => null);
-    const detail = typeof json?.error === 'string' ? json.error : json?.error?.message;
-    throw new Error(detail ? `Screenshot upload: ${detail}` : `Screenshot upload failed (HTTP ${res.status})`);
-  }
 }
 
-// ── Email HTML builder ────────────────────────────────────────────────────────
-function buildOrderEmailHtml(o: { name: string; phone: string; address: string; items: string; total: number; delivery: string; payment: string; txnRef?: string }) {
-  const itemRows = o.items.split('\n').map(line => `<li style="margin-bottom:4px">${line}</li>`).join('');
-  return `
-    <div style="font-family:sans-serif;max-width:560px;margin:0 auto;background:#f8fafc;padding:32px 16px">
-      <div style="background:#040C1E;border-radius:16px;padding:24px;margin-bottom:20px;text-align:center">
-        <span style="color:#00C896;font-weight:900;font-size:22px;letter-spacing:-0.03em">RetraLabs</span>
-        <p style="color:#94a3b8;font-size:13px;margin:4px 0 0">Order Confirmation</p>
-      </div>
-      <div style="background:#fff;border-radius:16px;padding:24px;margin-bottom:16px">
-        <p style="color:#0f172a;font-size:16px;font-weight:700;margin:0 0 4px">Hi ${o.name},</p>
-        <p style="color:#475569;font-size:14px;margin:0 0 20px">Your order has been received. We'll confirm and process it shortly.</p>
-        <hr style="border:none;border-top:1px solid #e2e8f0;margin:0 0 16px"/>
-        <p style="color:#64748b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin:0 0 8px">Items Ordered</p>
-        <ul style="color:#334155;font-size:14px;padding-left:20px;margin:0 0 16px">${itemRows}</ul>
-        <hr style="border:none;border-top:1px solid #e2e8f0;margin:0 0 12px"/>
-        <table style="width:100%;font-size:14px;color:#475569">
-          <tr><td>Delivery Address</td><td style="text-align:right;color:#0f172a;font-weight:600">${o.address}</td></tr>
-          <tr><td>Delivery Speed</td><td style="text-align:right;color:#0f172a;font-weight:600">${o.delivery}</td></tr>
-          <tr><td>Payment</td><td style="text-align:right;color:#0f172a;font-weight:600">${o.payment}</td></tr>
-          ${o.txnRef ? `<tr><td>Transaction Ref</td><td style="text-align:right;color:#0f172a;font-weight:600">${o.txnRef}</td></tr>` : ''}
-          <tr><td style="padding-top:12px;font-weight:700;color:#0f172a;font-size:16px">Total</td><td style="text-align:right;padding-top:12px;font-weight:900;color:#0f172a;font-size:18px">₹${o.total.toLocaleString('en-IN')}</td></tr>
-        </table>
-      </div>
-      <p style="color:#94a3b8;font-size:12px;text-align:center;margin:0">RetraLabs · Research Use Only · Not for Human Consumption</p>
-    </div>`;
-}
-
-// ── Resend email to customer ─────────────────────────────────────────────────
-async function sendResendEmail(to: string, subject: string, html: string) {
-  const key = import.meta.env.VITE_RESEND_API_KEY;
-  if (!key) throw new Error('email service is not configured');
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: 'orders@retralabs.in', to, subject, html }),
-  });
-  if (!res.ok) {
-    const json: any = await res.json().catch(() => null);
-    throw new Error(json?.message || `email failed (HTTP ${res.status})`);
-  }
-}
+// ── Brevo transactional email (via Netlify Function) ──────────────────────────
+import { sendOrderConfirmationEmail } from '../utils/brevoEmail';
 
 // ── Interakt WhatsApp to customer ────────────────────────────────────────────
 async function sendInteraktWhatsApp(phone: string, bodyValues: string[]) {
@@ -351,7 +292,7 @@ export default function CheckoutPage() {
     });
 
       // Critical: the order record must exist before we show success
-      await saveToAirtable({
+      await saveOrder({
         'Name':      snapFormData.customer_name,
         'Email':     snapFormData.customer_email,
         'Phone':     snapFormData.customer_phone,
@@ -368,7 +309,16 @@ export default function CheckoutPage() {
       // Non-critical: customer notifications — surface failures without blocking the order
       const [waResult, emailResult] = await Promise.allSettled([
         sendInteraktWhatsApp(snapFormData.customer_phone, interaktValues),
-        sendResendEmail(snapFormData.customer_email, 'Your RetraLabs Order is Confirmed!', emailHtml),
+        sendOrderConfirmationEmail({
+          name: snapFormData.customer_name,
+          email: snapFormData.customer_email,
+          phone: snapFormData.customer_phone,
+          address: `${snapFormData.shipping_address}, PIN: ${snapFormData.pincode}`,
+          products: itemsSummary,
+          amount: `₹${snapTotal.toLocaleString('en-IN')}`,
+          payment_method: snapPaymentMethod === 'cod' ? 'COD' : 'UPI/Prepay',
+          orderID: `RL-${Date.now()}`,
+        }),
       ]);
       const notifyFailures = [
         waResult.status === 'rejected' ? `WhatsApp: ${describeError(waResult.reason)}` : null,
@@ -422,20 +372,15 @@ export default function CheckoutPage() {
       `${snapFormData.shipping_address}, PIN: ${snapFormData.pincode}`,
     ];
 
-    const emailHtml = buildOrderEmailHtml({
-      name: snapFormData.customer_name,
-      phone: snapFormData.customer_phone,
-      address: `${snapFormData.shipping_address}, PIN: ${snapFormData.pincode}`,
-      items: itemsSummary,
-      total: snapTotal,
-      delivery: snapFormData.delivery_option === 'fast' ? 'Express' : 'Standard',
-      payment: 'UPI QR',
-      txnRef,
-    });
+    let screenshotPayload: { contentType: string; filename: string; base64: string } | undefined;
+    if (screenshot) {
+      const base64 = await fileToBase64(screenshot);
+      screenshotPayload = { contentType: screenshot.type, filename: screenshot.name, base64 };
+    }
 
     try {
       // Critical: the order record must exist before we show success
-      const recordId = await saveToAirtable({
+      const recordId = await saveOrder({
         'Name':        snapFormData.customer_name,
         'Email':       snapFormData.customer_email,
         'Phone':       snapFormData.customer_phone,
@@ -448,18 +393,25 @@ export default function CheckoutPage() {
         'Transaction': txnRef,
         'Status':      'Paid',
         'Created':     new Date().toISOString().slice(0, 10),
-      });
+      }, screenshotPayload);
 
-      // Non-critical: notifications + payment screenshot — surface failures without blocking
-      const [waResult, emailResult, shotResult] = await Promise.allSettled([
+      // Non-critical: customer notifications — surface failures without blocking
+      const [waResult, emailResult] = await Promise.allSettled([
         sendInteraktWhatsApp(snapFormData.customer_phone, interaktValues),
-        sendResendEmail(snapFormData.customer_email, 'Your RetraLabs Order is Confirmed!', emailHtml),
-        recordId && screenshot ? uploadScreenshot(recordId, screenshot) : Promise.resolve(),
+        sendOrderConfirmationEmail({
+          name: snapFormData.customer_name,
+          email: snapFormData.customer_email,
+          phone: snapFormData.customer_phone,
+          address: `${snapFormData.shipping_address}, PIN: ${snapFormData.pincode}`,
+          products: itemsSummary,
+          amount: `₹${snapTotal.toLocaleString('en-IN')}`,
+          payment_method: 'UPI QR',
+          orderID: txnRef,
+        }),
       ]);
       const notifyFailures = [
         waResult.status === 'rejected' ? `WhatsApp: ${describeError(waResult.reason)}` : null,
         emailResult.status === 'rejected' ? `Email: ${describeError(emailResult.reason)}` : null,
-        shotResult.status === 'rejected' ? describeError(shotResult.reason) : null,
       ].filter(Boolean);
       if (notifyFailures.length) setNotifyWarning(notifyFailures.join(' · '));
 
