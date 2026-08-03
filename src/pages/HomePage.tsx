@@ -203,14 +203,14 @@ export default function HomePage() {
                 <div key={slideIndex}>
                     <h1
                       className="text-[#111111] text-[clamp(32px,6vw,64px)] tracking-[-0.03em] leading-[1.05]"
-                      style={{ fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 700 }}
+                      style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontWeight: 300 }}
                     >
                       <CharReveal text={`${slide.lines[0]} ${slide.lines[1]}`} staggerMs={28} />
                     </h1>
                     <div style={{ marginTop: '0.5rem' }}>
                       <h2
                         className="text-[#2563EB] text-[clamp(32px,6vw,64px)] tracking-[-0.03em] leading-[1.05]"
-                        style={{ fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 700 }}
+                        style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontWeight: 300 }}
                       >
                         <CharReveal text={slide.accent} staggerMs={35} delayMs={slide.lines[0].length + slide.lines[1].length + 1} />
                       </h2>
