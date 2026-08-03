@@ -12,7 +12,7 @@ export default function Logo({ size = 'md' }: LogoProps) {
 
   return (
     <img
-      src="/generated-1785791272437-dffqk.png"
+      src="/image copy copy.png"
       alt="RetraLabs"
       className={`${heights[size]} w-auto flex-shrink-0`}
     />
