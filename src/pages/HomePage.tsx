@@ -75,33 +75,38 @@ function CharReveal({ text, className = '', color, staggerMs = 32, delayMs = 0 }
   staggerMs?: number;
   delayMs?: number;
 }) {
-  const chars = useMemo(() => [...text], [text]);
+  const words = useMemo(() => text.split(' '), [text]);
+  let charIdx = 0;
   return (
     <span className={className} style={{ display: 'inline', color }} aria-label={text}>
-      {chars.map((ch, i) => (
-        // Outer span acts as a mask — fixed height prevents the translateY from
-        // shifting surrounding glyphs during animation on mobile.
-        <span
-          key={i}
-          aria-hidden="true"
-          style={{
-            display: 'inline-block',
-            verticalAlign: 'bottom',
-            overflow: 'hidden',
-            lineHeight: 'inherit',
-            whiteSpace: ch === ' ' ? 'pre' : undefined,
-          }}
-        >
-          <span
-            style={{
-              display: 'inline-block',
-              opacity: 0,
-              transform: 'translateY(10px)',
-              filter: 'blur(6px)',
-              animation: `charReveal 0.55s cubic-bezier(0.22,1,0.36,1) forwards`,
-              animationDelay: `${delayMs + i * staggerMs}ms`,
-            }}
-          >{ch}</span>
+      {words.map((word, wi) => (
+        <span key={wi} aria-hidden="true" style={{ display: 'inline-block', whiteSpace: 'nowrap' }}>
+          {[...word].map((ch, ci) => {
+            const i = charIdx++;
+            return (
+              <span
+                key={ci}
+                style={{
+                  display: 'inline-block',
+                  verticalAlign: 'bottom',
+                  overflow: 'hidden',
+                  lineHeight: 'inherit',
+                }}
+              >
+                <span
+                  style={{
+                    display: 'inline-block',
+                    opacity: 0,
+                    transform: 'translateY(10px)',
+                    filter: 'blur(6px)',
+                    animation: `charReveal 0.55s cubic-bezier(0.22,1,0.36,1) forwards`,
+                    animationDelay: `${delayMs + i * staggerMs}ms`,
+                  }}
+                >{ch}</span>
+              </span>
+            );
+          })}
+          {wi < words.length - 1 && <span style={{ display: 'inline-block' }}>&nbsp;</span>}
         </span>
       ))}
     </span>
