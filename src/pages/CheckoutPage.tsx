@@ -281,16 +281,6 @@ export default function CheckoutPage() {
       `${snapFormData.shipping_address}, PIN: ${snapFormData.pincode}`,
     ];
 
-    const emailHtml = buildOrderEmailHtml({
-      name: snapFormData.customer_name,
-      phone: snapFormData.customer_phone,
-      address: `${snapFormData.shipping_address}, PIN: ${snapFormData.pincode}`,
-      items: itemsSummary,
-      total: snapTotal,
-      delivery: snapFormData.delivery_option === 'fast' ? 'Express' : 'Standard',
-      payment: snapPaymentMethod === 'cod' ? 'Cash on Delivery' : 'UPI / Online',
-    });
-
       // Critical: the order record must exist before we show success
       await saveOrder({
         'Name':      snapFormData.customer_name,
