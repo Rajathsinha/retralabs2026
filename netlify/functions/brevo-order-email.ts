@@ -53,8 +53,8 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    const apiKey = process.env.BREVO_API_KEY;
-    const templateIdStr = process.env.BREVO_TEMPLATE_ID;
+    const apiKey = (process.env.BREVO_API_KEY || '').trim();
+    const templateIdStr = (process.env.BREVO_TEMPLATE_ID || '').trim();
     if (!apiKey || !templateIdStr) {
       return {
         statusCode: 500,
@@ -86,6 +86,8 @@ export const handler: Handler = async (event) => {
       },
     };
 
+    console.log('[brevo] keyExists:', !!apiKey, 'len:', apiKey.length, 'first10:', apiKey.slice(0, 10), 'template:', templateIdStr);
+
     const res = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
@@ -101,7 +103,11 @@ export const handler: Handler = async (event) => {
       return {
         statusCode: 502,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: `Brevo request failed (HTTP ${res.status})`, detail }),
+        body: JSON.stringify({
+          error: `Brevo request failed (HTTP ${res.status})`,
+          detail,
+          debug: { keyExists: !!apiKey, keyLen: apiKey.length, keyPrefix: apiKey.slice(0, 10), templateId: templateIdStr },
+        }),
       };
     }
 
