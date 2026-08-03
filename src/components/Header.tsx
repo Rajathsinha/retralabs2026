@@ -95,7 +95,7 @@ export default function Header() {
           }}
         >
           <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
+            <div className="flex items-center justify-between h-16 gap-12 lg:gap-20">
 
               {/* Left — logo */}
               <RouterLink to="/" className="flex-shrink-0 hover:opacity-80 transition-opacity">
@@ -103,7 +103,7 @@ export default function Header() {
               </RouterLink>
 
               {/* Center — nav links */}
-              <nav className="hidden lg:flex items-center gap-1">
+              <nav className="hidden lg:flex items-center gap-1 mx-auto">
                 {NAV_LINKS.map(({ path, label, external }) => {
                   const active = !external && isActive(path);
                   const cls = `px-4 py-2 text-[14px] font-medium transition-colors duration-200
