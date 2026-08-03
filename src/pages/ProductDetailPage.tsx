@@ -220,7 +220,7 @@ export default function ProductDetailPage() {
     const p = PRODUCTS.find(p => p.id === productId);
     if (p) {
       setProduct(p);
-      if (p.variants.length) setSelectedVariant(p.variants[0]);
+      if (p.variants.length) setSelectedVariant(p.variants.find(v => v.in_stock) ?? p.variants[0]);
       if (!p.name.includes('Bacteriostatic')) setBacWater(DEMO_BAC_WATER);
     }
     setLoading(false);
@@ -377,10 +377,20 @@ export default function ProductDetailPage() {
             </div>
 
             {/* Price */}
-            <div className="flex items-baseline gap-3">
+            <div className="flex items-baseline gap-3 flex-wrap">
               <span className="text-[#111111] text-[28px] font-bold tracking-[-0.02em]">
                 {selectedVariant ? format(selectedVariant.price_inr) : '—'}
               </span>
+              {selectedVariant?.compare_at_price_inr && selectedVariant.compare_at_price_inr > selectedVariant.price_inr && (
+                <>
+                  <span className="text-[#9CA3AF] text-[18px] font-medium line-through">
+                    {format(selectedVariant.compare_at_price_inr)}
+                  </span>
+                  <span className="bg-[#DCFCE7] text-[#16a34a] text-[12px] font-bold px-2 py-0.5 rounded-full">
+                    Save {Math.round((1 - selectedVariant.price_inr / selectedVariant.compare_at_price_inr) * 100)}%
+                  </span>
+                </>
+              )}
               <span className="text-[#16a34a] text-[13px] font-semibold">Free Shipping</span>
             </div>
 
@@ -395,22 +405,39 @@ export default function ProductDetailPage() {
               <div className="flex flex-wrap gap-2.5">
                 {product.variants.map(v => {
                   const selected = selectedVariant?.id === v.id;
+                  const hasSavings = v.compare_at_price_inr && v.compare_at_price_inr > v.price_inr;
+                  const savingsPct = hasSavings
+                    ? Math.round((1 - v.price_inr / v.compare_at_price_inr!) * 100)
+                    : 0;
                   return (
                     <button
                       key={v.id}
                       type="button"
-                      onClick={() => setSelectedVariant(v)}
+                      disabled={!v.in_stock}
+                      onClick={() => v.in_stock && setSelectedVariant(v)}
                       className={`relative px-5 py-3 text-[13px] font-semibold border-2 transition-all duration-200 ${
-                        selected
-                          ? 'border-[#111111] bg-[#111111] text-white shadow-sm'
-                          : 'border-[#E5E7EB] bg-white text-[#374151] hover:border-[#111111]'
+                        !v.in_stock
+                          ? 'border-[#FEE2E2] bg-[#FEF2F2] text-[#9CA3AF] cursor-not-allowed'
+                          : selected
+                            ? 'border-[#111111] bg-[#111111] text-white shadow-sm'
+                            : 'border-[#E5E7EB] bg-white text-[#374151] hover:border-[#111111]'
                       }`}
                       style={{ borderRadius: 12 }}
                     >
                       <span className="block">{v.vial_configuration || `${v.dosage_mg}${isBacWater ? 'ML' : 'mg'}`}</span>
-                      <span className={`block text-[11px] mt-0.5 ${selected ? 'text-white/70' : 'text-[#9CA3AF]'}`}>
-                        {format(v.price_inr)}
+                      <span className={`block text-[11px] mt-0.5 ${!v.in_stock ? 'text-[#EF4444]' : selected ? 'text-white/70' : 'text-[#9CA3AF]'}`}>
+                        {!v.in_stock ? 'Out of stock' : format(v.price_inr)}
                       </span>
+                      {v.in_stock && hasSavings && (
+                        <span className="block text-[10px] mt-0.5">
+                          <span className={`line-through ${selected ? 'text-white/50' : 'text-[#D1D5DB]'}`}>
+                            {format(v.compare_at_price_inr!)}
+                          </span>
+                          <span className={`ml-1 font-bold ${selected ? 'text-[#4ADE80]' : 'text-[#16a34a]'}`}>
+                            Save {savingsPct}%
+                          </span>
+                        </span>
+                      )}
                       {v.is_recommended && (
                         <span className="absolute -top-2 -right-2 w-5 h-5 bg-[#F59E0B] rounded-full flex items-center justify-center">
                           <Star className="w-3 h-3 text-white fill-current" />

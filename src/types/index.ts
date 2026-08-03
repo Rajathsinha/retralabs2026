@@ -12,6 +12,7 @@ export interface ProductVariant {
   product_id: string;
   dosage_mg: number;
   price_inr: number;
+  compare_at_price_inr?: number;
   in_stock: boolean;
   vial_configuration?: string;
   is_recommended?: boolean;

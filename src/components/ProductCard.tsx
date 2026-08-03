@@ -82,13 +82,20 @@ export default function ProductCard({ product }: ProductCardProps) {
 
         {/* Price row */}
         <div className="flex items-baseline justify-between mt-auto pt-1">
-          <p className="text-[#101828] text-[17px] font-bold tracking-[-0.02em]">
-            {cheapestVariant
-              ? `₹${cheapestVariant.price_inr.toLocaleString('en-IN')}`
-              : <span className="text-[#D0D5DD] text-[13px] font-medium">Out of stock</span>}
-          </p>
-          {cheapestVariant && (
-            <span className="text-[#667085] text-[10px] font-medium uppercase tracking-wide">from</span>
+          {cheapestVariant ? (
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-[10px] font-medium uppercase tracking-wide text-[#667085]">from</span>
+              <p className="text-[#101828] text-[17px] font-bold tracking-[-0.02em]">
+                {`₹${cheapestVariant.price_inr.toLocaleString('en-IN')}`}
+              </p>
+              {cheapestVariant.compare_at_price_inr && cheapestVariant.compare_at_price_inr > cheapestVariant.price_inr && (
+                <span className="text-[#9CA3AF] text-[12px] font-medium line-through">
+                  {`₹${cheapestVariant.compare_at_price_inr.toLocaleString('en-IN')}`}
+                </span>
+              )}
+            </div>
+          ) : (
+            <p className="text-[#D0D5DD] text-[13px] font-medium">Out of stock</p>
           )}
         </div>
 
