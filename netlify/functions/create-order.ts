@@ -41,15 +41,15 @@ export const handler: Handler = async (event) => {
   }
 
   try {
-    const token = process.env.AIRTABLE_TOKEN;
-    const baseId = process.env.AIRTABLE_BASE_ID;
-    const table = process.env.AIRTABLE_TABLE || 'Orders';
+    const token = process.env.VITE_AIRTABLE_TOKEN || process.env.AIRTABLE_TOKEN;
+    const baseId = process.env.VITE_AIRTABLE_BASE_ID || process.env.AIRTABLE_BASE_ID;
+    const table = process.env.VITE_AIRTABLE_TABLE || process.env.AIRTABLE_TABLE || 'Orders';
 
     if (!token || !baseId) {
       return {
         statusCode: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'Airtable is not configured (missing AIRTABLE_TOKEN or AIRTABLE_BASE_ID)' }),
+        body: JSON.stringify({ error: 'Airtable is not configured (missing VITE_AIRTABLE_TOKEN or VITE_AIRTABLE_BASE_ID env vars in Netlify)' }),
       };
     }
 
