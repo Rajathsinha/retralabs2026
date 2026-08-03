@@ -3,30 +3,18 @@ interface LogoProps {
   variant?: 'light' | 'dark';
 }
 
-export default function Logo({ size = 'md', variant = 'dark' }: LogoProps) {
-  const sizes = {
-    sm: { img: 'w-7 h-7',   text: 'text-[15px]', gap: 'gap-2.5' },
-    md: { img: 'w-9 h-9',   text: 'text-[18px]', gap: 'gap-3'   },
-    lg: { img: 'w-11 h-11', text: 'text-[22px]', gap: 'gap-3.5' },
+export default function Logo({ size = 'md' }: LogoProps) {
+  const heights = {
+    sm: 'h-7',
+    md: 'h-9',
+    lg: 'h-11',
   };
 
-  const { img, text, gap } = sizes[size];
-  const textColor = variant === 'light' ? 'text-white' : 'text-[#111111]';
-
   return (
-    <div className={`flex items-center ${gap}`}>
-      <img
-        src="/favicon.png"
-        alt="RetraLabs"
-        className={`${img} rounded-[10px] flex-shrink-0 bg-white`}
-        style={{ objectFit: 'cover' }}
-      />
-      <span
-        className={`${text} font-semibold tracking-[-0.02em] ${textColor}`}
-        style={{ fontFamily: "'Geist', 'Inter', system-ui, sans-serif" }}
-      >
-        RetraLabs
-      </span>
-    </div>
+    <img
+      src="/image copy copy.png"
+      alt="RetraLabs"
+      className={`${heights[size]} w-auto flex-shrink-0`}
+    />
   );
 }
