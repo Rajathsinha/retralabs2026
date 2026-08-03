@@ -16,7 +16,7 @@ export default function Logo({ size = 'md', variant = 'dark' }: LogoProps) {
   return (
     <div className={`flex items-center ${gap}`}>
       <img
-        src="/image copy.png"
+        src="/favicon.png"
         alt="RetraLabs"
         className={`${img} rounded-[10px] flex-shrink-0 bg-white`}
         style={{ objectFit: 'cover' }}
