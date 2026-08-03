@@ -50,36 +50,6 @@ async function fileToBase64(file: File): Promise<string> {
 // ── Brevo transactional email (via Netlify Function) ──────────────────────────
 import { sendOrderConfirmationEmail } from '../utils/brevoEmail';
 
-// ── Interakt WhatsApp to customer ────────────────────────────────────────────
-async function sendInteraktWhatsApp(phone: string, bodyValues: string[]) {
-  const apiKey = import.meta.env.VITE_INTERAKT_API_KEY;
-  if (!apiKey) throw new Error('WhatsApp service is not configured');
-  // Strip country code — Interakt wants bare 10-digit number + countryCode separately
-  const bare = phone.replace(/^\+?91/, '').replace(/\D/g, '').slice(-10);
-  const res = await fetch('https://api.interakt.ai/v1/public/message/', {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      countryCode: '+91',
-      phoneNumber: bare,
-      callbackData: 'order_confirmation',
-      type: 'Template',
-      template: {
-        name: 'order_details',
-        languageCode: 'en',
-        bodyValues,
-      },
-    }),
-  });
-  if (!res.ok) {
-    const json: any = await res.json().catch(() => null);
-    throw new Error(json?.message || `WhatsApp failed (HTTP ${res.status})`);
-  }
-}
-
 function describeError(err: unknown): string {
   if (err instanceof Error) return err.message;
   return String(err);
@@ -274,13 +244,6 @@ export default function CheckoutPage() {
       .join(', ');
 
     try {
-    const interaktValues = [
-      snapFormData.customer_name,
-      itemsSummaryFlat,
-      `₹${snapTotal.toLocaleString('en-IN')}`,
-      `${snapFormData.shipping_address}, PIN: ${snapFormData.pincode}`,
-    ];
-
       // Critical: the order record must exist before we show success
       await saveOrder({
         'Name':      snapFormData.customer_name,
@@ -296,25 +259,20 @@ export default function CheckoutPage() {
         'Created':   new Date().toISOString().slice(0, 10),
       });
 
-      // Non-critical: customer notifications — surface failures without blocking the order
-      const [waResult, emailResult] = await Promise.allSettled([
-        sendInteraktWhatsApp(snapFormData.customer_phone, interaktValues),
-        sendOrderConfirmationEmail({
-          name: snapFormData.customer_name,
-          email: snapFormData.customer_email,
-          phone: snapFormData.customer_phone,
-          address: `${snapFormData.shipping_address}, PIN: ${snapFormData.pincode}`,
-          products: itemsSummary,
-          amount: `₹${snapTotal.toLocaleString('en-IN')}`,
-          payment_method: snapPaymentMethod === 'cod' ? 'COD' : 'UPI/Prepay',
-          orderID: `RL-${Date.now()}`,
-        }),
-      ]);
-      const notifyFailures = [
-        waResult.status === 'rejected' ? `WhatsApp: ${describeError(waResult.reason)}` : null,
-        emailResult.status === 'rejected' ? `Email: ${describeError(emailResult.reason)}` : null,
-      ].filter(Boolean);
-      if (notifyFailures.length) setNotifyWarning(notifyFailures.join(' · '));
+      // Non-critical: customer email — surface failures without blocking the order
+      const emailResult = await sendOrderConfirmationEmail({
+        name: snapFormData.customer_name,
+        email: snapFormData.customer_email,
+        phone: snapFormData.customer_phone,
+        address: `${snapFormData.shipping_address}, PIN: ${snapFormData.pincode}`,
+        products: itemsSummary,
+        amount: `₹${snapTotal.toLocaleString('en-IN')}`,
+        payment_method: snapPaymentMethod === 'cod' ? 'COD' : 'UPI/Prepay',
+        orderID: `RL-${Date.now()}`,
+      });
+      if (!emailResult.success) {
+        setNotifyWarning(`Email: ${emailResult.error}`);
+      }
 
       setOrderSnapshot({
         items: itemsSummaryFlat,
@@ -355,13 +313,6 @@ export default function CheckoutPage() {
       .map(i => `${i.product.name} ${i.variant.dosage_mg}mg x${i.quantity}`)
       .join(', ');
 
-    const interaktValues = [
-      snapFormData.customer_name,
-      itemsSummaryFlat,
-      `₹${snapTotal.toLocaleString('en-IN')}`,
-      `${snapFormData.shipping_address}, PIN: ${snapFormData.pincode}`,
-    ];
-
     let screenshotPayload: { contentType: string; filename: string; base64: string } | undefined;
     if (screenshot) {
       const base64 = await fileToBase64(screenshot);
@@ -385,25 +336,20 @@ export default function CheckoutPage() {
         'Created':     new Date().toISOString().slice(0, 10),
       }, screenshotPayload);
 
-      // Non-critical: customer notifications — surface failures without blocking
-      const [waResult, emailResult] = await Promise.allSettled([
-        sendInteraktWhatsApp(snapFormData.customer_phone, interaktValues),
-        sendOrderConfirmationEmail({
-          name: snapFormData.customer_name,
-          email: snapFormData.customer_email,
-          phone: snapFormData.customer_phone,
-          address: `${snapFormData.shipping_address}, PIN: ${snapFormData.pincode}`,
-          products: itemsSummary,
-          amount: `₹${snapTotal.toLocaleString('en-IN')}`,
-          payment_method: 'UPI QR',
-          orderID: txnRef,
-        }),
-      ]);
-      const notifyFailures = [
-        waResult.status === 'rejected' ? `WhatsApp: ${describeError(waResult.reason)}` : null,
-        emailResult.status === 'rejected' ? `Email: ${describeError(emailResult.reason)}` : null,
-      ].filter(Boolean);
-      if (notifyFailures.length) setNotifyWarning(notifyFailures.join(' · '));
+      // Non-critical: customer email — surface failures without blocking
+      const emailResult = await sendOrderConfirmationEmail({
+        name: snapFormData.customer_name,
+        email: snapFormData.customer_email,
+        phone: snapFormData.customer_phone,
+        address: `${snapFormData.shipping_address}, PIN: ${snapFormData.pincode}`,
+        products: itemsSummary,
+        amount: `₹${snapTotal.toLocaleString('en-IN')}`,
+        payment_method: 'UPI QR',
+        orderID: txnRef,
+      });
+      if (!emailResult.success) {
+        setNotifyWarning(`Email: ${emailResult.error}`);
+      }
 
       setOrderSnapshot({
         items: itemsSummaryFlat,
@@ -468,8 +414,7 @@ export default function CheckoutPage() {
               <div>
                 <p className="text-sm font-bold text-emerald-900 mb-0.5">Confirmation sent</p>
                 <p className="text-xs text-emerald-700 leading-relaxed">
-                  A successful order confirmation has been sent to your WhatsApp
-                  <span className="font-semibold"> ({formData.customer_phone})</span> and email
+                  A confirmation email has been sent to
                   <span className="font-semibold"> ({formData.customer_email})</span>.
                 </p>
               </div>
