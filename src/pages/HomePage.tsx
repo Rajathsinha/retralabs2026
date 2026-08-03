@@ -75,24 +75,34 @@ function CharReveal({ text, className = '', color, staggerMs = 32, delayMs = 0 }
   staggerMs?: number;
   delayMs?: number;
 }) {
-  // Split preserving spaces
   const chars = useMemo(() => [...text], [text]);
   return (
     <span className={className} style={{ display: 'inline', color }} aria-label={text}>
       {chars.map((ch, i) => (
+        // Outer span acts as a mask — fixed height prevents the translateY from
+        // shifting surrounding glyphs during animation on mobile.
         <span
           key={i}
           aria-hidden="true"
           style={{
             display: 'inline-block',
+            verticalAlign: 'bottom',
+            overflow: 'hidden',
+            lineHeight: 'inherit',
             whiteSpace: ch === ' ' ? 'pre' : undefined,
-            opacity: 0,
-            transform: 'translateY(10px)',
-            filter: 'blur(6px)',
-            animation: `charReveal 0.55s cubic-bezier(0.22,1,0.36,1) forwards`,
-            animationDelay: `${delayMs + i * staggerMs}ms`,
           }}
-        >{ch}</span>
+        >
+          <span
+            style={{
+              display: 'inline-block',
+              opacity: 0,
+              transform: 'translateY(10px)',
+              filter: 'blur(6px)',
+              animation: `charReveal 0.55s cubic-bezier(0.22,1,0.36,1) forwards`,
+              animationDelay: `${delayMs + i * staggerMs}ms`,
+            }}
+          >{ch}</span>
+        </span>
       ))}
     </span>
   );
