@@ -1,26 +1,28 @@
 import type { Handler } from '@netlify/functions';
+import {
+  generateOrderConfirmationEmail,
+  type OrderData,
+  type OrderItem,
+} from './email-template';
 
-interface OrderEmailParams {
+interface IncomingOrder {
+  orderId: string;
   name: string;
   email: string;
   phone: string;
   address: string;
-  products: string;
-  amount: string;
-  payment_method: string;
-  orderID: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  items: OrderItem[];
+  subtotal: number;
+  discount?: number;
+  deliveryCharge?: number;
+  codCharge?: number;
+  total: number;
+  paymentMethod: string;
+  orderDate?: string;
 }
-
-const REQUIRED: (keyof OrderEmailParams)[] = [
-  'name',
-  'email',
-  'phone',
-  'address',
-  'products',
-  'amount',
-  'payment_method',
-  'orderID',
-];
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -42,9 +44,12 @@ export const handler: Handler = async (event) => {
   }
 
   try {
-    const body = JSON.parse(event.body || '{}') as Partial<OrderEmailParams>;
+    const body = JSON.parse(event.body || '{}') as Partial<IncomingOrder>;
 
-    const missing = REQUIRED.filter((k) => !body[k] || String(body[k]).trim() === '');
+    const required: (keyof IncomingOrder)[] = [
+      'orderId', 'name', 'email', 'phone', 'address', 'items', 'total', 'paymentMethod',
+    ];
+    const missing = required.filter((k) => !body[k] || String(body[k]).trim() === '');
     if (missing.length) {
       return {
         statusCode: 400,
@@ -54,39 +59,44 @@ export const handler: Handler = async (event) => {
     }
 
     const apiKey = (process.env.BREVO_API_KEY || '').trim();
-    const templateIdStr = (process.env.BREVO_TEMPLATE_ID || '').trim();
-    if (!apiKey || !templateIdStr) {
+    if (!apiKey) {
       return {
         statusCode: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'Brevo is not configured (missing API key or template ID)' }),
-      };
-    }
-    const templateId = Number(templateIdStr);
-    if (!Number.isFinite(templateId)) {
-      return {
-        statusCode: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'BREVO_TEMPLATE_ID must be a numeric template ID' }),
+        body: JSON.stringify({ error: 'Brevo is not configured (missing BREVO_API_KEY env var)' }),
       };
     }
 
-    const payload = {
-      templateId,
-      to: [{ email: body.email!, name: body.name! }],
-      params: {
-        name: body.name!,
-        email: body.email!,
-        phone: body.phone!,
-        address: body.address!,
-        products: body.products!,
-        amount: body.amount!,
-        payment_method: body.payment_method!,
-        orderID: body.orderID!,
-      },
+    const order: OrderData = {
+      orderId: body.orderId!,
+      name: body.name!,
+      email: body.email!,
+      phone: body.phone!,
+      address: body.address!,
+      city: body.city || '',
+      state: body.state || '',
+      pincode: body.pincode || '',
+      items: body.items || [],
+      subtotal: body.subtotal ?? body.total!,
+      discount: body.discount ?? 0,
+      deliveryCharge: body.deliveryCharge ?? 0,
+      codCharge: body.codCharge ?? 0,
+      total: body.total!,
+      paymentMethod: body.paymentMethod!,
+      orderDate: body.orderDate || new Date().toISOString(),
     };
 
-    console.log('[brevo] keyExists:', !!apiKey, 'len:', apiKey.length, 'first10:', apiKey.slice(0, 10), 'template:', templateIdStr);
+    const htmlContent = generateOrderConfirmationEmail(order);
+
+    const payload = {
+      sender: {
+        name: 'RetraLabs',
+        email: 'orders@retralabs.in',
+      },
+      to: [{ email: order.email, name: order.name }],
+      subject: `Order #${order.orderId} Confirmed`,
+      htmlContent,
+    };
 
     const res = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
@@ -106,7 +116,6 @@ export const handler: Handler = async (event) => {
         body: JSON.stringify({
           error: `Brevo request failed (HTTP ${res.status})`,
           detail,
-          debug: { keyExists: !!apiKey, keyLen: apiKey.length, keyPrefix: apiKey.slice(0, 10), templateId: templateIdStr },
         }),
       };
     }

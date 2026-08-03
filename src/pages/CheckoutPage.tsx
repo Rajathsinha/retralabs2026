@@ -260,15 +260,30 @@ export default function CheckoutPage() {
       });
 
       // Non-critical: customer email — surface failures without blocking the order
+      const snapSubtotal = cartSnapshot.reduce((s, i) => s + i.variant.price_inr * i.quantity, 0);
+      const snapDiscount = snapSubtotal - snapTotal + snapDeliveryCharge + snapCodCharge;
       const emailResult = await sendOrderConfirmationEmail({
+        orderId: `RL-${Date.now()}`,
         name: snapFormData.customer_name,
         email: snapFormData.customer_email,
         phone: snapFormData.customer_phone,
-        address: `${snapFormData.shipping_address}, PIN: ${snapFormData.pincode}`,
-        products: itemsSummary,
-        amount: `₹${snapTotal.toLocaleString('en-IN')}`,
-        payment_method: snapPaymentMethod === 'cod' ? 'COD' : 'UPI/Prepay',
-        orderID: `RL-${Date.now()}`,
+        address: snapFormData.shipping_address,
+        city: '',
+        state: '',
+        pincode: snapFormData.pincode,
+        items: cartSnapshot.map(i => ({
+          name: i.product.name,
+          variant: i.variant.vial_configuration || `${i.variant.dosage_mg}mg`,
+          quantity: i.quantity,
+          unitPrice: i.variant.price_inr,
+        })),
+        subtotal: snapSubtotal,
+        discount: snapDiscount,
+        deliveryCharge: snapDeliveryCharge,
+        codCharge: snapCodCharge,
+        total: snapTotal,
+        paymentMethod: snapPaymentMethod === 'cod' ? 'COD' : 'UPI/Prepay',
+        orderDate: new Date().toISOString(),
       });
       if (!emailResult.success) {
         setNotifyWarning(`Email: ${emailResult.error}`);
@@ -337,15 +352,30 @@ export default function CheckoutPage() {
       }, screenshotPayload);
 
       // Non-critical: customer email — surface failures without blocking
+      const snapSubtotal = cartSnapshot.reduce((s, i) => s + i.variant.price_inr * i.quantity, 0);
+      const snapDiscount = snapSubtotal - snapTotal + snapDeliveryCharge;
       const emailResult = await sendOrderConfirmationEmail({
+        orderId: txnRef,
         name: snapFormData.customer_name,
         email: snapFormData.customer_email,
         phone: snapFormData.customer_phone,
-        address: `${snapFormData.shipping_address}, PIN: ${snapFormData.pincode}`,
-        products: itemsSummary,
-        amount: `₹${snapTotal.toLocaleString('en-IN')}`,
-        payment_method: 'UPI QR',
-        orderID: txnRef,
+        address: snapFormData.shipping_address,
+        city: '',
+        state: '',
+        pincode: snapFormData.pincode,
+        items: cartSnapshot.map(i => ({
+          name: i.product.name,
+          variant: i.variant.vial_configuration || `${i.variant.dosage_mg}mg`,
+          quantity: i.quantity,
+          unitPrice: i.variant.price_inr,
+        })),
+        subtotal: snapSubtotal,
+        discount: snapDiscount,
+        deliveryCharge: snapDeliveryCharge,
+        codCharge: 0,
+        total: snapTotal,
+        paymentMethod: 'UPI QR',
+        orderDate: new Date().toISOString(),
       });
       if (!emailResult.success) {
         setNotifyWarning(`Email: ${emailResult.error}`);

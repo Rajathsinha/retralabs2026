@@ -2,20 +2,35 @@
  * Reusable helper that sends a Brevo transactional order-confirmation email
  * through the `brevo-order-email` Netlify Function.
  *
- * The Brevo API key and template ID live server-side only (as Netlify env vars)
- * and are never exposed to the browser. This helper only forwards the order
- * details the template needs.
+ * The Brevo API key lives server-side only (as a Netlify env var) and is never
+ * exposed to the browser. This helper forwards the structured order details
+ * the server needs to build the HTML email.
  */
 
+export interface OrderEmailItem {
+  name: string;
+  variant: string;
+  quantity: number;
+  unitPrice: number;
+}
+
 export interface OrderEmailParams {
+  orderId: string;
   name: string;
   email: string;
   phone: string;
   address: string;
-  products: string;
-  amount: string;
-  payment_method: string;
-  orderID: string;
+  city: string;
+  state: string;
+  pincode: string;
+  items: OrderEmailItem[];
+  subtotal: number;
+  discount: number;
+  deliveryCharge: number;
+  codCharge: number;
+  total: number;
+  paymentMethod: string;
+  orderDate?: string;
 }
 
 /**
@@ -25,7 +40,7 @@ export interface OrderEmailParams {
  */
 export async function sendOrderConfirmationEmail(
   params: OrderEmailParams,
-): Promise<{ success: true; messageId?: string } | { success: false; error: string }> {
+): Promise<{ success: true; messageId?: string } | { success: false, error: string }> {
   try {
     const res = await fetch('/.netlify/functions/brevo-order-email', {
       method: 'POST',
