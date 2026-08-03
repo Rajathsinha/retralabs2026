@@ -3,14 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useSEO } from '../hooks/useSEO';
 import { getBreadcrumbSchema } from '../utils/localSeoSchemas';
 import {
-  Accordion,
-  AccordionItem,
-  Card,
-  CardBody,
-  Chip,
-  Divider,
-} from '@heroui/react';
-import {
   Mail,
   MessageSquare,
   Clock,
@@ -18,6 +10,7 @@ import {
   Thermometer,
   HelpCircle,
   AlertTriangle,
+  ChevronDown,
 } from 'lucide-react';
 
 const FAQS = [
@@ -107,6 +100,27 @@ const SUPPORT_CHANNELS = [
 
 const REFERRAL_SOURCES = ['YouTube', 'Instagram', 'Reddit', 'Friend', 'Google', 'Twitter / X', 'TikTok', 'IndiaMART'];
 
+function FAQItem({ faq }: { faq: { question: string; answer: string } }) {
+  const [isOpen, setIsOpen] = useState(false);
+  return (
+    <div className="border border-slate-200 rounded-xl bg-white">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between gap-4 p-4 text-left"
+      >
+        <span className="font-semibold text-slate-900 text-base">{faq.question}</span>
+        <ChevronDown className={`w-5 h-5 text-slate-400 flex-shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      {isOpen && (
+        <div className="text-slate-600 leading-relaxed pb-4 px-4">
+          {faq.answer}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SupportPage() {
   const navigate = useNavigate();
 
@@ -159,7 +173,7 @@ export default function SupportPage() {
             <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
               <HelpCircle className="w-5 h-5 text-blue-600" />
             </div>
-            <Chip color="primary" variant="flat" size="sm">Support Centre</Chip>
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">Support Centre</span>
           </div>
           <h1 className="text-4xl font-bold text-slate-900 mb-3">We're Here. Actually.</h1>
           <p className="text-lg text-slate-500 max-w-2xl">
@@ -172,21 +186,25 @@ export default function SupportPage() {
         {/* Support channel cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-14">
           {SUPPORT_CHANNELS.map((channel) => (
-            <Card
+            <div
               key={channel.title}
-              shadow="none"
-              className="border border-slate-200 hover:border-slate-300 transition-colors"
+              className="rounded-2xl border border-slate-200 bg-white shadow-sm hover:border-slate-300 transition-colors"
             >
-              <CardBody className="p-5 flex flex-col gap-3">
+              <div className="p-5 flex flex-col gap-3">
                 <div className={`w-11 h-11 ${channel.iconBg} rounded-xl flex items-center justify-center`}>
                   <channel.icon className={`w-5 h-5 ${channel.iconColor}`} />
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-900 mb-1">{channel.title}</h3>
                   <p className="text-sm text-slate-500 mb-2">{channel.desc}</p>
-                  <Chip size="sm" color={channel.chip.color} variant="flat">
+                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+                    channel.chip.color === 'success' ? 'bg-emerald-100 text-emerald-700'
+                    : channel.chip.color === 'primary' ? 'bg-blue-100 text-blue-700'
+                    : channel.chip.color === 'secondary' ? 'bg-purple-100 text-purple-700'
+                    : 'bg-slate-100 text-slate-700'
+                  }`}>
                     {channel.chip.label}
-                  </Chip>
+                  </span>
                 </div>
                 <a
                   href={channel.href}
@@ -205,8 +223,8 @@ export default function SupportPage() {
                 >
                   {channel.btnLabel}
                 </a>
-              </CardBody>
-            </Card>
+              </div>
+            </div>
           ))}
         </div>
 
@@ -217,7 +235,7 @@ export default function SupportPage() {
           </p>
         </div>
 
-        <Divider className="mb-12" />
+        <hr className="border-slate-200 my-4 mb-12" />
 
         {/* FAQ section */}
         <div className="max-w-4xl">
@@ -226,34 +244,18 @@ export default function SupportPage() {
             Shipping, storage, documentation, purity, payments — it's all here. Probably.
           </p>
 
-          <Accordion
-            selectionMode="multiple"
-            variant="splitted"
-            className="px-0"
-          >
+          <div className="flex flex-col gap-3 px-0">
             {FAQS.map((faq, index) => (
-              <AccordionItem
-                key={index}
-                aria-label={faq.question}
-                title={
-                  <span className="font-semibold text-slate-900 text-base">{faq.question}</span>
-                }
-                classNames={{
-                  base: 'border border-slate-200 shadow-none rounded-xl',
-                  content: 'text-slate-600 leading-relaxed pb-4',
-                }}
-              >
-                {faq.answer}
-              </AccordionItem>
+              <FAQItem key={index} faq={faq} />
             ))}
-          </Accordion>
+          </div>
         </div>
 
-        <Divider className="my-12" />
+        <hr className="border-slate-200 my-12" />
 
         {/* Research disclaimer */}
-        <Card shadow="none" className="border border-amber-200 bg-amber-50 max-w-4xl">
-          <CardBody className="flex flex-row items-start gap-4 p-6">
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 max-w-4xl">
+          <div className="flex flex-row items-start gap-4 p-6">
             <div className="p-2 bg-amber-100 rounded-xl flex-shrink-0 mt-0.5">
               <AlertTriangle className="w-5 h-5 text-amber-600" />
             </div>
@@ -269,8 +271,8 @@ export default function SupportPage() {
                 use these materials in accordance with proper laboratory safety protocols.
               </p>
             </div>
-          </CardBody>
-        </Card>
+          </div>
+        </div>
 
         {/* Contact CTA with mandatory referral */}
         <div className="mt-12 max-w-xl mx-auto">

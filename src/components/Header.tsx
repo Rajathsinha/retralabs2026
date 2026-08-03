@@ -5,7 +5,6 @@ import { useCart } from '../context/CartContext';
 import { useCurrency, CURRENCIES } from '../context/CurrencyContext';
 import Logo from './Logo';
 import SearchModal from './SearchModal';
-import ReconstitutionCalculator from './ReconstitutionCalculator';
 import { BUSINESS_NAP } from '../constants/config';
 
 const MARQUEE_MESSAGES = [
@@ -16,11 +15,12 @@ const MARQUEE_MESSAGES = [
 ];
 
 const NAV_ITEMS: { path: string; label: string; external?: boolean }[] = [
-  { path: '/catalogue', label: 'Shop' },
-  { path: '/catalogue', label: 'Peptides' },
-  { path: '/support',   label: 'Resources' },
+  { path: '/catalogue',   label: 'Shop' },
+  { path: '/catalogue',   label: 'Peptides' },
+  { path: '/calculator',  label: 'Calculator' },
+  { path: '/support',     label: 'Resources' },
   { path: BUSINESS_NAP.social.trustpilot, label: 'Reviews', external: true },
-  { path: '/about',     label: 'About Us' },
+  { path: '/about',       label: 'About Us' },
 ];
 
 export default function Header() {
@@ -32,7 +32,6 @@ export default function Header() {
   const [mobileOpen,   setMobileOpen]   = useState(false);
   const [scrolled,     setScrolled]     = useState(false);
   const [searchOpen,   setSearchOpen]   = useState(false);
-  const [calcOpen,     setCalcOpen]     = useState(false);
   const [currencyOpen, setCurrencyOpen] = useState(false);
   const [cartBump,     setCartBump]     = useState(0);
   const currencyRef = useRef<HTMLDivElement>(null);
@@ -81,7 +80,6 @@ export default function Header() {
   return (
     <>
       <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
-      <ReconstitutionCalculator isOpen={calcOpen} onClose={() => setCalcOpen(false)} />
 
       <div className={`sticky top-0 z-50 transition-all duration-300 ${scrolled ? 'shadow-[0_1px_20px_rgba(0,0,0,0.06)]' : ''}`}>
 
@@ -158,13 +156,13 @@ export default function Header() {
                 </button>
 
                 {/* Reconstitution Calculator */}
-                <button
-                  onClick={() => setCalcOpen(true)}
+                <RouterLink
+                  to="/calculator"
                   aria-label="Reconstitution calculator"
                   className="w-10 h-10 flex items-center justify-center rounded-full text-[#374151] hover:text-[#111111] hover:bg-[#F5F5F5] transition-all duration-200"
                 >
                   <Calculator className="w-[20px] h-[20px]" strokeWidth={1.8} />
-                </button>
+                </RouterLink>
 
                 {/* Currency selector */}
                 <div className="relative" ref={currencyRef}>

@@ -1,17 +1,6 @@
 import { Check } from 'lucide-react';
 import { ProductWithVariants, ProductVariant } from '../types';
 import { useCurrency } from '../context/CurrencyContext';
-import {
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  Button,
-  Chip,
-  Card,
-  CardBody,
-} from '@heroui/react';
 
 interface ProductModalProps {
   product: ProductWithVariants;
@@ -26,29 +15,38 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart, ad
   const isFlagship = product.name === 'Retatrutide' || product.name === 'Tirzepatide';
   const isBacWater = product.name === 'Bacteriostatic Water (Pharma Grade)';
 
+  if (!isOpen) return null;
+
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      size="2xl"
-      scrollBehavior="inside"
-      backdrop="blur"
-      classNames={{
-        base: 'rounded-2xl',
-      }}
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+      onClick={onClose}
     >
-      <ModalContent>
-        <ModalHeader className="flex flex-col gap-3 pb-2">
+      <div
+        className="relative w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl bg-white shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 transition-colors z-10"
+          aria-label="Close"
+        >
+          ✕
+        </button>
+
+        {/* Header */}
+        <div className="flex flex-col gap-3 pb-2 p-6">
           <div className="flex gap-2">
             {isFlagship && (
-              <Chip color="default" variant="solid" size="sm" classNames={{ base: 'bg-black text-white' }}>
+              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-black text-white">
                 FLAGSHIP
-              </Chip>
+              </span>
             )}
             {product.name === 'Retatrutide' && (
-              <Chip color="secondary" variant="solid" size="sm">
+              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">
                 MOST POPULAR
-              </Chip>
+              </span>
             )}
           </div>
           <h2 className="text-3xl font-bold text-gray-900">
@@ -57,24 +55,25 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart, ad
           <p className="text-gray-600 font-normal text-base">
             {product.description}
           </p>
-        </ModalHeader>
+        </div>
 
-        <ModalBody className="gap-3">
+        {/* Body */}
+        <div className="p-6 pt-0 gap-3 flex flex-col">
           {product.variants.map((variant) => {
             const isAdded = addedVariantId === variant.id;
 
             return (
-              <Card key={variant.id} shadow="none" classNames={{ base: 'bg-gray-50 border border-gray-100' }}>
-                <CardBody className="flex-row items-center justify-between p-5">
+              <div key={variant.id} className="rounded-2xl border border-gray-100 bg-gray-50">
+                <div className="p-5 flex flex-row items-center justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-1">
                       <h3 className="text-2xl font-bold text-gray-900">
                         {isBacWater ? `${variant.dosage_mg}ML` : `${variant.dosage_mg}mg`}
                       </h3>
                       {variant.in_stock ? (
-                        <Chip color="secondary" variant="solid" size="sm">IN STOCK</Chip>
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">IN STOCK</span>
                       ) : (
-                        <Chip color="default" variant="solid" size="sm">LIMITED</Chip>
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">LIMITED</span>
                       )}
                     </div>
                     {variant.vial_configuration && (
@@ -87,12 +86,16 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart, ad
                     </p>
                   </div>
 
-                  <Button
-                    color={isAdded ? 'success' : 'default'}
-                    variant={isAdded ? 'solid' : 'solid'}
-                    isDisabled={!variant.in_stock}
-                    onPress={() => onAddToCart(variant)}
-                    className={`font-bold ${!isAdded && variant.in_stock ? 'bg-gray-900 text-white' : ''}`}
+                  <button
+                    disabled={!variant.in_stock}
+                    onClick={() => onAddToCart(variant)}
+                    className={`px-4 py-2.5 rounded-xl font-bold transition-colors ${
+                      isAdded
+                        ? 'bg-emerald-600 text-white hover:bg-emerald-500'
+                        : !variant.in_stock
+                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                        : 'bg-gray-900 text-white hover:bg-slate-800'
+                    }`}
                   >
                     {isAdded ? (
                       <span className="flex items-center gap-2">
@@ -102,19 +105,20 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart, ad
                     ) : (
                       'Add to Research'
                     )}
-                  </Button>
-                </CardBody>
-              </Card>
+                  </button>
+                </div>
+              </div>
             );
           })}
-        </ModalBody>
+        </div>
 
-        <ModalFooter className="justify-center">
+        {/* Footer */}
+        <div className="p-6 pt-0 flex justify-center">
           <p className="text-xs text-gray-400 uppercase tracking-wide text-center">
             For in-vitro research only. Not for human consumption.
           </p>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -1,12 +1,4 @@
 import { useNavigate } from 'react-router-dom';
-import {
-  Card,
-  CardBody,
-  CardHeader,
-  Button,
-  Chip,
-  Divider,
-} from '@heroui/react';
 import { ArrowLeft } from 'lucide-react';
 
 export default function TermsPage() {
@@ -16,25 +8,24 @@ export default function TermsPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         {/* Back Button */}
-        <Button
-          variant="light"
-          startContent={<ArrowLeft className="w-4 h-4" />}
-          onPress={() => navigate(-1)}
-          className="mb-6 -ml-2"
+        <button
+          onClick={() => navigate(-1)}
+          className="mb-6 -ml-2 px-4 py-2.5 rounded-xl bg-slate-100 text-slate-900 font-semibold hover:bg-slate-200 transition-colors flex items-center gap-2"
         >
+          <ArrowLeft className="w-4 h-4" />
           Back
-        </Button>
+        </button>
 
         {/* Page Title */}
         <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-2">Terms and Conditions</h1>
         <p className="text-gray-500 mb-8">Last Updated: February 1, 2026</p>
 
         {/* Important Notice Card */}
-        <Card shadow="sm" className="border border-warning-200 bg-warning-50 mb-4">
-          <CardHeader className="px-6 pt-6 pb-2 flex items-center gap-3">
-            <Chip color="warning" variant="flat" size="sm">Important Notice</Chip>
-          </CardHeader>
-          <CardBody className="px-6 pb-6">
+        <div className="rounded-2xl border border-warning-200 bg-warning-50 mb-4 shadow-sm">
+          <div className="px-6 pt-6 pb-2 flex items-center gap-3">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Important Notice</span>
+          </div>
+          <div className="px-6 pb-6">
             <p className="text-warning-900 font-semibold mb-2">RESEARCH USE ONLY</p>
             <p className="text-warning-800 leading-relaxed">
               All products sold on this website are strictly for research purposes only. These products
@@ -42,12 +33,12 @@ export default function TermsPage() {
               outside of controlled laboratory environments. By purchasing, you confirm that you understand
               and agree to use products solely for legitimate research purposes.
             </p>
-          </CardBody>
-        </Card>
+          </div>
+        </div>
 
         {/* Main Content Card */}
-        <Card shadow="sm" className="border border-gray-200">
-          <CardBody className="p-8 gap-0">
+        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+          <div className="p-8 gap-0">
 
             {/* Agreement to Terms */}
             <section>
@@ -58,7 +49,7 @@ export default function TermsPage() {
               </p>
             </section>
 
-            <Divider className="my-8" />
+            <hr className="border-slate-200 my-8" />
 
             {/* Eligibility */}
             <section>
@@ -74,7 +65,7 @@ export default function TermsPage() {
               </ul>
             </section>
 
-            <Divider className="my-8" />
+            <hr className="border-slate-200 my-8" />
 
             {/* Product Information */}
             <section>
@@ -87,7 +78,7 @@ export default function TermsPage() {
               </p>
             </section>
 
-            <Divider className="my-8" />
+            <hr className="border-slate-200 my-8" />
 
             {/* Orders and Pricing */}
             <section>
@@ -101,7 +92,7 @@ export default function TermsPage() {
               </ul>
             </section>
 
-            <Divider className="my-8" />
+            <hr className="border-slate-200 my-8" />
 
             {/* Payment Terms */}
             <section>
@@ -113,7 +104,7 @@ export default function TermsPage() {
               </p>
             </section>
 
-            <Divider className="my-8" />
+            <hr className="border-slate-200 my-8" />
 
             {/* Shipping and Delivery */}
             <section>
@@ -127,7 +118,7 @@ export default function TermsPage() {
               </ul>
             </section>
 
-            <Divider className="my-8" />
+            <hr className="border-slate-200 my-8" />
 
             {/* Product Liability and Disclaimer */}
             <section>
@@ -146,7 +137,7 @@ export default function TermsPage() {
               </p>
             </section>
 
-            <Divider className="my-8" />
+            <hr className="border-slate-200 my-8" />
 
             {/* Prohibited Uses */}
             <section>
@@ -161,7 +152,7 @@ export default function TermsPage() {
               </ul>
             </section>
 
-            <Divider className="my-8" />
+            <hr className="border-slate-200 my-8" />
 
             {/* Intellectual Property */}
             <section>
@@ -173,7 +164,7 @@ export default function TermsPage() {
               </p>
             </section>
 
-            <Divider className="my-8" />
+            <hr className="border-slate-200 my-8" />
 
             {/* Limitation of Liability */}
             <section>
@@ -185,7 +176,7 @@ export default function TermsPage() {
               </p>
             </section>
 
-            <Divider className="my-8" />
+            <hr className="border-slate-200 my-8" />
 
             {/* Indemnification */}
             <section>
@@ -196,7 +187,7 @@ export default function TermsPage() {
               </p>
             </section>
 
-            <Divider className="my-8" />
+            <hr className="border-slate-200 my-8" />
 
             {/* Governing Law */}
             <section>
@@ -207,7 +198,7 @@ export default function TermsPage() {
               </p>
             </section>
 
-            <Divider className="my-8" />
+            <hr className="border-slate-200 my-8" />
 
             {/* Changes to Terms */}
             <section>
@@ -219,7 +210,7 @@ export default function TermsPage() {
               </p>
             </section>
 
-            <Divider className="my-8" />
+            <hr className="border-slate-200 my-8" />
 
             {/* Contact Information */}
             <section>
@@ -230,7 +221,7 @@ export default function TermsPage() {
               <p className="text-cyan-600 font-medium mt-2">support@retralabs.in</p>
             </section>
 
-            <Divider className="my-8" />
+            <hr className="border-slate-200 my-8" />
 
             {/* Acknowledgement */}
             <section>
@@ -240,8 +231,8 @@ export default function TermsPage() {
               </p>
             </section>
 
-          </CardBody>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

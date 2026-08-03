@@ -1,12 +1,4 @@
 import { useNavigate } from 'react-router-dom';
-import {
-  Card,
-  CardBody,
-  CardHeader,
-  Button,
-  Chip,
-  Divider,
-} from '@heroui/react';
 import { ArrowLeft } from 'lucide-react';
 
 export default function RefundPolicyPage() {
@@ -16,36 +8,35 @@ export default function RefundPolicyPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         {/* Back Button */}
-        <Button
-          variant="light"
-          startContent={<ArrowLeft className="w-4 h-4" />}
-          onPress={() => navigate(-1)}
-          className="mb-6 -ml-2"
+        <button
+          onClick={() => navigate(-1)}
+          className="mb-6 -ml-2 px-4 py-2.5 rounded-xl bg-slate-100 text-slate-900 font-semibold hover:bg-slate-200 transition-colors flex items-center gap-2"
         >
+          <ArrowLeft className="w-4 h-4" />
           Back
-        </Button>
+        </button>
 
         {/* Page Title */}
         <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-2">Refund &amp; Cancellation Policy</h1>
         <p className="text-gray-500 mb-8">Last Updated: February 1, 2026</p>
 
         {/* Overview Card */}
-        <Card shadow="sm" className="border border-gray-200 mb-4">
-          <CardHeader className="px-6 pt-6 pb-2 flex items-center gap-3">
-            <Chip color="primary" variant="flat" size="sm">Overview</Chip>
-          </CardHeader>
-          <CardBody className="px-6 pb-6">
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm mb-4">
+          <div className="px-6 pt-6 pb-2 flex items-center gap-3">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">Overview</span>
+          </div>
+          <div className="px-6 pb-6">
             <p className="text-gray-700 leading-relaxed">
               We are committed to providing high-quality research materials. This policy outlines the terms
               and conditions for order cancellations, returns, and refunds. Due to the sensitive nature of
               our products, certain restrictions apply.
             </p>
-          </CardBody>
-        </Card>
+          </div>
+        </div>
 
         {/* Main Content Card */}
-        <Card shadow="sm" className="border border-gray-200">
-          <CardBody className="p-8 gap-0">
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="p-8 gap-0">
 
             {/* Order Cancellation */}
             <section>
@@ -73,20 +64,20 @@ export default function RefundPolicyPage() {
               </div>
             </section>
 
-            <Divider className="my-8" />
+            <hr className="border-slate-200 my-8" />
 
             {/* Return Policy */}
             <section>
               <h2 className="text-2xl font-bold text-gray-900 mb-4">Return Policy</h2>
 
-              <Card className="bg-primary-50 border border-primary-200 mb-4">
-                <CardBody>
+              <div className="rounded-2xl border border-primary-200 bg-primary-50 mb-4">
+                <div className="p-6">
                   <p className="text-primary-900 font-semibold mb-2">Eligibility for Returns</p>
                   <p className="text-primary-800 leading-relaxed">
                     Due to the nature of our products, returns are only accepted in the following circumstances:
                   </p>
-                </CardBody>
-              </Card>
+                </div>
+              </div>
 
               <ul className="list-disc list-inside text-gray-700 space-y-2 ml-4 mb-4">
                 <li>Product arrived damaged or compromised during shipping</li>
@@ -95,17 +86,17 @@ export default function RefundPolicyPage() {
                 <li>Package tampering or seal broken upon arrival</li>
               </ul>
 
-              <Card className="bg-gray-50 border border-gray-200">
-                <CardBody>
+              <div className="rounded-2xl border border-gray-200 bg-gray-50">
+                <div className="p-6">
                   <p className="text-sm text-gray-700">
                     <strong>Important:</strong> Products cannot be returned if the seal has been broken by the
                     customer, if storage conditions were not maintained, or for change of mind.
                   </p>
-                </CardBody>
-              </Card>
+                </div>
+              </div>
             </section>
 
-            <Divider className="my-8" />
+            <hr className="border-slate-200 my-8" />
 
             {/* Return Process */}
             <section>
@@ -133,7 +124,7 @@ export default function RefundPolicyPage() {
               </ol>
             </section>
 
-            <Divider className="my-8" />
+            <hr className="border-slate-200 my-8" />
 
             {/* Refund Policy */}
             <section>
@@ -163,7 +154,7 @@ export default function RefundPolicyPage() {
               </div>
             </section>
 
-            <Divider className="my-8" />
+            <hr className="border-slate-200 my-8" />
 
             {/* Non-Refundable Items */}
             <section>
@@ -181,7 +172,7 @@ export default function RefundPolicyPage() {
               </ul>
             </section>
 
-            <Divider className="my-8" />
+            <hr className="border-slate-200 my-8" />
 
             {/* Shipping Damage */}
             <section>
@@ -193,7 +184,7 @@ export default function RefundPolicyPage() {
               </p>
             </section>
 
-            <Divider className="my-8" />
+            <hr className="border-slate-200 my-8" />
 
             {/* Quality Guarantee */}
             <section>
@@ -205,7 +196,7 @@ export default function RefundPolicyPage() {
               </p>
             </section>
 
-            <Divider className="my-8" />
+            <hr className="border-slate-200 my-8" />
 
             {/* Replacement Products */}
             <section>
@@ -216,7 +207,7 @@ export default function RefundPolicyPage() {
               </p>
             </section>
 
-            <Divider className="my-8" />
+            <hr className="border-slate-200 my-8" />
 
             {/* Contact for Refunds */}
             <section>
@@ -224,34 +215,34 @@ export default function RefundPolicyPage() {
               <p className="text-gray-700 leading-relaxed mb-4">
                 For any questions or to initiate a return/refund:
               </p>
-              <Card className="bg-gray-50 border border-gray-200">
-                <CardBody>
+              <div className="rounded-2xl border border-gray-200 bg-gray-50">
+                <div className="p-6">
                   <p className="text-gray-900 font-medium">Email: support@retralabs.in</p>
                   <p className="text-sm text-gray-600 mt-2">
                     Please include your order number and detailed description of the issue
                   </p>
-                </CardBody>
-              </Card>
+                </div>
+              </div>
             </section>
 
-            <Divider className="my-8" />
+            <hr className="border-slate-200 my-8" />
 
             {/* Important Reminder */}
             <section>
-              <Card className="bg-warning-50 border border-warning-200">
-                <CardBody>
+              <div className="rounded-2xl border border-warning-200 bg-warning-50">
+                <div className="p-6">
                   <p className="text-warning-900 font-semibold mb-2">Important Reminder</p>
                   <p className="text-warning-800 leading-relaxed">
                     All products are for research use only. Refunds or returns cannot be processed for products
                     that have been used for purposes other than legitimate research. By purchasing, you agree to
                     this policy.
                   </p>
-                </CardBody>
-              </Card>
+                </div>
+              </div>
             </section>
 
-          </CardBody>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

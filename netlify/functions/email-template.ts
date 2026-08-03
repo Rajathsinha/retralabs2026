@@ -188,6 +188,7 @@ export function generateOrderConfirmationEmail(order: OrderData): string {
           <!-- Logo -->
           <tr>
             <td align="center" style="padding:32px 24px 20px;">
+              <img src="https://retralabs.in/favicon.png" alt="RetraLabs" width="48" height="48" style="display:block;margin:0 auto 8px;width:48px;height:48px;border-radius:10px;" />
               <div style="font-size:28px;font-weight:800;color:#1e3a8a;letter-spacing:-0.5px;">RetraLabs</div>
               <div style="font-size:12px;color:#94a3b8;margin-top:4px;letter-spacing:1px;text-transform:uppercase;">Premium Peptides</div>
             </td>

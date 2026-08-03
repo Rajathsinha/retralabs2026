@@ -8,7 +8,6 @@
  * NOTE: Update REVIEWS array with your actual Trustpilot review text.
  */
 import { useState } from 'react';
-import { motion } from 'framer-motion';
 import { BadgeCheck } from 'lucide-react';
 
 // ── Trustpilot brand star (exact SVG shape) ───────────────────────────────────
@@ -168,23 +167,14 @@ type Review = typeof REVIEWS[number];
 // ── Individual review card ────────────────────────────────────────────────────
 function ReviewCard({ review }: { review: Review }) {
   return (
-    <motion.div
-      className="relative flex-shrink-0 w-[288px] rounded-2xl p-5 cursor-default"
+    <div
+      className="relative flex-shrink-0 w-[288px] rounded-2xl p-5 cursor-default transition-all duration-200 ease-out hover:-translate-y-2 hover:scale-[1.025]"
       style={{
         background: 'rgba(255,255,255,0.025)',
         border: '1px solid rgba(255,255,255,0.07)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
         willChange: 'transform',
-      }}
-      whileHover={{
-        y: -8,
-        scale: 1.025,
-        background: 'rgba(255,255,255,0.05)',
-        borderColor: 'rgba(255,255,255,0.14)',
-        boxShadow:
-          '0 28px 56px rgba(0,0,0,0.65), 0 0 0 1px rgba(0,182,122,0.13)',
-        transition: { duration: 0.22, ease: 'easeOut' },
       }}
     >
       {/* Top accent line */}
@@ -244,7 +234,7 @@ function ReviewCard({ review }: { review: Review }) {
           ✓ Verified · {review.product}
         </span>
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -319,11 +309,7 @@ export default function TrustpilotSection() {
       </div>
 
       {/* ── Section header ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: '0px 0px -80px 0px' }}
-        transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
+      <div
         className="relative text-center px-4 mb-14"
       >
         {/* Trustpilot label */}
@@ -337,17 +323,7 @@ export default function TrustpilotSection() {
         {/* Stars — 4 filled + 1 half = 4.5 */}
         <div className="flex justify-center gap-2 mb-5">
           {[1, 2, 3, 4, 5].map(i => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, scale: 0.5 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{
-                delay: 0.1 + i * 0.06,
-                duration: 0.4,
-                ease: [0.34, 1.56, 0.64, 1],
-              }}
-            >
+            <div key={i}>
               {i <= 4 ? (
                 <TpStar className="w-9 h-9" />
               ) : (
@@ -362,7 +338,7 @@ export default function TrustpilotSection() {
                   <path d="M52.5 0L64.6 36.5H103.1L71.8 59.1L83.9 95.5L52.5 72.9L21.1 95.5L33.2 59.1L1.9 36.5H40.4L52.5 0Z" fill="url(#half)" />
                 </svg>
               )}
-            </motion.div>
+            </div>
           ))}
         </div>
 
@@ -384,19 +360,13 @@ export default function TrustpilotSection() {
             37 verified reviews on Trustpilot ↗
           </a>
         </p>
-      </motion.div>
+      </div>
 
       {/* ── Review rows ── */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        viewport={{ once: true, margin: '0px 0px -40px 0px' }}
-        transition={{ duration: 0.5, delay: 0.2 }}
-        className="flex flex-col gap-5"
-      >
+      <div className="flex flex-col gap-5">
         <ScrollRow reverse={false} />
         <ScrollRow reverse={true} />
-      </motion.div>
+      </div>
 
       {/* Edge fade masks */}
       <div

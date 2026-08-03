@@ -1,14 +1,6 @@
 import { useSEO } from '../hooks/useSEO';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Button,
-  Card,
-  CardBody,
-  CardHeader,
-  Chip,
-  Divider,
-} from '@heroui/react';
 import { getProductImageUrl, BAC_WATER_IMAGE_URL } from '../utils/imageUrl';
 import { Minus, Plus, Trash2, Check, MessageCircle, Tag, ShoppingBag, ArrowRight, X, GraduationCap, Zap, Clock, Banknote } from 'lucide-react';
 import { useCart } from '../context/CartContext';
@@ -20,7 +12,7 @@ const FAST_DELIVERY_CHARGE = 800;
 const WHATSAPP_SUPPORT_NUMBER = '918217824384';
 
 // ── Airtable (via Netlify Function — token stays server-side) ────────────────
-async function saveOrder(fields: Record<string, unknown>, screenshot?: { contentType: string; filename: string; base64: string }): Promise<string | null> {
+async function saveOrder(fields: Record<string, unknown>, screenshot?: { contentType: string; filename: string; base64: string }): Promise<{ recordId: string | null; orderId: string | null }> {
   const res = await fetch('/.netlify/functions/create-order', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -32,7 +24,7 @@ async function saveOrder(fields: Record<string, unknown>, screenshot?: { content
     throw new Error(detail);
   }
   if (json.screenshotWarning) console.warn(json.screenshotWarning);
-  return json.recordId || null;
+  return { recordId: json.recordId || null, orderId: json.orderId || null };
 }
 
 async function fileToBase64(file: File): Promise<string> {
@@ -132,6 +124,7 @@ export default function CheckoutPage() {
   const [orderSnapshot, setOrderSnapshot] = useState<{
     items: string;
     total: number;
+    orderId: string | null;
     cartItems: Array<{ name: string; config: string; qty: number; price: number }>;
     deliveryOption: string;
     paymentMethod: 'prepay' | 'cod';
@@ -245,7 +238,7 @@ export default function CheckoutPage() {
 
     try {
       // Critical: the order record must exist before we show success
-      await saveOrder({
+      const { orderId } = await saveOrder({
         'Name':      snapFormData.customer_name,
         'Email':     snapFormData.customer_email,
         'Phone':     snapFormData.customer_phone,
@@ -259,11 +252,13 @@ export default function CheckoutPage() {
         'Created':   new Date().toISOString().slice(0, 10),
       });
 
+      const finalOrderId = orderId || `RL-${Date.now()}`;
+
       // Non-critical: customer email — surface failures without blocking the order
       const snapSubtotal = cartSnapshot.reduce((s, i) => s + i.variant.price_inr * i.quantity, 0);
       const snapDiscount = snapSubtotal - snapTotal + snapDeliveryCharge + snapCodCharge;
       const emailResult = await sendOrderConfirmationEmail({
-        orderId: `RL-${Date.now()}`,
+        orderId: finalOrderId,
         name: snapFormData.customer_name,
         email: snapFormData.customer_email,
         phone: snapFormData.customer_phone,
@@ -292,6 +287,7 @@ export default function CheckoutPage() {
       setOrderSnapshot({
         items: itemsSummaryFlat,
         total: snapTotal,
+        orderId: finalOrderId,
         cartItems: cartSnapshot.map(i => ({ name: i.product.name, config: i.variant.vial_configuration || `${i.variant.dosage_mg}mg`, qty: i.quantity, price: i.variant.price_inr })),
         deliveryOption: snapFormData.delivery_option,
         paymentMethod: snapPaymentMethod,
@@ -336,7 +332,7 @@ export default function CheckoutPage() {
 
     try {
       // Critical: the order record must exist before we show success
-      const recordId = await saveOrder({
+      const { orderId } = await saveOrder({
         'Name':        snapFormData.customer_name,
         'Email':       snapFormData.customer_email,
         'Phone':       snapFormData.customer_phone,
@@ -351,11 +347,13 @@ export default function CheckoutPage() {
         'Created':     new Date().toISOString().slice(0, 10),
       }, screenshotPayload);
 
+      const finalOrderId = orderId || `RL-${Date.now()}`;
+
       // Non-critical: customer email — surface failures without blocking
       const snapSubtotal = cartSnapshot.reduce((s, i) => s + i.variant.price_inr * i.quantity, 0);
       const snapDiscount = snapSubtotal - snapTotal + snapDeliveryCharge;
       const emailResult = await sendOrderConfirmationEmail({
-        orderId: txnRef,
+        orderId: finalOrderId,
         name: snapFormData.customer_name,
         email: snapFormData.customer_email,
         phone: snapFormData.customer_phone,
@@ -384,6 +382,7 @@ export default function CheckoutPage() {
       setOrderSnapshot({
         items: itemsSummaryFlat,
         total: snapTotal,
+        orderId: finalOrderId,
         cartItems: cartSnapshot.map(i => ({ name: i.product.name, config: i.variant.vial_configuration || `${i.variant.dosage_mg}mg`, qty: i.quantity, price: i.variant.price_inr })),
         deliveryOption: snapFormData.delivery_option,
         paymentMethod: 'prepay',
@@ -448,6 +447,14 @@ export default function CheckoutPage() {
                   <span className="font-semibold"> ({formData.customer_email})</span>.
                 </p>
               </div>
+            </div>
+          )}
+
+          {snap?.orderId && (
+            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-5 text-center">
+              <p className="text-xs text-blue-500 font-semibold uppercase tracking-wider mb-1">Your Order ID</p>
+              <p className="text-2xl font-black text-blue-900 tracking-wide">{snap.orderId}</p>
+              <p className="text-xs text-blue-600 mt-1">Save this ID for tracking and support</p>
             </div>
           )}
 
@@ -688,8 +695,8 @@ export default function CheckoutPage() {
         <p className="text-slate-500 mb-8">Review your cart, fill in your details, and then, proceed for the payment options</p>
 
         {/* Payment notice */}
-        <Card className="mb-4 border border-blue-200 bg-blue-50" shadow="none">
-          <CardBody className="flex flex-row items-start gap-4 p-5">
+        <div className="rounded-2xl border border-blue-200 bg-blue-50 mb-4">
+          <div className="flex flex-row items-start gap-4 p-5">
             <div className="p-2 bg-blue-100 rounded-xl flex-shrink-0">
               <MessageCircle className="w-5 h-5 text-blue-600" />
             </div>
@@ -699,12 +706,12 @@ export default function CheckoutPage() {
                 Fill in your details below, then confirm on WhatsApp. Pay online via <strong>UPI (no extra charge)</strong> or choose <strong>Cash on Delivery</strong> — a small COD fee applies based on order value.
               </p>
             </div>
-          </CardBody>
-        </Card>
+          </div>
+        </div>
 
         {/* 5% discount notice */}
-        <Card className="mb-8 border border-emerald-200 bg-gradient-to-r from-emerald-50 to-cyan-50" shadow="none">
-          <CardBody className="flex flex-row items-center gap-4 p-5">
+        <div className="rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-cyan-50 mb-8">
+          <div className="flex flex-row items-center gap-4 p-5">
             <div className="p-2.5 bg-emerald-100 rounded-xl flex-shrink-0">
               <Tag className="w-5 h-5 text-emerald-600" />
             </div>
@@ -714,11 +721,11 @@ export default function CheckoutPage() {
                 Add 2 or more different peptides to your cart and 5% comes off automatically. No codes needed.
               </p>
             </div>
-            <Chip color="success" variant="flat" className="font-black text-sm flex-shrink-0">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 font-black text-sm flex-shrink-0">
               5% OFF
-            </Chip>
-          </CardBody>
-        </Card>
+            </span>
+          </div>
+        </div>
 
         {/* Empty cart state */}
         {cart.length === 0 ? (
@@ -743,12 +750,11 @@ export default function CheckoutPage() {
 
               <div className="space-y-3">
                 {cart.map((item) => (
-                  <Card
+                  <div
                     key={item.variant.id}
-                    shadow="none"
-                    className="border border-slate-200 hover:border-slate-300 transition-colors"
+                    className="rounded-2xl border border-slate-200 hover:border-slate-300 transition-colors"
                   >
-                    <CardBody className="flex flex-row items-center gap-4 p-4">
+                    <div className="flex flex-row items-center gap-4 p-4">
                       <img
                         src={getProductImageUrl(item.product.image_url, item.product.name)}
                         alt={item.product.name}
@@ -763,50 +769,43 @@ export default function CheckoutPage() {
                       </div>
                       {/* Quantity controls */}
                       <div className="flex items-center gap-1.5">
-                        <Button
-                          isIconOnly
-                          size="sm"
-                          variant="bordered"
+                        <button
                           aria-label="Decrease quantity"
-                          onPress={() => updateQuantity(item.variant.id, item.quantity - 1)}
+                          onClick={() => updateQuantity(item.variant.id, item.quantity - 1)}
+                          className="w-8 h-8 flex items-center justify-center rounded-lg border-2 border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors"
                         >
                           <Minus className="w-3.5 h-3.5" />
-                        </Button>
+                        </button>
                         <span className="w-7 text-center text-sm font-semibold text-slate-800">
                           {item.quantity}
                         </span>
-                        <Button
-                          isIconOnly
-                          size="sm"
-                          variant="bordered"
+                        <button
                           aria-label="Increase quantity"
-                          onPress={() => updateQuantity(item.variant.id, item.quantity + 1)}
+                          onClick={() => updateQuantity(item.variant.id, item.quantity + 1)}
+                          className="w-8 h-8 flex items-center justify-center rounded-lg border-2 border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors"
                         >
                           <Plus className="w-3.5 h-3.5" />
-                        </Button>
+                        </button>
                       </div>
                       {/* Remove button */}
-                      <Button
-                        isIconOnly
-                        size="sm"
-                        variant="light"
-                        color="danger"
+                      <button
                         aria-label="Remove item"
-                        onPress={() => removeFromCart(item.variant.id)}
+                        onClick={() => removeFromCart(item.variant.id)}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg text-red-600 hover:bg-red-50 transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </CardBody>
-                  </Card>
+                      </button>
+                    </div>
+                  </div>
                 ))}
               </div>
 
               {/* Order totals */}
-              <Card shadow="none" className="mt-5 border border-slate-200">
-                <CardHeader className="px-5 pt-5 pb-0">
+              <div className="mt-5 rounded-2xl border border-slate-200">
+                <div className="px-5 pt-5 pb-0">
                   <h3 className="text-base font-semibold text-slate-800">Price Breakdown</h3>
-                </CardHeader>
-                <CardBody className="px-5 pb-5 pt-3 space-y-3">
+                </div>
+                <div className="px-5 pb-5 pt-3 space-y-3">
                   <div className="flex justify-between items-center text-slate-600">
                     <span>Subtotal</span>
                     <span className="font-medium">{format(getSubtotal())}</span>
@@ -895,7 +894,7 @@ export default function CheckoutPage() {
                     </div>
                   )}
 
-                  <Divider />
+                  <hr className="border-slate-200 my-4" />
 
                   <div className="flex justify-between items-center">
                     <span className="text-lg font-semibold text-slate-900">Total</span>
@@ -912,8 +911,8 @@ export default function CheckoutPage() {
                       </span>
                     </div>
                   )}
-                </CardBody>
-              </Card>
+                </div>
+              </div>
             </div>
 
             {/* Right column: Order form */}

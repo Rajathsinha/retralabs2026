@@ -13,6 +13,7 @@ const CheckoutPage       = lazy(() => import('./pages/CheckoutPage'));
 const AboutPage          = lazy(() => import('./pages/AboutPage'));
 const ContactPage        = lazy(() => import('./pages/ContactPage'));
 const SupportPage        = lazy(() => import('./pages/SupportPage'));
+const CalculatorPage     = lazy(() => import('./pages/CalculatorPage'));
 const PaymentSuccessPage = lazy(() => import('./pages/PaymentSuccessPage'));
 const PaymentFailedPage  = lazy(() => import('./pages/PaymentFailedPage'));
 const PrivacyPolicyPage  = lazy(() => import('./pages/PrivacyPolicyPage'));
@@ -105,6 +106,7 @@ export default function App() {
             <Route path="/about"           element={<AboutPage />} />
             <Route path="/contact"         element={<ContactPage />} />
             <Route path="/support"         element={<SupportPage />} />
+            <Route path="/calculator"      element={<CalculatorPage />} />
             <Route path="/payment-success" element={<PaymentSuccessPage />} />
             <Route path="/payment-failed"  element={<PaymentFailedPage />} />
             <Route path="/privacy"         element={<PrivacyPolicyPage />} />

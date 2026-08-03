@@ -1,6 +1,7 @@
 import type { Handler } from '@netlify/functions';
 
 interface OrderFields {
+  'Order ID': string;
   Name: string;
   Email: string;
   Phone: string;
@@ -13,6 +14,13 @@ interface OrderFields {
   Status: string;
   Created: string;
   Transaction?: string;
+}
+
+function generateOrderId(): string {
+  const now = new Date();
+  const ymd = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+  const rand = String(Math.floor(1000 + Math.random() * 9000));
+  return `RL-${ymd}-${rand}`;
 }
 
 interface CreateOrderBody {
@@ -62,6 +70,10 @@ export const handler: Handler = async (event) => {
       };
     }
 
+    // Generate the order ID server-side so it is unique and trustworthy
+    const orderId = generateOrderId();
+    const fieldsWithId: OrderFields = { ...body.fields, 'Order ID': orderId };
+
     // 1. Create the record
     const createRes = await fetch(
       `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}`,
@@ -71,7 +83,7 @@ export const handler: Handler = async (event) => {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ fields: body.fields, typecast: true }),
+        body: JSON.stringify({ fields: fieldsWithId, typecast: true }),
       },
     );
 
@@ -132,6 +144,7 @@ export const handler: Handler = async (event) => {
           body: JSON.stringify({
             success: true,
             recordId,
+            orderId,
             screenshotWarning: uploadErr instanceof Error ? uploadErr.message : String(uploadErr),
           }),
         };
@@ -141,7 +154,7 @@ export const handler: Handler = async (event) => {
     return {
       statusCode: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ success: true, recordId }),
+      body: JSON.stringify({ success: true, recordId, orderId }),
     };
   } catch (err) {
     return {

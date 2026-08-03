@@ -1,19 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Card,
-  CardBody,
-  Avatar,
-  Chip,
-  Divider,
-  Progress,
-} from '@heroui/react';
-import {
   FlaskConical, ShieldCheck, Globe, BadgeCheck, ArrowRight,
   CheckCircle2, Users, TrendingUp, Clock, Truck,
   Microscope, Award, Heart, Lightbulb, Target,
 } from 'lucide-react';
-import ScrollReveal from '../components/ScrollReveal';
 import { useSEO } from '../hooks/useSEO';
 import { getLocalBusinessSchema, getBreadcrumbSchema } from '../utils/localSeoSchemas';
 import { BUSINESS_NAP } from '../constants/config';
@@ -126,21 +117,17 @@ export default function AboutPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {STATS.map((stat, i) => (
-              <ScrollReveal key={stat.label} delay={i * 80}>
-                <Card
-                  shadow="none"
-                  className="border border-slate-100 bg-slate-50 hover:shadow-sm transition-shadow text-center"
-                  radius="lg"
-                >
-                  <CardBody className="p-6 flex flex-col items-center">
+              <div key={stat.label}>
+                <div className="rounded-2xl border border-slate-100 bg-slate-50 hover:shadow-sm transition-shadow text-center">
+                  <div className="p-6 flex flex-col items-center">
                     <div className={`inline-flex p-3 rounded-xl mb-4 ${stat.colorClass}`}>
                       <stat.icon className="w-6 h-6" />
                     </div>
                     <div className="text-3xl font-bold text-slate-900 mb-1">{stat.value}</div>
                     <div className="text-sm text-slate-500 font-medium">{stat.label}</div>
-                  </CardBody>
-                </Card>
-              </ScrollReveal>
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
         </div>
@@ -150,7 +137,7 @@ export default function AboutPage() {
       <section className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            <ScrollReveal>
+            <div>
               <div>
                 <span className="inline-block px-4 py-2 bg-slate-100 text-slate-600 text-xs font-bold rounded-full uppercase tracking-wider mb-6">
                   The Origin
@@ -170,15 +157,15 @@ export default function AboutPage() {
                   </p>
                 </div>
               </div>
-            </ScrollReveal>
+            </div>
 
-            <ScrollReveal delay={150}>
-              <Card shadow="none" className="border border-slate-200 bg-slate-50" radius="xl">
-                <CardBody className="p-8">
+            <div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50">
+                <div className="p-8">
                   <div className="space-y-6">
                     {/* Before */}
-                    <Card shadow="none" className="border border-slate-200 bg-white" radius="lg">
-                      <CardBody className="p-4">
+                    <div className="rounded-2xl border border-slate-200 bg-white">
+                      <div className="p-4">
                         <div className="flex items-start gap-4">
                           <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center flex-shrink-0">
                             <span className="text-red-600 font-bold text-sm">✗</span>
@@ -188,8 +175,8 @@ export default function AboutPage() {
                             <p className="text-sm text-slate-600">Fake online sellers, counterfeit Peptide Sciences vials, no COA, no accountability, ~₹7,000 lost to counterfeit products.</p>
                           </div>
                         </div>
-                      </CardBody>
-                    </Card>
+                      </div>
+                    </div>
 
                     <div className="flex items-center justify-center">
                       <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center">
@@ -198,8 +185,8 @@ export default function AboutPage() {
                     </div>
 
                     {/* After */}
-                    <Card shadow="none" className="border border-emerald-200 bg-emerald-50" radius="lg">
-                      <CardBody className="p-4">
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50">
+                      <div className="p-4">
                         <div className="flex items-start gap-4">
                           <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center flex-shrink-0">
                             <span className="text-white font-bold text-sm">✓</span>
@@ -209,8 +196,8 @@ export default function AboutPage() {
                             <p className="text-sm text-slate-600">Verified GMP source, HPLC-tested batch, COA included, real effects within hours, 3,000+ researchers served.</p>
                           </div>
                         </div>
-                      </CardBody>
-                    </Card>
+                      </div>
+                    </div>
 
                     <div className="pt-2">
                       <div className="text-xs text-slate-400 text-center italic">
@@ -218,9 +205,9 @@ export default function AboutPage() {
                       </div>
                     </div>
                   </div>
-                </CardBody>
-              </Card>
-            </ScrollReveal>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -228,7 +215,7 @@ export default function AboutPage() {
       {/* ─── TEAM ─── */}
       <section className="py-24 bg-slate-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <ScrollReveal>
+          <div>
             <div className="text-center mb-16">
               <span className="inline-block px-4 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-full uppercase tracking-wider mb-4">
                 Our Team
@@ -238,74 +225,54 @@ export default function AboutPage() {
                 We operate lean by design. Every person on the team is directly accountable to the customer.
               </p>
             </div>
-          </ScrollReveal>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {TEAM.map((member, i) => (
-              <ScrollReveal key={member.role} delay={i * 120}>
-                <Card
-                  shadow="none"
-                  className="border border-slate-200 bg-white hover:shadow-md transition-all duration-300"
-                  radius="lg"
-                >
-                  <CardBody className="p-8">
-                    <Avatar
-                      name={member.initials}
-                      classNames={{
-                        base: `bg-gradient-to-br ${member.gradient} mb-6 shadow-md`,
-                        name: 'text-white font-bold text-lg',
-                      }}
-                      size="lg"
-                      radius="lg"
-                    />
+              <div key={member.role}>
+                <div className="rounded-2xl border border-slate-200 bg-white hover:shadow-md transition-all duration-300">
+                  <div className="p-8">
+                    <div
+                      className={`bg-gradient-to-br ${member.gradient} mb-6 shadow-md w-16 h-16 rounded-2xl flex items-center justify-center text-white font-bold text-lg`}
+                    >
+                      {member.initials}
+                    </div>
                     <h3 className="font-bold text-slate-900 mb-3">{member.role}</h3>
                     <p className="text-sm text-slate-600 leading-relaxed">{member.bio}</p>
-                  </CardBody>
-                </Card>
-              </ScrollReveal>
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
 
-          <ScrollReveal>
+          <div>
             <div className="mt-10 text-center">
-              <Chip
-                startContent={<Users className="w-4 h-4 text-slate-400 ml-1" />}
-                variant="bordered"
-                classNames={{
-                  base: 'border-slate-200 bg-white px-2 py-5 h-auto',
-                  content: 'text-sm text-slate-500',
-                }}
-              >
+              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border border-slate-200 bg-white py-5 h-auto text-sm text-slate-500">
+                <Users className="w-4 h-4 text-slate-400 ml-1 mr-1" />
                 We operate under pseudonymous identities for researcher privacy — a standard practice in this space
-              </Chip>
+              </span>
             </div>
-          </ScrollReveal>
+          </div>
         </div>
       </section>
 
       {/* ─── VALUES ─── */}
       <section className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <ScrollReveal>
+          <div>
             <div className="text-center mb-16">
               <span className="inline-block px-4 py-2 bg-slate-100 text-slate-600 text-xs font-bold rounded-full uppercase tracking-wider mb-4">
                 Our Values
               </span>
               <h2 className="text-3xl md:text-4xl font-bold text-slate-900">What We Actually Stand For.</h2>
             </div>
-          </ScrollReveal>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {VALUES.map((value, i) => (
-              <ScrollReveal key={value.title} delay={i * 100}>
-                <Card
-                  shadow="none"
-                  isPressable
-                  isHoverable
-                  className="border border-slate-200 bg-slate-50 hover:shadow-sm transition-shadow"
-                  radius="lg"
-                >
-                  <CardBody className="p-7">
+              <div key={value.title}>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 hover:shadow-sm transition-shadow">
+                  <div className="p-7">
                     <div className="flex items-start gap-5">
                       <div className={`p-3 rounded-xl flex-shrink-0 ${value.colorClass}`}>
                         <value.icon className="w-6 h-6" />
@@ -315,9 +282,9 @@ export default function AboutPage() {
                         <p className="text-sm text-slate-600 leading-relaxed">{value.desc}</p>
                       </div>
                     </div>
-                  </CardBody>
-                </Card>
-              </ScrollReveal>
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
         </div>
@@ -326,7 +293,7 @@ export default function AboutPage() {
       {/* ─── QUALITY PROCESS ─── */}
       <section className="py-24 bg-slate-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <ScrollReveal>
+          <div>
             <div className="text-center mb-16">
               <span className="inline-block px-4 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-full uppercase tracking-wider mb-4">
                 Quality Assurance
@@ -336,25 +303,21 @@ export default function AboutPage() {
                 Every single order goes through this process. No shortcuts. No skipping steps. No "it's probably fine."
               </p>
             </div>
-          </ScrollReveal>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {QUALITY_STEPS.map((step, i) => (
-              <ScrollReveal key={step.step} delay={i * 100}>
-                <Card
-                  shadow="none"
-                  className="border border-slate-200 bg-white hover:shadow-md hover:border-slate-300 transition-all duration-300"
-                  radius="lg"
-                >
-                  <CardBody className="p-7">
+              <div key={step.step}>
+                <div className="rounded-2xl border border-slate-200 bg-white hover:shadow-md hover:border-slate-300 transition-all duration-300">
+                  <div className="p-7">
                     <div className="w-12 h-12 bg-slate-900 text-white rounded-2xl flex items-center justify-center font-bold text-lg mb-5 shadow-md">
                       {step.step}
                     </div>
                     <h3 className="font-bold text-slate-900 mb-3">{step.title}</h3>
                     <p className="text-sm text-slate-600 leading-relaxed">{step.desc}</p>
-                  </CardBody>
-                </Card>
-              </ScrollReveal>
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
 
@@ -364,7 +327,7 @@ export default function AboutPage() {
       {/* ─── COMMITMENT SECTION ─── */}
       <section className="py-24 bg-slate-900">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <ScrollReveal>
+          <div>
             <div className="p-4 bg-white/10 rounded-2xl inline-block mb-8">
               <Award className="w-10 h-10 text-accent-400" />
             </div>
@@ -378,27 +341,23 @@ export default function AboutPage() {
                 { icon: TrendingUp, label: '3,000+ Happy Researchers' },
                 { icon: Clock, label: 'Fast Support Response' },
               ].map((item) => (
-                <Chip
+                <span
                   key={item.label}
-                  startContent={<item.icon className="w-4 h-4 text-accent-400 ml-1" />}
-                  variant="bordered"
-                  classNames={{
-                    base: 'border-white/10 bg-white/5 px-2 py-5 h-auto',
-                    content: 'text-white text-sm font-medium',
-                  }}
+                  className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border border-white/10 bg-white/5 py-5 h-auto text-white text-sm font-medium"
                 >
+                  <item.icon className="w-4 h-4 text-accent-400 ml-1 mr-1" />
                   {item.label}
-                </Chip>
+                </span>
               ))}
             </div>
-          </ScrollReveal>
+          </div>
         </div>
       </section>
 
       {/* ─── RESEARCH DISCLAIMER ─── */}
       <section className="py-16 bg-white">
         <div className="max-w-xl mx-auto px-4 sm:px-6 lg:px-8">
-          <ScrollReveal>
+          <div>
             <div style={{ border: '1px solid rgba(245,158,11,0.35)', borderRadius: 20, background: '#fffbeb', padding: '2rem' }}>
               <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
                 <span style={{ display: 'inline-block', background: '#f59e0b', color: '#fff', fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', borderRadius: 99, padding: '4px 14px', marginBottom: 12 }}>
@@ -473,7 +432,7 @@ export default function AboutPage() {
                 </button>
               </div>
             </div>
-          </ScrollReveal>
+          </div>
         </div>
       </section>
     </div>

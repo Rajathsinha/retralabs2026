@@ -1,12 +1,4 @@
 import { useNavigate } from 'react-router-dom';
-import {
-  Card,
-  CardBody,
-  CardHeader,
-  Button,
-  Chip,
-  Divider,
-} from '@heroui/react';
 import { ArrowLeft } from 'lucide-react';
 
 export default function PrivacyPolicyPage() {
@@ -16,36 +8,35 @@ export default function PrivacyPolicyPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         {/* Back Button */}
-        <Button
-          variant="light"
-          startContent={<ArrowLeft className="w-4 h-4" />}
-          onPress={() => navigate(-1)}
-          className="mb-6 -ml-2"
+        <button
+          onClick={() => navigate(-1)}
+          className="mb-6 -ml-2 px-4 py-2.5 rounded-xl bg-slate-100 text-slate-900 font-semibold hover:bg-slate-200 transition-colors flex items-center gap-2"
         >
+          <ArrowLeft className="w-4 h-4" />
           Back
-        </Button>
+        </button>
 
         {/* Page Title */}
         <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-2">Privacy Policy</h1>
         <p className="text-gray-500 mb-8">Last Updated: February 1, 2026</p>
 
         {/* Introduction */}
-        <Card shadow="sm" className="border border-gray-200 mb-4">
-          <CardHeader className="px-6 pt-6 pb-2 flex items-center gap-3">
-            <Chip color="primary" variant="flat" size="sm">Introduction</Chip>
-          </CardHeader>
-          <CardBody className="px-6 pb-6">
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm mb-4">
+          <div className="px-6 pt-6 pb-2 flex items-center gap-3">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">Introduction</span>
+          </div>
+          <div className="px-6 pb-6">
             <p className="text-gray-700 leading-relaxed">
               This Privacy Policy describes how we collect, use, and protect your personal information when
               you use our website and services. We are committed to ensuring your privacy and protecting your
               personal data.
             </p>
-          </CardBody>
-        </Card>
+          </div>
+        </div>
 
         {/* Main Content Card */}
-        <Card shadow="sm" className="border border-gray-200">
-          <CardBody className="p-8 gap-0">
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="p-8 gap-0">
 
             {/* Information We Collect */}
             <section>
@@ -72,7 +63,7 @@ export default function PrivacyPolicyPage() {
               </div>
             </section>
 
-            <Divider className="my-8" />
+            <hr className="border-slate-200 my-8" />
 
             {/* How We Use Your Information */}
             <section>
@@ -88,7 +79,7 @@ export default function PrivacyPolicyPage() {
               </ul>
             </section>
 
-            <Divider className="my-8" />
+            <hr className="border-slate-200 my-8" />
 
             {/* Information Sharing */}
             <section>
@@ -105,7 +96,7 @@ export default function PrivacyPolicyPage() {
               </ul>
             </section>
 
-            <Divider className="my-8" />
+            <hr className="border-slate-200 my-8" />
 
             {/* Data Security */}
             <section>
@@ -118,7 +109,7 @@ export default function PrivacyPolicyPage() {
               </p>
             </section>
 
-            <Divider className="my-8" />
+            <hr className="border-slate-200 my-8" />
 
             {/* Cookies */}
             <section>
@@ -130,7 +121,7 @@ export default function PrivacyPolicyPage() {
               </p>
             </section>
 
-            <Divider className="my-8" />
+            <hr className="border-slate-200 my-8" />
 
             {/* Your Rights */}
             <section>
@@ -145,7 +136,7 @@ export default function PrivacyPolicyPage() {
               </ul>
             </section>
 
-            <Divider className="my-8" />
+            <hr className="border-slate-200 my-8" />
 
             {/* Data Retention */}
             <section>
@@ -156,7 +147,7 @@ export default function PrivacyPolicyPage() {
               </p>
             </section>
 
-            <Divider className="my-8" />
+            <hr className="border-slate-200 my-8" />
 
             {/* Third-Party Links */}
             <section>
@@ -167,7 +158,7 @@ export default function PrivacyPolicyPage() {
               </p>
             </section>
 
-            <Divider className="my-8" />
+            <hr className="border-slate-200 my-8" />
 
             {/* Children's Privacy */}
             <section>
@@ -178,7 +169,7 @@ export default function PrivacyPolicyPage() {
               </p>
             </section>
 
-            <Divider className="my-8" />
+            <hr className="border-slate-200 my-8" />
 
             {/* Changes to This Policy */}
             <section>
@@ -189,7 +180,7 @@ export default function PrivacyPolicyPage() {
               </p>
             </section>
 
-            <Divider className="my-8" />
+            <hr className="border-slate-200 my-8" />
 
             {/* Contact Us */}
             <section>
@@ -201,8 +192,8 @@ export default function PrivacyPolicyPage() {
               <p className="text-cyan-600 font-medium mt-2">support@retralabs.in</p>
             </section>
 
-          </CardBody>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

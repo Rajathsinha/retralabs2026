@@ -1,6 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import {
   ArrowRight, Star, CheckCircle, Zap, Truck, Lock,
   FlaskConical, Shield, Package, Microscope,
@@ -11,7 +10,6 @@ import ProductCard from '../components/ProductCard';
 import { useSEO } from '../hooks/useSEO';
 import { getLocalBusinessSchema, getServiceAreaSchema } from '../utils/localSeoSchemas';
 import { BUSINESS_NAP } from '../constants/config';
-import { HeroHeadline, PremiumButton, FloatingProduct, FadeUpOnScroll, LiftCard, ScrollIndicator, useReducedMotion } from '../components/PremiumHeroAnimation';
 
 const TrustpilotSection = lazy(() => import('../components/TrustpilotSection'));
 
@@ -146,7 +144,6 @@ export default function HomePage() {
 
   return (
     <div className="bg-white min-h-screen">
-      <ScrollIndicator />
 
       {/* ═══════════════════════════ HERO ═══════════════════════════ */}
       <section className="relative overflow-hidden">
@@ -156,17 +153,14 @@ export default function HomePage() {
             {/* ── Left Column ── */}
             <div className="min-w-0 flex flex-col" style={{ gap: 'clamp(16px, 3vw, 32px)' }}>
               {/* Badge */}
-              <motion.div
+              <div
                 className="inline-flex items-center gap-1.5 w-fit px-3 py-[5px] rounded-full border border-[#2563EB]/20 bg-[#EFF6FF]"
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, ease: 'easeOut' }}
               >
                 <div className="w-[5px] h-[5px] rounded-full bg-[#2563EB] animate-pulse flex-shrink-0" />
                 <span className="text-[#2563EB] text-[9px] sm:text-[11px] font-bold tracking-[0.1em] uppercase">
                   India's Most Trusted Peptide Source
                 </span>
-              </motion.div>
+              </div>
 
               {/* Headline + dots */}
               <div>
@@ -177,15 +171,13 @@ export default function HomePage() {
                     transition: 'opacity 0.35s ease, transform 0.35s ease',
                   }}
                 >
-                    <HeroHeadline
-                      text={`${slide.lines[0]} ${slide.lines[1]}`}
-                      delay={0}
-                    />
+                    <h1 className="text-[#111111] text-[clamp(32px,6vw,64px)] font-bold tracking-[-0.03em] leading-[1.05]">
+                      {`${slide.lines[0]} ${slide.lines[1]}`}
+                    </h1>
                     <div style={{ marginTop: '0.5rem' }}>
-                      <HeroHeadline
-                        text={slide.accent}
-                        delay={0.4}
-                      />
+                      <h2 className="text-[#2563EB] text-[clamp(32px,6vw,64px)] font-bold tracking-[-0.03em] leading-[1.05]">
+                        {slide.accent}
+                      </h2>
                     </div>
                   </div>
 
@@ -225,47 +217,33 @@ export default function HomePage() {
               </div>
 
               {/* CTAs */}
-              <FadeUpOnScroll delay={0.4}>
+              <div>
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-3 w-full sm:w-auto">
-                  <motion.button
+                  <button
                     type="button"
                     onClick={() => navigate('/catalogue')}
                     className="group flex items-center justify-center gap-2 bg-[#111111] hover:bg-[#1a1a1a] text-white font-semibold px-6 py-3 sm:px-7 sm:py-4 transition-all duration-200 hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.3)] flex-1 sm:flex-none"
                     style={{ fontSize: 'clamp(13px,1.1vw,15px)', borderRadius: 10 }}
-                    whileHover={{ scale: 1.03 }}
-                    whileTap={{ scale: 0.98 }}
-                    transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                   >
                     Shop the Real Stuff
-                    <motion.div
-                      animate={{ x: 0 }}
-                      whileHover={{ x: 4 }}
-                      transition={{ duration: 0.2 }}
-                    >
+                    <div>
                       <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    </motion.div>
-                  </motion.button>
-                  <motion.a
+                    </div>
+                  </button>
+                  <a
                     href={BUSINESS_NAP.social.trustpilot}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="group flex items-center justify-center gap-2 border-[1.5px] border-[#E5E7EB] hover:border-[#111111] text-[#374151] hover:text-[#111111] font-semibold px-6 py-3 sm:px-7 sm:py-4 bg-white transition-all duration-200 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] flex-1 sm:flex-none"
                     style={{ fontSize: 'clamp(13px,1.1vw,15px)', borderRadius: 10 }}
-                    whileHover={{ scale: 1.02, boxShadow: '0 8px 20px rgba(0,0,0,0.1)' }}
-                    whileTap={{ scale: 0.98 }}
-                    transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                   >
                     Read Our Reviews
-                    <motion.div
-                      animate={{ x: 0 }}
-                      whileHover={{ x: 4 }}
-                      transition={{ duration: 0.2 }}
-                    >
+                    <div>
                       <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    </motion.div>
-                  </motion.a>
+                    </div>
+                  </a>
                 </div>
-              </FadeUpOnScroll>
+              </div>
             </div>
 
             {/* ── Right Column — Product Image ── */}
@@ -277,10 +255,7 @@ export default function HomePage() {
                   maskImage: 'radial-gradient(ellipse 82% 78% at 50% 50%, black 38%, transparent 80%)',
                 }}
               >
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.3, ease: 'easeOut' }}
+                <div
                   style={{
                     position: 'relative',
                     width: '100%',
@@ -288,7 +263,7 @@ export default function HomePage() {
                   }}
                 >
                   {/* Pulsing glow */}
-                  <motion.div
+                  <div
                     style={{
                       position: 'absolute',
                       inset: 0,
@@ -296,25 +271,11 @@ export default function HomePage() {
                       background: 'radial-gradient(ellipse 70% 65% at 50% 52%, rgba(37,99,235,0.15) 0%, rgba(37,99,235,0.05) 50%, transparent 80%)',
                       pointerEvents: 'none',
                     }}
-                    animate={{ scale: [0.95, 1.05, 0.95] }}
-                    transition={{
-                      duration: 7,
-                      repeat: Infinity,
-                      ease: 'easeInOut',
-                    }}
                   />
 
                   {/* Floating animation */}
-                  <motion.div
+                  <div
                     style={{ position: 'relative', width: '100%', height: '100%' }}
-                    animate={{
-                      y: [0, -8, 0],
-                      rotate: [-1, 0.5, -1],
-                    }}
-                    transition={{
-                      y: { duration: 6, repeat: Infinity, ease: 'easeInOut' },
-                      rotate: { duration: 18, repeat: Infinity, ease: 'linear' },
-                    }}
                   >
                     <img
                       src="/peptide.png"
@@ -324,37 +285,32 @@ export default function HomePage() {
                       className="w-full h-full object-contain"
                       style={{ objectPosition: 'center center', transform: 'scale(1.08)' }}
                     />
-                  </motion.div>
-                </motion.div>
+                  </div>
+                </div>
               </div>
 
               {/* Floating badges — visible on sm+, inline trust row on mobile */}
-              <LiftCard className="hidden sm:block absolute top-6 left-4 bg-white border border-[#E5E7EB] px-5 py-3.5 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.10)]" style={{ borderRadius: 16, zIndex: 2 }}>
+              <div className="hidden sm:block absolute top-6 left-4 bg-white border border-[#E5E7EB] px-5 py-3.5 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.10)]" style={{ borderRadius: 16, zIndex: 2 }}>
                 <p className="text-[#111111] text-[13px] font-bold leading-tight">99%+ Purity</p>
                 <p className="text-[#9CA3AF] text-[11px] mt-0.5 font-medium">HPLC Verified</p>
-              </LiftCard>
-              <LiftCard className="hidden sm:block absolute bottom-6 right-4 bg-white border border-[#E5E7EB] px-5 py-3.5 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.10)]" style={{ borderRadius: 16, zIndex: 2 }}>
+              </div>
+              <div className="hidden sm:block absolute bottom-6 right-4 bg-white border border-[#E5E7EB] px-5 py-3.5 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.10)]" style={{ borderRadius: 16, zIndex: 2 }}>
                 <p className="text-[#111111] text-[13px] font-bold leading-tight">2,400+ Orders</p>
                 <p className="text-[#9CA3AF] text-[11px] mt-0.5 font-medium">Shipped India-wide</p>
-              </LiftCard>
+              </div>
             </div>
 
           </div>
 
           {/* Mobile trust badges row — only visible on xs */}
-          <motion.div
-            className="flex sm:hidden items-center justify-center gap-3 mt-3"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.6, ease: 'easeOut' }}
-          >
+          <div className="flex sm:hidden items-center justify-center gap-3 mt-3">
             <div className="flex items-center gap-2 bg-[#F8FAFF] border border-[#DBEAFE] px-3 py-2 rounded-[10px]">
               <p className="text-[#2563EB] text-[11px] font-bold">99%+ Purity</p>
             </div>
             <div className="flex items-center gap-2 bg-[#F8FAFF] border border-[#DBEAFE] px-3 py-2 rounded-[10px]">
               <p className="text-[#2563EB] text-[11px] font-bold">2,400+ Orders</p>
             </div>
-          </motion.div>
+          </div>
         </div>
       </section>
 
@@ -464,7 +420,7 @@ export default function HomePage() {
           <Reveal>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-6">
               {FEATURE_BLOCKS.map((block, i) => (
-                <LiftCard key={i} className="flex flex-col items-center text-center gap-4">
+                <div key={i} className="flex flex-col items-center text-center gap-4">
                   <div
                     className="w-12 h-12 flex items-center justify-center bg-white border border-[#E5E7EB]"
                     style={{ borderRadius: 14, boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
@@ -475,7 +431,7 @@ export default function HomePage() {
                     <h3 className="text-[#111111] text-[14px] font-semibold mb-1.5">{block.title}</h3>
                     <p className="text-[#9CA3AF] text-[13px] leading-relaxed max-w-[200px] mx-auto">{block.caption}</p>
                   </div>
-                </LiftCard>
+                </div>
               ))}
             </div>
           </Reveal>

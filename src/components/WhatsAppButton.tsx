@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Button, Card, CardHeader, CardBody, Input } from '@heroui/react';
 import { MessageCircle, X, ArrowLeft } from 'lucide-react';
 import { WHATSAPP_NUMBER } from '../constants/config';
 
@@ -47,21 +46,19 @@ export default function WhatsAppButton() {
 
       {/* Panel */}
       {expanded && (
-        <Card
-          className="w-72 shadow-2xl border border-white/10 bg-slate-900 animate-in fade-in slide-in-from-bottom-4 duration-200"
-          radius="lg"
+        <div
+          className="w-72 shadow-2xl border border-white/10 bg-slate-900 animate-in fade-in slide-in-from-bottom-4 duration-200 rounded-2xl"
         >
-          <CardHeader className="bg-emerald-600 rounded-t-xl px-4 py-3 flex items-center justify-between gap-2">
+          <div className="bg-emerald-600 rounded-t-xl px-4 py-3 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2.5 min-w-0">
               {referralSource && (
-                <Button
-                  isIconOnly variant="light" size="sm" radius="full"
-                  className="text-white/70 hover:text-white hover:bg-white/10 flex-shrink-0 -ml-1"
-                  onPress={() => { setReferralSource(null); setFriendName(''); }}
+                <button
+                  className="text-white/70 hover:text-white hover:bg-white/10 flex-shrink-0 -ml-1 w-8 h-8 flex items-center justify-center rounded-full transition-colors"
+                  onClick={() => { setReferralSource(null); setFriendName(''); }}
                   aria-label="Back"
                 >
                   <ArrowLeft className="w-4 h-4" />
-                </Button>
+                </button>
               )}
               <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center">
                 <MessageCircle className="w-4 h-4 text-white" />
@@ -71,17 +68,16 @@ export default function WhatsAppButton() {
                 <p className="text-emerald-100 text-xs truncate">Typically replies within minutes</p>
               </div>
             </div>
-            <Button
-              isIconOnly variant="light" size="sm" radius="full"
-              className="text-white/70 hover:text-white hover:bg-white/10 flex-shrink-0"
-              onPress={handleClose}
+            <button
+              className="text-white/70 hover:text-white hover:bg-white/10 flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full transition-colors"
+              onClick={handleClose}
               aria-label="Close chat"
             >
               <X className="w-4 h-4" />
-            </Button>
-          </CardHeader>
+            </button>
+          </div>
 
-          <CardBody className="p-3 bg-slate-900/50">
+          <div className="p-3 bg-slate-900/50">
             {!referralSource ? (
               /* ── Step 1: How did you find us? ── */
               <>
@@ -90,17 +86,13 @@ export default function WhatsAppButton() {
                 </p>
                 <div className="flex flex-col gap-2">
                   {REFERRAL_SOURCES.map((src) => (
-                    <Button
+                    <button
                       key={src}
-                      variant="flat"
-                      color="success"
-                      size="sm"
-                      radius="lg"
-                      className="justify-start text-left h-auto py-3 px-4 text-sm font-medium bg-emerald-950/60 text-emerald-200 hover:bg-emerald-900/60 hover:text-emerald-100 border border-emerald-800/50 hover:border-emerald-600/60 transition-all duration-200"
-                      onPress={() => handleSelectSource(src)}
+                      className="justify-start text-left h-auto py-3 px-4 text-sm font-medium bg-emerald-950/60 text-emerald-200 hover:bg-emerald-900/60 hover:text-emerald-100 border border-emerald-800/50 hover:border-emerald-600/60 transition-all duration-200 rounded-xl"
+                      onClick={() => handleSelectSource(src)}
                     >
                       {src}
-                    </Button>
+                    </button>
                   ))}
                 </div>
               </>
@@ -109,16 +101,11 @@ export default function WhatsAppButton() {
               <>
                 {referralSource === 'Friend' && (
                   <div className="mb-3">
-                    <Input
-                      size="sm"
+                    <input
                       placeholder="Friend's name (optional)"
                       value={friendName}
-                      onValueChange={setFriendName}
-                      variant="bordered"
-                      classNames={{
-                        input: 'text-white text-sm',
-                        inputWrapper: 'bg-slate-800 border-slate-700 hover:border-emerald-600 focus-within:border-emerald-500',
-                      }}
+                      onChange={(e) => setFriendName(e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-slate-700 bg-slate-800 text-white text-sm focus:outline-none focus:border-emerald-600 transition-colors"
                     />
                   </div>
                 )}
@@ -130,23 +117,19 @@ export default function WhatsAppButton() {
                 <p className="text-xs text-slate-400 mb-3 px-1">How can we help?</p>
                 <div className="flex flex-col gap-2">
                   {QUICK_MESSAGES.map((msg) => (
-                    <Button
+                    <button
                       key={msg.label}
-                      variant="flat"
-                      color="success"
-                      size="sm"
-                      radius="lg"
-                      className="justify-start text-left h-auto py-3 px-4 text-sm font-medium bg-emerald-950/60 text-emerald-200 hover:bg-emerald-900/60 hover:text-emerald-100 border border-emerald-800/50 hover:border-emerald-600/60 transition-all duration-200"
-                      onPress={() => openChat(msg.text)}
+                      className="justify-start text-left h-auto py-3 px-4 text-sm font-medium bg-emerald-950/60 text-emerald-200 hover:bg-emerald-900/60 hover:text-emerald-100 border border-emerald-800/50 hover:border-emerald-600/60 transition-all duration-200 rounded-xl"
+                      onClick={() => openChat(msg.text)}
                     >
                       {msg.label}
-                    </Button>
+                    </button>
                   ))}
                 </div>
               </>
             )}
-          </CardBody>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* Floating Action Button */}
@@ -154,18 +137,15 @@ export default function WhatsAppButton() {
         {!expanded && (
           <span className="absolute inset-0 rounded-full animate-ping bg-emerald-400 opacity-20 pointer-events-none" />
         )}
-        <Button
-          isIconOnly
-          radius="full"
-          size="lg"
-          className={`relative bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg hover:shadow-xl shadow-emerald-900/40 transition-all duration-300 hover:scale-105 active:scale-95 w-14 h-14 ${
+        <button
+          className={`relative bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg hover:shadow-xl shadow-emerald-900/40 transition-all duration-300 hover:scale-105 active:scale-95 w-14 h-14 rounded-full flex items-center justify-center ${
             expanded ? 'bg-emerald-600 scale-105' : ''
           }`}
-          onPress={() => setExpanded((prev) => !prev)}
+          onClick={() => setExpanded((prev) => !prev)}
           aria-label="Chat with RetraLabs Support on WhatsApp"
         >
           <MessageCircle className="w-6 h-6" />
-        </Button>
+        </button>
       </div>
     </div>
   );

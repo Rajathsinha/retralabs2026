@@ -1,7 +1,6 @@
 import { useSEO } from '../hooks/useSEO';
 import { useNavigate } from 'react-router-dom';
 import { Check, Package } from 'lucide-react';
-import { Card, CardBody, Button } from '@heroui/react';
 
 export default function PaymentSuccessPage() {
   const navigate = useNavigate();
@@ -9,8 +8,8 @@ export default function PaymentSuccessPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
-      <Card className="max-w-md w-full" shadow="sm">
-        <CardBody className="text-center gap-6 py-12 px-8">
+      <div className="max-w-md w-full rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="text-center gap-6 py-12 px-8 flex flex-col">
           <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto">
             <Check className="w-10 h-10 text-emerald-600" />
           </div>
@@ -27,11 +26,14 @@ export default function PaymentSuccessPage() {
               Express delivery: 1–2 days (major cities).
             </p>
           </div>
-          <Button color="primary" onPress={() => navigate('/')}>
+          <button
+            onClick={() => navigate('/')}
+            className="px-4 py-2.5 rounded-xl bg-slate-900 text-white font-semibold hover:bg-slate-800 transition-colors"
+          >
             Continue Shopping
-          </Button>
-        </CardBody>
-      </Card>
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
