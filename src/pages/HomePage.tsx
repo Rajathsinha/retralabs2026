@@ -11,7 +11,7 @@ import ProductCard from '../components/ProductCard';
 import { useSEO } from '../hooks/useSEO';
 import { getLocalBusinessSchema, getServiceAreaSchema } from '../utils/localSeoSchemas';
 import { BUSINESS_NAP } from '../constants/config';
-import { HeroHeadline, PremiumButton, FloatingProduct, FadeUpOnScroll, StaggerContainer, LiftCard, ScrollIndicator, useReducedMotion } from '../components/PremiumHeroAnimation';
+import { HeroHeadline, PremiumButton, FloatingProduct, FadeUpOnScroll, LiftCard, ScrollIndicator, useReducedMotion } from '../components/PremiumHeroAnimation';
 
 const TrustpilotSection = lazy(() => import('../components/TrustpilotSection'));
 
@@ -170,8 +170,13 @@ export default function HomePage() {
 
               {/* Headline + dots */}
               <div>
-                {visible && (
-                  <div>
+                <div
+                  style={{
+                    opacity: visible ? 1 : 0,
+                    transform: visible ? 'translateY(0)' : 'translateY(10px)',
+                    transition: 'opacity 0.35s ease, transform 0.35s ease',
+                  }}
+                >
                     <HeroHeadline
                       text={`${slide.lines[0]} ${slide.lines[1]}`}
                       delay={0}
@@ -183,7 +188,6 @@ export default function HomePage() {
                       />
                     </div>
                   </div>
-                )}
 
                 {/* Slide dots */}
                 <div className="flex items-center gap-1.5 mt-3 sm:mt-5">
@@ -445,11 +449,11 @@ export default function HomePage() {
 
           {/* Product grid — 4 cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-            <StaggerContainer delay={0}>
-              {BEST_SELLERS.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </StaggerContainer>
+            {BEST_SELLERS.map((product, i) => (
+              <Reveal key={product.id} delay={i * 0.08}>
+                <ProductCard product={product} />
+              </Reveal>
+            ))}
           </div>
         </div>
       </section>
