@@ -24,6 +24,7 @@ const NAV_LINKS = [
   { path: BUSINESS_NAP.social.trustpilot, label: 'Reviews', external: true },
 ];
 
+/* ── Circular glass action button ── */
 function GlassCircleBtn({
   onClick, label, children, badge,
 }: {
@@ -36,27 +37,26 @@ function GlassCircleBtn({
     <button
       onClick={onClick}
       aria-label={label}
-      className="group relative w-10 h-10 flex items-center justify-center rounded-full
+      className="group relative w-11 h-11 flex items-center justify-center rounded-full
         text-slate-600 hover:text-[#2B7FFF]
-        transition-all duration-250 ease-out hover:scale-105 active:scale-95 flex-shrink-0"
+        transition-all duration-300 ease-out hover:scale-105 active:scale-95 flex-shrink-0"
       style={{
-        background: 'rgba(255,255,255,0.55)',
-        border: '1px solid rgba(200,210,225,0.55)',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.8)',
+        background: 'rgba(255,255,255,0.65)',
+        border: '1px solid rgba(200,210,225,0.5)',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.9)',
       }}
     >
       {children}
       {badge !== undefined && badge > 0 && (
         <span
-          className="absolute -top-0.5 -right-0.5 bg-[#2B7FFF] text-white text-[9px] font-bold min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center leading-none animate-badge-pop"
-          style={{ boxShadow: '0 2px 6px rgba(43,127,255,0.45)' }}
+          className="absolute -top-0.5 -right-0.5 bg-[#2B7FFF] text-white text-[10px] font-bold min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center leading-none animate-badge-pop"
+          style={{ boxShadow: '0 2px 8px rgba(43,127,255,0.5)' }}
         >
           {badge}
         </span>
       )}
-      {/* hover ring */}
-      <span className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-250"
-        style={{ boxShadow: '0 0 0 1.5px rgba(43,127,255,0.30), 0 4px 14px rgba(43,127,255,0.12)' }}
+      <span className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-300"
+        style={{ boxShadow: '0 0 0 1.5px rgba(43,127,255,0.28), 0 4px 16px rgba(43,127,255,0.14)' }}
       />
     </button>
   );
@@ -127,121 +127,127 @@ export default function Header() {
         {/* ── Floating glass bar ── */}
         <div className="px-4 sm:px-5 lg:px-6 pt-3 pb-2">
           <header
-            className="mx-auto max-w-[1440px] relative transition-[box-shadow,background] duration-500"
+            className="mx-auto max-w-[1440px] transition-[box-shadow,background] duration-500"
             style={{
               borderRadius: 26,
-              height: 88,
-              background: scrolled ? 'rgba(255,255,255,0.78)' : 'rgba(255,255,255,0.62)',
+              height: 92,
+              background: scrolled ? 'rgba(255,255,255,0.82)' : 'rgba(255,255,255,0.68)',
               backdropFilter: 'blur(28px) saturate(200%)',
               WebkitBackdropFilter: 'blur(28px) saturate(200%)',
-              border: '1px solid rgba(255,255,255,0.70)',
+              border: '1px solid rgba(255,255,255,0.75)',
               boxShadow: scrolled
-                ? '0 10px 44px -6px rgba(0,0,0,0.09), 0 2px 10px -2px rgba(43,127,255,0.06), inset 0 1px 0 rgba(255,255,255,0.95)'
-                : '0 4px 28px -8px rgba(0,0,0,0.06), 0 1px 6px -2px rgba(43,127,255,0.04), inset 0 1px 0 rgba(255,255,255,0.95)',
+                ? '0 10px 44px -6px rgba(0,0,0,0.09), 0 2px 10px -2px rgba(43,127,255,0.06), inset 0 1px 0 rgba(255,255,255,1)'
+                : '0 4px 28px -8px rgba(0,0,0,0.06), 0 1px 6px -2px rgba(43,127,255,0.04), inset 0 1px 0 rgba(255,255,255,1)',
             }}
           >
-            {/* ── LEFT: actual logo ── */}
-            <div className="absolute left-8 top-0 h-full flex items-center">
-              <RouterLink to="/" className="flex-shrink-0 hover:opacity-75 transition-opacity duration-200">
-                <Logo size="md" variant="dark" />
-              </RouterLink>
-            </div>
-
-            {/* ── CENTER: nav links absolutely centered ── */}
-            <nav className="hidden lg:flex items-center gap-1 absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-              {NAV_LINKS.map(({ path, label, external }) => {
-                const active = !external && isActive(path);
-                const cls = `relative px-5 py-2.5 text-[14px] font-medium tracking-[-0.01em] transition-colors duration-200 group whitespace-nowrap
-                  ${active ? 'text-slate-900' : 'text-slate-500 hover:text-slate-800'}`;
-                const underline = (
-                  <span className={`absolute bottom-1 left-5 right-5 h-[2px] rounded-full bg-[#2B7FFF]
-                    transition-transform duration-200 origin-left
-                    ${active ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-100'}`}
-                  />
-                );
-                return external ? (
-                  <a key={label} href={path} target="_blank" rel="noopener noreferrer" className={cls}>
-                    {label}{underline}
-                  </a>
-                ) : (
-                  <RouterLink key={label} to={path} className={cls}>
-                    {label}{underline}
-                  </RouterLink>
-                );
-              })}
-            </nav>
-
-            {/* ── RIGHT: action buttons ── */}
-            <div className="absolute right-8 top-0 h-full flex items-center gap-3.5">
-
-              {/* Search */}
-              <GlassCircleBtn onClick={() => setSearchOpen(true)} label="Search">
-                <Search className="w-[18px] h-[18px]" strokeWidth={1.9} />
-              </GlassCircleBtn>
-
-              {/* Currency */}
-              <div className="relative" ref={currencyRef}>
-                <button
-                  onClick={() => setCurrencyOpen(o => !o)}
-                  aria-label="Select currency"
-                  className="group relative h-10 flex items-center gap-1.5 px-3.5 rounded-full
-                    text-slate-600 hover:text-[#2B7FFF] text-[13px] font-medium
-                    transition-all duration-250 hover:scale-105 active:scale-95 flex-shrink-0"
-                  style={{
-                    background: 'rgba(255,255,255,0.55)',
-                    border: '1px solid rgba(200,210,225,0.55)',
-                    boxShadow: '0 1px 4px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.8)',
-                  }}
-                >
-                  <span className="text-[15px] leading-none">{currency.flag}</span>
-                  <span className="font-semibold">{currency.code}</span>
-                  <ChevronDown className="w-3 h-3 text-slate-400 group-hover:text-[#2B7FFF] transition-colors" strokeWidth={2} />
-                  <span className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity"
-                    style={{ boxShadow: '0 0 0 1.5px rgba(43,127,255,0.30), 0 4px 14px rgba(43,127,255,0.12)' }} />
-                </button>
-                {currencyOpen && (
-                  <div
-                    className="absolute right-0 top-full mt-2 w-46 z-50 overflow-hidden animate-fade-in-down"
-                    style={{
-                      width: 176,
-                      borderRadius: 18,
-                      background: 'rgba(255,255,255,0.88)',
-                      backdropFilter: 'blur(20px) saturate(180%)',
-                      WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-                      border: '1px solid rgba(255,255,255,0.75)',
-                      boxShadow: '0 16px 48px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.95)',
-                    }}
-                  >
-                    {Object.values(CURRENCIES).map(c => (
-                      <button
-                        key={c.code}
-                        onClick={() => { setCurrencyCode(c.code); setCurrencyOpen(false); }}
-                        className={`w-full flex items-center gap-2.5 px-4 py-3 text-[13px] transition-colors ${
-                          currency.code === c.code
-                            ? 'text-slate-900 font-semibold bg-[#2B7FFF]/[0.07]'
-                            : 'text-slate-500 hover:bg-slate-50/70 hover:text-slate-800'
-                        }`}
-                      >
-                        <span className="text-[15px] leading-none">{c.flag}</span>
-                        <span className="font-medium">{c.code}</span>
-                        <span className="text-slate-400 text-[11px] ml-auto">{c.symbol}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
+            {/* ── 3-column grid: left | center | right ── */}
+            <div
+              className="h-full flex items-center px-8 lg:px-12"
+              style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', columnGap: '0px' }}
+            >
+              {/* LEFT — logo */}
+              <div className="flex items-center justify-start">
+                <RouterLink to="/" className="flex-shrink-0 hover:opacity-75 transition-opacity duration-200">
+                  <Logo size="md" variant="dark" />
+                </RouterLink>
               </div>
 
-              {/* Cart */}
-              <GlassCircleBtn onClick={openCart} label="Cart" badge={cartCount}>
-                <ShoppingCart className="w-[18px] h-[18px]" strokeWidth={1.9} />
-              </GlassCircleBtn>
+              {/* CENTER — nav links (empty on mobile) */}
+              <nav className="hidden lg:flex items-center justify-center gap-1 px-8">
+                {NAV_LINKS.map(({ path, label, external }) => {
+                  const active = !external && isActive(path);
+                  const cls = `relative px-5 py-2.5 text-[14px] font-medium tracking-[-0.01em] transition-colors duration-200 group whitespace-nowrap
+                    ${active ? 'text-slate-900' : 'text-slate-500 hover:text-slate-800'}`;
+                  const underline = (
+                    <span className={`absolute bottom-1 left-5 right-5 h-[2px] rounded-full bg-[#2B7FFF]
+                      transition-transform duration-200 origin-left
+                      ${active ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-100'}`}
+                    />
+                  );
+                  return external ? (
+                    <a key={label} href={path} target="_blank" rel="noopener noreferrer" className={cls}>
+                      {label}{underline}
+                    </a>
+                  ) : (
+                    <RouterLink key={label} to={path} className={cls}>
+                      {label}{underline}
+                    </RouterLink>
+                  );
+                })}
+              </nav>
 
-              {/* Hamburger (visible all breakpoints for full-page menu) */}
-              <GlassCircleBtn onClick={() => setMobileOpen(o => !o)} label={mobileOpen ? 'Close menu' : 'Menu'}>
-                {mobileOpen
-                  ? <X className="w-[18px] h-[18px]" strokeWidth={1.9} />
-                  : <Menu className="w-[18px] h-[18px]" strokeWidth={1.9} />}
-              </GlassCircleBtn>
+              {/* RIGHT — action buttons */}
+              <div className="flex items-center justify-end gap-3.5">
+
+                {/* Search */}
+                <GlassCircleBtn onClick={() => setSearchOpen(true)} label="Search">
+                  <Search className="w-[19px] h-[19px]" strokeWidth={1.9} />
+                </GlassCircleBtn>
+
+                {/* Currency */}
+                <div className="relative" ref={currencyRef}>
+                  <button
+                    onClick={() => setCurrencyOpen(o => !o)}
+                    aria-label="Select currency"
+                    className="group relative h-11 flex items-center gap-1.5 px-3.5 rounded-full
+                      text-slate-600 hover:text-[#2B7FFF] text-[13px] font-medium
+                      transition-all duration-300 hover:scale-105 active:scale-95 flex-shrink-0"
+                    style={{
+                      background: 'rgba(255,255,255,0.65)',
+                      border: '1px solid rgba(200,210,225,0.5)',
+                      boxShadow: '0 1px 4px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.9)',
+                    }}
+                  >
+                    <span className="text-[15px] leading-none">{currency.flag}</span>
+                    <span className="font-semibold">{currency.code}</span>
+                    <ChevronDown className="w-3 h-3 text-slate-400 group-hover:text-[#2B7FFF] transition-colors" strokeWidth={2} />
+                    <span className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity"
+                      style={{ boxShadow: '0 0 0 1.5px rgba(43,127,255,0.28), 0 4px 14px rgba(43,127,255,0.14)' }} />
+                  </button>
+                  {currencyOpen && (
+                    <div
+                      className="absolute right-0 top-full mt-2 z-50 overflow-hidden animate-fade-in-down"
+                      style={{
+                        width: 180,
+                        borderRadius: 18,
+                        background: 'rgba(255,255,255,0.9)',
+                        backdropFilter: 'blur(20px) saturate(180%)',
+                        WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+                        border: '1px solid rgba(255,255,255,0.8)',
+                        boxShadow: '0 16px 48px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,1)',
+                      }}
+                    >
+                      {Object.values(CURRENCIES).map(c => (
+                        <button
+                          key={c.code}
+                          onClick={() => { setCurrencyCode(c.code); setCurrencyOpen(false); }}
+                          className={`w-full flex items-center gap-2.5 px-4 py-3 text-[13px] transition-colors ${
+                            currency.code === c.code
+                              ? 'text-slate-900 font-semibold bg-[#2B7FFF]/[0.07]'
+                              : 'text-slate-500 hover:bg-slate-50/70 hover:text-slate-800'
+                          }`}
+                        >
+                          <span className="text-[15px] leading-none">{c.flag}</span>
+                          <span className="font-medium">{c.code}</span>
+                          <span className="text-slate-400 text-[11px] ml-auto">{c.symbol}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Cart */}
+                <GlassCircleBtn onClick={openCart} label="Cart" badge={cartCount}>
+                  <ShoppingCart className="w-[19px] h-[19px]" strokeWidth={1.9} />
+                </GlassCircleBtn>
+
+                {/* Hamburger */}
+                <GlassCircleBtn onClick={() => setMobileOpen(o => !o)} label={mobileOpen ? 'Close menu' : 'Menu'}>
+                  {mobileOpen
+                    ? <X className="w-[19px] h-[19px]" strokeWidth={1.9} />
+                    : <Menu className="w-[19px] h-[19px]" strokeWidth={1.9} />}
+                </GlassCircleBtn>
+              </div>
             </div>
           </header>
         </div>
@@ -256,10 +262,10 @@ export default function Header() {
             className="mx-4 mt-1 mb-2"
             style={{
               borderRadius: 22,
-              background: 'rgba(255,255,255,0.82)',
+              background: 'rgba(255,255,255,0.85)',
               backdropFilter: 'blur(20px) saturate(180%)',
               WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-              border: '1px solid rgba(255,255,255,0.72)',
+              border: '1px solid rgba(255,255,255,0.75)',
               boxShadow: '0 10px 36px rgba(0,0,0,0.08)',
               overflow: 'hidden',
             }}
@@ -269,7 +275,7 @@ export default function Header() {
                 onClick={() => { setMobileOpen(false); setTimeout(() => setSearchOpen(true), 150); }}
                 className="flex items-center gap-3 px-4 py-3.5 rounded-[14px] text-[15px] text-slate-400 hover:text-slate-800 hover:bg-slate-50/60 transition-all text-left"
               >
-                <Search className="w-4.5 h-4.5 flex-shrink-0" strokeWidth={1.9} />
+                <Search className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={1.9} />
                 Search products...
               </button>
 
