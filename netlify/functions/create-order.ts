@@ -1,7 +1,7 @@
 import type { Handler } from '@netlify/functions';
 
 interface OrderFields {
-  'Order ID': string;
+  orderID: string;
   Name: string;
   Email: string;
   Phone: string;
@@ -72,7 +72,7 @@ export const handler: Handler = async (event) => {
 
     // Generate the order ID server-side so it is unique and trustworthy
     const orderId = generateOrderId();
-    const fieldsWithId: OrderFields = { ...body.fields, 'Order ID': orderId };
+    const fieldsWithId: OrderFields = { ...body.fields, orderID: orderId };
 
     // 1. Create the record
     const createRes = await fetch(
