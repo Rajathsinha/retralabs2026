@@ -133,7 +133,7 @@ async function createShiprocketOrder(
     billing_pincode: finalPincode,
     billing_state: process.env.SHIPROCKET_DEFAULT_STATE || 'Maharashtra',
     billing_country: 'India',
-    billing_email: customer.email || 'order@retralabs.in',
+    billing_email: customer.email || 'orders@retralabs.in',
     billing_phone: cleanPhone,
     shipping_is_billing: true,
     shipping_customer_name: '',
