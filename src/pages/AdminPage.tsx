@@ -1,13 +1,18 @@
 import { useSEO } from '../hooks/useSEO';
-import { useState, useEffect, useCallback } from 'react';
-import { Download, RefreshCw, LogOut, ChevronDown } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { RefreshCw, LogOut, Search, X, Eye, Download, ChevronDown, Truck, Package } from 'lucide-react';
 
-const BASE_ID = import.meta.env.VITE_AIRTABLE_BASE_ID;
-const TOKEN   = import.meta.env.VITE_AIRTABLE_TOKEN;
-const TABLE   = import.meta.env.VITE_AIRTABLE_TABLE || 'Orders';
-const PASS    = import.meta.env.VITE_ADMIN_PASSWORD;
+const PASS = import.meta.env.VITE_ADMIN_PASSWORD;
 
-const STATUS_OPTIONS = ['New', 'Confirmed', 'Paid', 'Shipped', 'Delivered', 'Cancelled'];
+const STATUS_OPTIONS = [
+  'New',
+  'Created in Shiprocket',
+  'Confirmed',
+  'Paid',
+  'Shipped',
+  'Delivered',
+  'Cancelled',
+];
 
 interface AirtableAttachment { url: string; thumbnails?: { small?: { url: string } } }
 interface AirtableRecord {
@@ -15,24 +20,20 @@ interface AirtableRecord {
   fields: Record<string, string | number | AirtableAttachment[] | undefined>;
 }
 
+// ── API helpers ──────────────────────────────────────────────────────────────
+
 async function fetchOrders(): Promise<AirtableRecord[]> {
-  const url = `https://api.airtable.com/v0/${BASE_ID}/${encodeURIComponent(TABLE)}?sort[0][field]=Created&sort[0][direction]=desc`;
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${TOKEN}` } });
-  if (!res.ok) throw new Error('Airtable fetch failed');
+  const res = await fetch('/.netlify/functions/list-orders', { headers: { 'Content-Type': 'application/json' } });
+  if (!res.ok) {
+    const json = await res.json().catch(() => null);
+    throw new Error(json?.error || `Airtable fetch failed (HTTP ${res.status})`);
+  }
   const json = await res.json();
   return json.records || [];
 }
 
-async function patchStatus(recordId: string, status: string) {
-  await fetch(`https://api.airtable.com/v0/${BASE_ID}/${encodeURIComponent(TABLE)}/${recordId}`, {
-    method: 'PATCH',
-    headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fields: { Status: status } }),
-  });
-}
-
 function exportCsv(records: AirtableRecord[]) {
-  const cols = ['Created', 'Name', 'Phone', 'Email', 'Items', 'Total', 'Payment', 'Transaction', 'Status', 'Address', 'Delivery'];
+  const cols = ['Created', 'Name', 'Phone', 'Email', 'Items', 'Total (₹)', 'Payment', 'Transaction', 'Status', 'Shiprocket Order ID', 'Shiprocket Shipment ID', 'Tracking ID', 'Address', 'Delivery'];
   const header = cols.join(',');
   const rows = records.map(r =>
     cols.map(c => {
@@ -56,11 +57,11 @@ function PasswordGate({ onAuth }: { onAuth: () => void }) {
     else { setErr(true); setTimeout(() => setErr(false), 2000); }
   };
   return (
-    <div style={{ minHeight: '100vh', background: '#040C1E', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ width: '100%', maxWidth: 360, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: 32 }}>
-        <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <span style={{ color: '#00C896', fontWeight: 900, fontSize: 22 }}>RetraLabs</span>
-          <p style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>Admin Dashboard</p>
+    <div className="min-h-screen bg-[#040C1E] flex items-center justify-center px-4">
+      <div className="w-full max-w-sm bg-white/[0.04] border border-white/10 rounded-2xl p-8">
+        <div className="text-center mb-7">
+          <span className="text-[#00C896] font-black text-xl">RetraLabs</span>
+          <p className="text-slate-500 text-xs mt-1">Admin Dashboard</p>
         </div>
         <input
           type="password"
@@ -68,17 +69,78 @@ function PasswordGate({ onAuth }: { onAuth: () => void }) {
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && submit()}
-          style={{
-            width: '100%', padding: '12px 14px', borderRadius: 10, boxSizing: 'border-box',
-            background: 'rgba(255,255,255,0.06)', border: `1.5px solid ${err ? '#ef4444' : 'rgba(255,255,255,0.1)'}`,
-            color: '#fff', fontSize: 15, outline: 'none', marginBottom: 12,
-          }}
+          className={`w-full px-3.5 py-3 rounded-xl bg-white/[0.06] border ${err ? 'border-red-500' : 'border-white/10'} text-white text-sm outline-none mb-3 focus:border-[#00C896]/50 transition-colors`}
           autoFocus
         />
-        {err && <p style={{ color: '#ef4444', fontSize: 13, marginBottom: 12, textAlign: 'center' }}>Wrong password</p>}
-        <button onClick={submit} style={{ width: '100%', padding: 13, borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#00C896,#00A3FF)', color: '#fff', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>
+        {err && <p className="text-red-500 text-xs mb-3 text-center">Wrong password</p>}
+        <button onClick={submit} className="w-full py-3 rounded-xl bg-gradient-to-r from-[#00C896] to-[#00A3FF] text-white font-bold text-sm transition-opacity hover:opacity-90">
           Enter
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ── View Order Modal ──────────────────────────────────────────────────────────
+function ViewOrderModal({ record, onClose }: { record: AirtableRecord | null; onClose: () => void }) {
+  if (!record) return null;
+  const f = record.fields;
+
+  const rows: { label: string; value: string | number | undefined; isPrice?: boolean }[] = [
+    { label: 'Order ID', value: String(f['orderID'] ?? '—') },
+    { label: 'Customer Name', value: String(f['Name'] ?? '—') },
+    { label: 'Phone', value: String(f['Phone'] ?? '—') },
+    { label: 'Email', value: String(f['Email'] ?? '—') },
+    { label: 'Address', value: String(f['Address'] ?? '—') },
+    { label: 'Items', value: String(f['Items'] ?? '—') },
+    { label: 'Total', value: f['Total (₹)'], isPrice: true },
+    { label: 'Payment', value: String(f['Payment'] ?? '—') },
+    { label: 'Delivery', value: String(f['Delivery'] ?? '—') },
+    { label: 'Transaction', value: String(f['Transaction'] ?? '—') },
+    { label: 'Referral', value: String(f['Referral'] ?? '—') },
+    { label: 'Status', value: String(f['Status'] ?? '—') },
+    { label: 'Shiprocket Order ID', value: String(f['Shiprocket Order ID'] ?? '—') },
+    { label: 'Shiprocket Shipment ID', value: String(f['Shiprocket Shipment ID'] ?? '—') },
+    { label: 'Tracking ID', value: String(f['Tracking ID'] ?? '—') },
+    { label: 'Created', value: String(f['Created'] ?? '—') },
+  ];
+
+  const screenshots = f['Screenshot'] as AirtableAttachment[] | undefined;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-[#0B1426] border border-white/10 rounded-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 sticky top-0 bg-[#0B1426]">
+          <h3 className="text-white font-bold text-base">Order Details</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="p-5 space-y-3">
+          {rows.map((row, i) => (
+            <div key={i} className="flex justify-between gap-4 text-sm">
+              <span className="text-slate-500 flex-shrink-0">{row.label}</span>
+              <span className={`text-right ${row.isPrice ? 'text-[#00C896] font-bold' : 'text-slate-200 font-medium'} break-words`}>
+                {row.isPrice && row.value !== undefined && row.value !== '—'
+                  ? `₹${Number(row.value).toLocaleString('en-IN')}`
+                  : String(row.value ?? '—')}
+              </span>
+            </div>
+          ))}
+
+          {screenshots && screenshots.length > 0 && (
+            <div className="pt-3 border-t border-white/10">
+              <p className="text-slate-500 text-xs mb-2">Payment Screenshot</p>
+              <div className="flex gap-2 flex-wrap">
+                {screenshots.map((att, i) => (
+                  <a key={i} href={att.url} target="_blank" rel="noopener noreferrer">
+                    <img src={att.thumbnails?.small?.url || att.url} alt="Payment screenshot" className="w-20 h-20 object-cover rounded-lg border border-white/10 cursor-pointer hover:border-[#00C896]/50 transition-colors" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -91,10 +153,11 @@ export default function AdminPage() {
   const [records, setRecords] = useState<AirtableRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [filterDate, setFilterDate] = useState('');
-  const [filterPayment, setFilterPayment] = useState('');
+  const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [filterPayment, setFilterPayment] = useState('');
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [viewRecord, setViewRecord] = useState<AirtableRecord | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
@@ -103,7 +166,7 @@ export default function AdminPage() {
       setRecords(data);
       setLastRefresh(new Date());
     } catch (e) {
-      setError(String(e));
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
@@ -116,153 +179,201 @@ export default function AdminPage() {
     return () => clearInterval(interval);
   }, [authed, load]);
 
+  const filtered = useMemo(() => {
+    return records.filter(r => {
+      const f = r.fields;
+      if (filterStatus && String(f['Status'] ?? '') !== filterStatus) return false;
+      if (filterPayment && !String(f['Payment'] ?? '').toLowerCase().includes(filterPayment.toLowerCase())) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        const haystack = [
+          f['orderID'], f['Name'], f['Phone'], f['Email'], f['Items'],
+          f['Status'], f['Shiprocket Order ID'], f['Tracking ID'], f['Transaction'],
+        ].map(v => String(v ?? '').toLowerCase()).join(' ');
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [records, search, filterStatus, filterPayment]);
+
   if (!authed) return <PasswordGate onAuth={() => setAuthed(true)} />;
 
-  const filtered = records.filter(r => {
-    const f = r.fields;
-    if (filterDate && f['Created'] !== filterDate) return false;
-    if (filterPayment && !String(f['Payment'] ?? '').toLowerCase().includes(filterPayment.toLowerCase())) return false;
-    if (filterStatus && f['Status'] !== filterStatus) return false;
-    return true;
-  });
-
-  const handleStatusChange = async (recordId: string, newStatus: string) => {
-    setRecords(prev => prev.map(r => r.id === recordId ? { ...r, fields: { ...r.fields, Status: newStatus } } : r));
-    await patchStatus(recordId, newStatus);
-  };
-
   const cols: { key: string; label: string; width?: number }[] = [
-    { key: 'Created', label: 'Date', width: 100 },
-    { key: 'Name', label: 'Name', width: 130 },
+    { key: 'orderID', label: 'Order ID', width: 140 },
+    { key: 'Name', label: 'Customer Name', width: 130 },
     { key: 'Phone', label: 'Phone', width: 110 },
-    { key: 'Email', label: 'Email', width: 180 },
-    { key: 'Items', label: 'Items', width: 220 },
-    { key: 'Total', label: 'Total', width: 90 },
-    { key: 'Payment', label: 'Payment', width: 100 },
-    { key: 'Transaction', label: 'Txn Ref', width: 130 },
-    { key: 'Screenshot', label: 'Screenshot', width: 110 },
-    { key: 'Status', label: 'Status', width: 130 },
+    { key: 'Payment', label: 'Payment', width: 90 },
+    { key: 'Total (₹)', label: 'Total', width: 90 },
+    { key: 'Status', label: 'Status', width: 150 },
+    { key: 'Shiprocket Order ID', label: 'Shiprocket ID', width: 120 },
+    { key: 'Tracking ID', label: 'Tracking ID', width: 120 },
+    { key: 'Created', label: 'Created At', width: 100 },
   ];
 
   const statusColor: Record<string, string> = {
-    New: '#3b82f6', Confirmed: '#8b5cf6', Paid: '#00C896', Shipped: '#f59e0b', Delivered: '#22c55e', Cancelled: '#ef4444',
+    'New': '#3b82f6',
+    'Created in Shiprocket': '#00C896',
+    'Confirmed': '#8b5cf6',
+    'Paid': '#00C896',
+    'Shipped': '#f59e0b',
+    'Delivered': '#22c55e',
+    'Cancelled': '#ef4444',
+  };
+
+  const stats = {
+    total: filtered.length,
+    cod: filtered.filter(r => String(r.fields['Payment'] ?? '').toLowerCase().includes('cod')).length,
+    shiprocket: filtered.filter(r => !!r.fields['Shiprocket Order ID']).length,
+    newOrders: filtered.filter(r => String(r.fields['Status'] ?? '') === 'New').length,
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#040C1E', color: '#e2e8f0', fontFamily: 'sans-serif' }}>
+    <div className="min-h-screen bg-[#040C1E] text-slate-200 font-sans">
       {/* Header */}
-      <div style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.08)', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <span style={{ color: '#00C896', fontWeight: 900, fontSize: 18 }}>RetraLabs</span>
-          <span style={{ color: '#475569', fontSize: 13, marginLeft: 12 }}>Admin · {filtered.length} orders</span>
+      <div className="bg-white/[0.03] border-b border-white/[0.08] px-6 py-4 flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#00C896] to-[#00A3FF] flex items-center justify-center">
+            <Package className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <span className="text-[#00C896] font-black text-lg">RetraLabs</span>
+            <span className="text-slate-600 text-xs ml-2">Order Automation</span>
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          {lastRefresh && <span style={{ color: '#475569', fontSize: 12, display: 'flex', alignItems: 'center' }}>Last updated {lastRefresh.toLocaleTimeString()}</span>}
-          <button onClick={load} disabled={loading} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: 8, padding: '7px 14px', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
-            <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
-            Refresh
+        <div className="flex items-center gap-2.5">
+          {lastRefresh && <span className="text-slate-600 text-xs hidden sm:block">Updated {lastRefresh.toLocaleTimeString()}</span>}
+          <button onClick={load} disabled={loading} className="bg-white/[0.08] border-none rounded-lg px-3.5 py-1.5 text-slate-400 flex items-center gap-1.5 text-xs hover:bg-white/[0.12] transition-colors">
+            <RefreshCw className="w-3.5 h-3.5" style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+            Refresh Airtable
           </button>
-          <button onClick={() => exportCsv(filtered)} style={{ background: '#00C896', border: 'none', borderRadius: 8, padding: '7px 14px', color: '#fff', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
-            <Download size={13} /> Export CSV
+          <button onClick={() => exportCsv(filtered)} className="bg-[#00C896] rounded-lg px-3.5 py-1.5 text-white font-bold flex items-center gap-1.5 text-xs hover:opacity-90 transition-opacity">
+            <Download className="w-3.5 h-3.5" /> Export
           </button>
-          <button onClick={() => { sessionStorage.removeItem('admin_auth'); setAuthed(false); }} style={{ background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: 8, padding: '7px 14px', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
-            <LogOut size={13} /> Logout
+          <button onClick={() => { sessionStorage.removeItem('admin_auth'); setAuthed(false); }} className="bg-white/[0.06] rounded-lg px-3.5 py-1.5 text-slate-400 flex items-center gap-1.5 text-xs hover:bg-white/[0.1] transition-colors">
+            <LogOut className="w-3.5 h-3.5" /> Logout
           </button>
         </div>
       </div>
 
+      {/* Stats */}
+      <div className="px-6 pt-5 grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { label: 'Total Orders', value: stats.total, color: '#3b82f6' },
+          { label: 'COD Orders', value: stats.cod, color: '#f59e0b' },
+          { label: 'In Shiprocket', value: stats.shiprocket, color: '#00C896' },
+          { label: 'New (Pending)', value: stats.newOrders, color: '#8b5cf6' },
+        ].map((s, i) => (
+          <div key={i} className="bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3">
+            <p className="text-slate-500 text-xs">{s.label}</p>
+            <p className="text-2xl font-black mt-1" style={{ color: s.color }}>{s.value}</p>
+          </div>
+        ))}
+      </div>
+
       {/* Filters */}
-      <div style={{ padding: '16px 24px', display: 'flex', gap: 12, flexWrap: 'wrap', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <input
-          type="date"
-          value={filterDate}
-          onChange={e => setFilterDate(e.target.value)}
-          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '7px 12px', color: '#e2e8f0', fontSize: 13, outline: 'none' }}
-        />
-        <input
-          placeholder="Filter by payment..."
-          value={filterPayment}
-          onChange={e => setFilterPayment(e.target.value)}
-          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '7px 12px', color: '#e2e8f0', fontSize: 13, outline: 'none', width: 160 }}
-        />
+      <div className="px-6 py-4 flex gap-2.5 flex-wrap items-center">
+        <div className="relative flex-1 min-w-[200px] max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <input
+            placeholder="Search by Order ID, name, phone, Shiprocket ID..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 rounded-lg bg-white/[0.06] border border-white/10 text-slate-200 text-sm outline-none focus:border-[#00C896]/50 transition-colors"
+          />
+        </div>
         <select
           value={filterStatus}
           onChange={e => setFilterStatus(e.target.value)}
-          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '7px 12px', color: '#e2e8f0', fontSize: 13, outline: 'none' }}
+          className="bg-white/[0.06] border border-white/10 rounded-lg px-3 py-2 text-slate-200 text-sm outline-none focus:border-[#00C896]/50 transition-colors"
         >
           <option value="">All statuses</option>
           {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-        {(filterDate || filterPayment || filterStatus) && (
-          <button onClick={() => { setFilterDate(''); setFilterPayment(''); setFilterStatus(''); }} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, padding: '7px 12px', color: '#94a3b8', fontSize: 13, cursor: 'pointer' }}>
+        <input
+          placeholder="Payment method..."
+          value={filterPayment}
+          onChange={e => setFilterPayment(e.target.value)}
+          className="bg-white/[0.06] border border-white/10 rounded-lg px-3 py-2 text-slate-200 text-sm outline-none focus:border-[#00C896]/50 transition-colors w-40"
+        />
+        {(search || filterStatus || filterPayment) && (
+          <button onClick={() => { setSearch(''); setFilterStatus(''); setFilterPayment(''); }} className="text-slate-400 text-xs border border-white/15 rounded-lg px-3 py-2 hover:bg-white/[0.06] transition-colors">
             Clear
           </button>
         )}
       </div>
 
       {/* Error */}
-      {error && <div style={{ margin: '16px 24px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '12px 16px', color: '#fca5a5', fontSize: 14 }}>{error}</div>}
+      {error && (
+        <div className="mx-6 mb-4 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-300 text-sm">{error}</div>
+      )}
 
       {/* Table */}
-      <div style={{ overflowX: 'auto', padding: '0 24px 32px' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginTop: 16 }}>
+      <div className="px-6 pb-8 overflow-x-auto">
+        <table className="w-full border-collapse text-sm">
           <thead>
-            <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+            <tr className="border-b border-white/[0.08]">
               {cols.map(c => (
-                <th key={c.key} style={{ textAlign: 'left', padding: '10px 12px', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: 11, width: c.width, whiteSpace: 'nowrap' }}>
+                <th key={c.key} className="text-left px-3 py-2.5 text-slate-500 font-bold uppercase tracking-wider text-[11px] whitespace-nowrap" style={{ minWidth: c.width }}>
                   {c.label}
                 </th>
               ))}
+              <th className="text-left px-3 py-2.5 text-slate-500 font-bold uppercase tracking-wider text-[11px]">Actions</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 && !loading && (
-              <tr><td colSpan={cols.length} style={{ textAlign: 'center', padding: '40px 0', color: '#475569' }}>No orders yet</td></tr>
+              <tr><td colSpan={cols.length + 1} className="text-center py-10 text-slate-600">No orders found</td></tr>
             )}
             {filtered.map((r, i) => (
-              <tr key={r.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
+              <tr key={r.id} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors" style={{ background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
                 {cols.map(c => (
-                  <td key={c.key} style={{ padding: '10px 12px', verticalAlign: 'top', maxWidth: c.width, wordBreak: 'break-word' }}>
-                    {c.key === 'Screenshot' ? (() => {
-                      const attachments = r.fields['Screenshot'] as AirtableAttachment[] | undefined;
-                      const att = attachments?.[0];
-                      if (!att) return <span style={{ color: '#334155' }}>—</span>;
-                      const thumb = att.thumbnails?.small?.url || att.url;
+                  <td key={c.key} className="px-3 py-2.5 align-top max-w-[220px]">
+                    {c.key === 'Status' ? (() => {
+                      const status = String(r.fields['Status'] || 'New');
+                      const color = statusColor[status] || '#475569';
                       return (
-                        <a href={att.url} target="_blank" rel="noopener noreferrer">
-                          <img src={thumb} alt="Payment screenshot" style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }} />
-                        </a>
-                      );
-                    })() : c.key === 'Status' ? (
-                      <div style={{ position: 'relative', display: 'inline-block' }}>
-                        <select
-                          value={String(r.fields['Status'] || 'New')}
-                          onChange={e => handleStatusChange(r.id, e.target.value)}
-                          style={{
-                            appearance: 'none', background: `${statusColor[String(r.fields['Status'] || 'New')] || '#475569'}22`,
-                            border: `1px solid ${statusColor[String(r.fields['Status'] || 'New')] || '#475569'}66`,
-                            borderRadius: 6, padding: '4px 24px 4px 8px', color: statusColor[String(r.fields['Status'] || 'New')] || '#94a3b8',
-                            fontWeight: 700, fontSize: 12, cursor: 'pointer', outline: 'none',
-                          }}
+                        <span
+                          className="inline-block px-2.5 py-1 rounded-md text-xs font-bold whitespace-nowrap"
+                          style={{ background: `${color}22`, border: `1px solid ${color}66`, color }}
                         >
-                          {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                        <ChevronDown size={10} style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#64748b' }} />
-                      </div>
-                    ) : c.key === 'Items' ? (
-                      <span style={{ color: '#94a3b8', whiteSpace: 'pre-line' }}>{String(r.fields[c.key] ?? '—')}</span>
-                    ) : c.key === 'Total' ? (
-                      <span style={{ color: '#00C896', fontWeight: 700 }}>₹{Number(r.fields[c.key] || 0).toLocaleString('en-IN')}</span>
-                    ) : (
-                      <span style={{ color: '#cbd5e1' }}>{String(r.fields[c.key] ?? '—')}</span>
+                          {status}
+                        </span>
+                      );
+                    })() : c.key === 'Total (₹)' ? (
+                      <span className="text-[#00C896] font-bold">₹{Number(r.fields[c.key] || 0).toLocaleString('en-IN')}</span>
+                    ) : c.key === 'Shiprocket Order ID' ? (() => {
+                      const srId = String(r.fields['Shiprocket Order ID'] ?? '');
+                      return srId && srId !== '—' ? (
+                        <span className="text-[#00C896] font-medium flex items-center gap-1">
+                          <Truck className="w-3 h-3" />{srId}
+                        </span>
+                      ) : <span className="text-slate-700">—</span>;
+                    })() : c.key === 'Tracking ID' ? (() => {
+                      const tid = String(r.fields['Tracking ID'] ?? '');
+                      return tid && tid !== '—' ? (
+                        <span className="text-amber-400 font-medium">{tid}</span>
+                      ) : <span className="text-slate-700">—</span>;
+                    })() : (
+                      <span className="text-slate-300">{String(r.fields[c.key] ?? '—')}</span>
                     )}
                   </td>
                 ))}
+                <td className="px-3 py-2.5">
+                  <button
+                    onClick={() => setViewRecord(r)}
+                    className="text-slate-400 hover:text-[#00C896] transition-colors flex items-center gap-1 text-xs"
+                    title="View order"
+                  >
+                    <Eye className="w-4 h-4" /> View
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      <ViewOrderModal record={viewRecord} onClose={() => setViewRecord(null)} />
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>

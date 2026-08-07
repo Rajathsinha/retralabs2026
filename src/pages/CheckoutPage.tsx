@@ -12,11 +12,18 @@ const FAST_DELIVERY_CHARGE = 800;
 const WHATSAPP_SUPPORT_NUMBER = '918217824384';
 
 // ── Airtable (via Netlify Function — token stays server-side) ────────────────
-async function saveOrder(fields: Record<string, unknown>, screenshot?: { contentType: string; filename: string; base64: string }): Promise<{ recordId: string | null; orderId: string | null }> {
+async function saveOrder(fields: Record<string, unknown>, screenshot?: { contentType: string; filename: string; base64: string }, extra?: {
+  cartItems?: { name: string; variant: string; quantity: number; unitPrice: number }[];
+  customer?: { name: string; email: string; phone: string; address: string; pincode: string };
+  paymentMethod?: 'prepay' | 'cod';
+  total?: number;
+  deliveryCharge?: number;
+  codCharge?: number;
+}): Promise<{ recordId: string | null; orderId: string | null; shiprocketOrderId: string | null; shiprocketShipmentId: string | null; shiprocketWarning: string | null }> {
   const res = await fetch('/.netlify/functions/create-order', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fields, screenshot }),
+    body: JSON.stringify({ fields, screenshot, ...extra }),
   });
   const json: any = await res.json().catch(() => null);
   if (!res.ok || !json?.success) {
@@ -24,7 +31,7 @@ async function saveOrder(fields: Record<string, unknown>, screenshot?: { content
     throw new Error(detail);
   }
   if (json.screenshotWarning) console.warn(json.screenshotWarning);
-  return { recordId: json.recordId || null, orderId: json.orderId || null };
+  return { recordId: json.recordId || null, orderId: json.orderId || null, shiprocketOrderId: json.shiprocketOrderId || null, shiprocketShipmentId: json.shiprocketShipmentId || null, shiprocketWarning: json.shiprocketWarning || null };
 }
 
 async function fileToBase64(file: File): Promise<string> {
@@ -238,7 +245,7 @@ export default function CheckoutPage() {
 
     try {
       // Critical: the order record must exist before we show success
-      const { orderId } = await saveOrder({
+      const { orderId, shiprocketOrderId, shiprocketShipmentId, shiprocketWarning } = await saveOrder({
         'Name':      snapFormData.customer_name,
         'Email':     snapFormData.customer_email,
         'Phone':     snapFormData.customer_phone,
@@ -250,6 +257,24 @@ export default function CheckoutPage() {
         'Referral':  snapFormData.referral_source,
         'Status':    'New',
         'Created':   new Date().toISOString().slice(0, 10),
+      }, undefined, {
+        cartItems: cartSnapshot.map(i => ({
+          name: i.product.name,
+          variant: i.variant.vial_configuration || `${i.variant.dosage_mg}mg`,
+          quantity: i.quantity,
+          unitPrice: i.variant.price_inr,
+        })),
+        customer: {
+          name: snapFormData.customer_name,
+          email: snapFormData.customer_email,
+          phone: snapFormData.customer_phone,
+          address: `${snapFormData.shipping_address}, PIN: ${snapFormData.pincode}`,
+          pincode: snapFormData.pincode,
+        },
+        paymentMethod: snapPaymentMethod,
+        total: snapTotal,
+        deliveryCharge: snapDeliveryCharge,
+        codCharge: snapCodCharge,
       });
 
       const finalOrderId = orderId || `RL-${Date.now()}`;
@@ -282,6 +307,11 @@ export default function CheckoutPage() {
       });
       if (!emailResult.success) {
         setNotifyWarning(`Email: ${emailResult.error}`);
+      }
+      if (shiprocketOrderId) {
+        setNotifyWarning(prev => prev ? `${prev}; Shiprocket order ${shiprocketOrderId} created` : `Shiprocket order ${shiprocketOrderId} created — appears in Shiprocket New tab`);
+      } else if (shiprocketWarning) {
+        setNotifyWarning(prev => prev ? `${prev}; Shiprocket: ${shiprocketWarning}` : `Shiprocket: ${shiprocketWarning}`);
       }
 
       setOrderSnapshot({
