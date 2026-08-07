@@ -319,12 +319,16 @@ export const handler: Handler = async (event) => {
       }
     }
 
-    // 3. Create order in Shiprocket (all orders with cart items)
-    let shiprocketWarning: string | undefined;
+    // 3. Create order in Shiprocket (COD orders only)
+    let shiprocketWarning: string | null = null;
     let shiprocketOrderId: string | undefined;
     let shiprocketShipmentId: string | undefined;
 
-    if (body.cartItems?.length) {
+    if (body.paymentMethod !== 'cod') {
+      shiprocketWarning = `Skipped: paymentMethod is '${body.paymentMethod || 'undefined'}' (Shiprocket runs for COD only)`;
+    } else if (!body.cartItems?.length) {
+      shiprocketWarning = 'Skipped: no cartItems received by the function';
+    } else {
       try {
         const srToken = await getShiprocketToken();
         if (srToken) {
@@ -374,13 +378,11 @@ export const handler: Handler = async (event) => {
             break;
           }
         } else {
-          shiprocketWarning = 'Shiprocket not configured (missing SHIPROCKET_EMAIL or SHIPROCKET_PASSWORD)';
-          // Store the error in Airtable so it's visible in the admin panel
-          await updateShiprocketError(baseId!, table, token!, recordId, 'Shiprocket not configured (missing SHIPROCKET_EMAIL or SHIPROCKET_PASSWORD)');
+          shiprocketWarning = 'Shiprocket not configured (missing SHIPROCKET_EMAIL or SHIPROCKET_PASSWORD env vars on Netlify)';
+          await updateShiprocketError(baseId!, table, token!, recordId, shiprocketWarning);
         }
       } catch (srErr) {
         shiprocketWarning = srErr instanceof Error ? srErr.message : String(srErr);
-        // Store the error in Airtable so it's visible in the admin panel
         await updateShiprocketError(baseId!, table, token!, recordId, shiprocketWarning);
       }
     }
@@ -395,7 +397,7 @@ export const handler: Handler = async (event) => {
         shiprocketOrderId: shiprocketOrderId || null,
         shiprocketShipmentId: shiprocketShipmentId || null,
         shiprocketWarning,
-        screenshotWarning,
+        screenshotWarning: screenshotWarning || null,
       }),
     };
   } catch (err) {
