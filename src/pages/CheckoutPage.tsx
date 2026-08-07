@@ -312,9 +312,7 @@ export default function CheckoutPage() {
       if (!emailResult.success) {
         setNotifyWarning(`Email: ${emailResult.error}`);
       }
-      if (shiprocketOrderId) {
-        setNotifyWarning(prev => prev ? `${prev}; Shiprocket order ${shiprocketOrderId} created` : `Shiprocket order ${shiprocketOrderId} created — appears in Shiprocket New tab`);
-      } else if (shiprocketWarning) {
+      if (!shiprocketOrderId && shiprocketWarning) {
         setNotifyWarning(prev => prev ? `${prev}; Shiprocket: ${shiprocketWarning}` : `Shiprocket: ${shiprocketWarning}`);
       }
 
