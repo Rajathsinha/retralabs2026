@@ -109,6 +109,9 @@ async function createShiprocketOrder(
   const shippingCost = deliveryCharge + codCharge;
   const discount = Math.max(0, subTotal - total + shippingCost);
 
+  // Shiprocket requires 10-digit Indian phone numbers
+  const cleanPhone = (customer.phone || '').replace(/\D/g, '').replace(/^91/, '').slice(-10).padStart(10, '0');
+
   const products = cartItems.map((item) => ({
     name: item.name,
     sku: item.variant.replace(/\s+/g, '-').toUpperCase().slice(0, 40),
@@ -130,8 +133,8 @@ async function createShiprocketOrder(
     billing_pincode: finalPincode,
     billing_state: process.env.SHIPROCKET_DEFAULT_STATE || 'Maharashtra',
     billing_country: 'India',
-    billing_email: customer.email,
-    billing_phone: customer.phone,
+    billing_email: customer.email || 'order@retralabs.in',
+    billing_phone: cleanPhone,
     shipping_is_billing: true,
     shipping_customer_name: '',
     shipping_address: '',
@@ -144,7 +147,7 @@ async function createShiprocketOrder(
     shipping_phone: '',
     order_items: products,
     payment_method: paymentMethod === 'cod' ? 'COD' : 'Prepaid',
-    sub_total: String(total),
+    sub_total: String(subTotal),
     length: '10',
     breadth: '10',
     height: '10',
