@@ -17,6 +17,7 @@ interface OrderFields {
   'Shiprocket Order ID'?: string;
   'Shiprocket Shipment ID'?: string;
   'Tracking ID'?: string;
+  'Shiprocket Error'?: string;
 }
 
 interface CartLineItem {
@@ -92,6 +93,32 @@ function splitAddress(address: string): { address: string; city: string; state: 
   const pincode = pinMatch ? pinMatch[1] : '';
   const withoutPin = address.replace(/,?\s*PIN:?\s*\d{6}\b/i, '').replace(/\b\d{6}\b/, '').trim().replace(/,\s*$/, '');
   return { address: withoutPin || address, city: '', state: '', pincode };
+}
+
+async function updateShiprocketError(baseId: string, table: string, token: string, recordId: string, errorMsg: string): Promise<void> {
+  let fields: Record<string, unknown> = { 'Shiprocket Error': errorMsg };
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const res = await fetch(
+      `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}/${recordId}`,
+      {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fields, typecast: true }),
+      },
+    );
+    if (res.ok) return;
+    const json: any = await res.json().catch(() => null);
+    const detail =
+      typeof json?.error === 'string'
+        ? json.error
+        : json?.error?.message || `HTTP ${res.status}`;
+    const unknownMatch = detail.match(/Unknown field name: ["']?([^"')]+)["']?/i);
+    if (unknownMatch) {
+      delete fields[unknownMatch[1]];
+      continue;
+    }
+    return;
+  }
 }
 
 async function createShiprocketOrder(
@@ -292,12 +319,12 @@ export const handler: Handler = async (event) => {
       }
     }
 
-    // 3. Create order in Shiprocket (COD orders only)
+    // 3. Create order in Shiprocket (all orders with cart items)
     let shiprocketWarning: string | undefined;
     let shiprocketOrderId: string | undefined;
     let shiprocketShipmentId: string | undefined;
 
-    if (body.paymentMethod === 'cod' && body.cartItems?.length) {
+    if (body.cartItems?.length) {
       try {
         const srToken = await getShiprocketToken();
         if (srToken) {
@@ -314,26 +341,47 @@ export const handler: Handler = async (event) => {
           shiprocketOrderId = sr.shiprocketOrderId;
           shiprocketShipmentId = sr.shipmentId;
 
-          // 4. Update Airtable with Shiprocket IDs and status
-          const updateFields: Record<string, unknown> = {
+          // 4. Update Airtable with Shiprocket IDs and status (retry dropping unknown fields)
+          let updateFields: Record<string, unknown> = {
             Status: 'Created in Shiprocket',
           };
           if (shiprocketOrderId) updateFields['Shiprocket Order ID'] = shiprocketOrderId;
           if (shiprocketShipmentId) updateFields['Shiprocket Shipment ID'] = shiprocketShipmentId;
+          updateFields['Shiprocket Error'] = '';
 
-          await fetch(
-            `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}/${recordId}`,
-            {
-              method: 'PATCH',
-              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-              body: JSON.stringify({ fields: updateFields, typecast: true }),
-            },
-          );
+          for (let attempt = 0; attempt < 5; attempt++) {
+            const updateRes = await fetch(
+              `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}/${recordId}`,
+              {
+                method: 'PATCH',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fields: updateFields, typecast: true }),
+              },
+            );
+            if (updateRes.ok) break;
+
+            const updateJson: any = await updateRes.json().catch(() => null);
+            const detail =
+              typeof updateJson?.error === 'string'
+                ? updateJson.error
+                : updateJson?.error?.message || `HTTP ${updateRes.status}`;
+            const unknownMatch = detail.match(/Unknown field name: ["']?([^"')]+)["']?/i);
+            if (unknownMatch) {
+              delete updateFields[unknownMatch[1]];
+              continue;
+            }
+            shiprocketWarning = `Airtable update for Shiprocket IDs failed: ${detail}`;
+            break;
+          }
         } else {
           shiprocketWarning = 'Shiprocket not configured (missing SHIPROCKET_EMAIL or SHIPROCKET_PASSWORD)';
+          // Store the error in Airtable so it's visible in the admin panel
+          await updateShiprocketError(baseId!, table, token!, recordId, 'Shiprocket not configured (missing SHIPROCKET_EMAIL or SHIPROCKET_PASSWORD)');
         }
       } catch (srErr) {
         shiprocketWarning = srErr instanceof Error ? srErr.message : String(srErr);
+        // Store the error in Airtable so it's visible in the admin panel
+        await updateShiprocketError(baseId!, table, token!, recordId, shiprocketWarning);
       }
     }
 

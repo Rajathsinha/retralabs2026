@@ -366,7 +366,7 @@ export default function CheckoutPage() {
 
     try {
       // Critical: the order record must exist before we show success
-      const { orderId } = await saveOrder({
+      const { orderId, shiprocketOrderId, shiprocketWarning: srWarning } = await saveOrder({
         'Name':        snapFormData.customer_name,
         'Email':       snapFormData.customer_email,
         'Phone':       snapFormData.customer_phone,
@@ -379,7 +379,27 @@ export default function CheckoutPage() {
         'Transaction': txnRef,
         'Status':      'Paid',
         'Created':     new Date().toISOString().slice(0, 10),
-      }, screenshotPayload);
+      }, screenshotPayload, {
+        cartItems: cartSnapshot.map(i => ({
+          name: i.product.name,
+          variant: i.variant.vial_configuration || `${i.variant.dosage_mg}mg`,
+          quantity: i.quantity,
+          unitPrice: i.variant.price_inr,
+        })),
+        customer: {
+          name: snapFormData.customer_name,
+          email: snapFormData.customer_email,
+          phone: snapFormData.customer_phone,
+          address: snapFormData.shipping_address,
+          city: snapFormData.city,
+          state: snapFormData.state,
+          pincode: snapFormData.pincode,
+        },
+        total: snapTotal,
+        deliveryCharge: snapDeliveryCharge,
+        codCharge: 0,
+        paymentMethod: 'prepaid',
+      });
 
       const finalOrderId = orderId || `RL-${Date.now()}`;
 
@@ -412,17 +432,11 @@ export default function CheckoutPage() {
       if (!emailResult.success) {
         setNotifyWarning(`Email: ${emailResult.error}`);
       }
-
-      setOrderSnapshot({
-        items: itemsSummaryFlat,
-        total: snapTotal,
-        orderId: finalOrderId,
-        cartItems: cartSnapshot.map(i => ({ name: i.product.name, config: i.variant.vial_configuration || `${i.variant.dosage_mg}mg`, qty: i.quantity, price: i.variant.price_inr })),
-        deliveryOption: snapFormData.delivery_option,
-        paymentMethod: 'prepay',
-        deliveryCharge: snapDeliveryCharge,
-        codCharge: 0,
-      });
+      if (shiprocketOrderId) {
+        setNotifyWarning(prev => prev ? `${prev}; Shiprocket order ${shiprocketOrderId} created` : `Shiprocket order ${shiprocketOrderId} created — appears in Shiprocket New tab`);
+      } else if (srWarning) {
+        setNotifyWarning(prev => prev ? `${prev}; Shiprocket: ${srWarning}` : `Shiprocket: ${srWarning}`);
+      }
       clearCart();
       setShowQrModal(false);
       setOrderSent(true);

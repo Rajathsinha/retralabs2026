@@ -33,7 +33,7 @@ async function fetchOrders(): Promise<AirtableRecord[]> {
 }
 
 function exportCsv(records: AirtableRecord[]) {
-  const cols = ['Created', 'Name', 'Phone', 'Email', 'Items', 'Total (₹)', 'Payment', 'Transaction', 'Status', 'Shiprocket Order ID', 'Shiprocket Shipment ID', 'Tracking ID', 'Address', 'Delivery'];
+  const cols = ['Created', 'Name', 'Phone', 'Email', 'Items', 'Total (₹)', 'Payment', 'Transaction', 'Status', 'Shiprocket Order ID', 'Shiprocket Shipment ID', 'Tracking ID', 'Shiprocket Error', 'Address', 'Delivery'];
   const header = cols.join(',');
   const rows = records.map(r =>
     cols.map(c => {
@@ -102,6 +102,7 @@ function ViewOrderModal({ record, onClose }: { record: AirtableRecord | null; on
     { label: 'Shiprocket Order ID', value: String(f['Shiprocket Order ID'] ?? '—') },
     { label: 'Shiprocket Shipment ID', value: String(f['Shiprocket Shipment ID'] ?? '—') },
     { label: 'Tracking ID', value: String(f['Tracking ID'] ?? '—') },
+    { label: 'Shiprocket Error', value: String(f['Shiprocket Error'] ?? '—') },
     { label: 'Created', value: String(f['Created'] ?? '—') },
   ];
 
@@ -188,7 +189,7 @@ export default function AdminPage() {
         const q = search.toLowerCase();
         const haystack = [
           f['orderID'], f['Name'], f['Phone'], f['Email'], f['Items'],
-          f['Status'], f['Shiprocket Order ID'], f['Tracking ID'], f['Transaction'],
+          f['Status'], f['Shiprocket Order ID'], f['Tracking ID'], f['Shiprocket Error'], f['Transaction'],
         ].map(v => String(v ?? '').toLowerCase()).join(' ');
         if (!haystack.includes(q)) return false;
       }
@@ -207,6 +208,7 @@ export default function AdminPage() {
     { key: 'Status', label: 'Status', width: 150 },
     { key: 'Shiprocket Order ID', label: 'Shiprocket ID', width: 120 },
     { key: 'Tracking ID', label: 'Tracking ID', width: 120 },
+    { key: 'Shiprocket Error', label: 'SR Error', width: 200 },
     { key: 'Created', label: 'Created At', width: 100 },
   ];
 
@@ -224,6 +226,10 @@ export default function AdminPage() {
     total: filtered.length,
     cod: filtered.filter(r => String(r.fields['Payment'] ?? '').toLowerCase().includes('cod')).length,
     shiprocket: filtered.filter(r => !!r.fields['Shiprocket Order ID']).length,
+    shiprocketErrors: filtered.filter(r => {
+      const e = String(r.fields['Shiprocket Error'] ?? '');
+      return e && e !== '—';
+    }).length,
     newOrders: filtered.filter(r => String(r.fields['Status'] ?? '') === 'New').length,
   };
 
@@ -261,6 +267,7 @@ export default function AdminPage() {
           { label: 'Total Orders', value: stats.total, color: '#3b82f6' },
           { label: 'COD Orders', value: stats.cod, color: '#f59e0b' },
           { label: 'In Shiprocket', value: stats.shiprocket, color: '#00C896' },
+          { label: 'SR Errors', value: stats.shiprocketErrors, color: '#ef4444' },
           { label: 'New (Pending)', value: stats.newOrders, color: '#8b5cf6' },
         ].map((s, i) => (
           <div key={i} className="bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3">
@@ -352,6 +359,11 @@ export default function AdminPage() {
                       const tid = String(r.fields['Tracking ID'] ?? '');
                       return tid && tid !== '—' ? (
                         <span className="text-amber-400 font-medium">{tid}</span>
+                      ) : <span className="text-slate-700">—</span>;
+                    })() : c.key === 'Shiprocket Error' ? (() => {
+                      const err = String(r.fields['Shiprocket Error'] ?? '');
+                      return err && err !== '—' ? (
+                        <span className="text-red-400 text-xs break-words" title={err}>{err.length > 40 ? err.slice(0, 40) + '…' : err}</span>
                       ) : <span className="text-slate-700">—</span>;
                     })() : (
                       <span className="text-slate-300">{String(r.fields[c.key] ?? '—')}</span>
