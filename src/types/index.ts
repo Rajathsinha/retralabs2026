@@ -35,6 +35,8 @@ export interface OrderFormData {
   customer_email: string;
   customer_phone: string;
   shipping_address: string;
+  city: string;
+  state: string;
   pincode: string;
   disclaimer_accepted: boolean;
   age_confirmed: boolean;

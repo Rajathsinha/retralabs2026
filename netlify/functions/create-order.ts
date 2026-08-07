@@ -35,6 +35,8 @@ interface CreateOrderBody {
     email: string;
     phone: string;
     address: string;
+    city: string;
+    state: string;
     pincode: string;
   };
   paymentMethod: 'prepay' | 'cod';
@@ -95,7 +97,7 @@ function splitAddress(address: string): { address: string; city: string; state: 
 async function createShiprocketOrder(
   token: string,
   orderId: string,
-  customer: { name: string; email: string; phone: string; address: string; pincode: string },
+  customer: { name: string; email: string; phone: string; address: string; city: string; state: string; pincode: string },
   cartItems: CartLineItem[],
   total: number,
   deliveryCharge: number,
@@ -129,9 +131,9 @@ async function createShiprocketOrder(
     billing_last_name: '',
     billing_address: addr.address.slice(0, 200),
     billing_address_2: '',
-    billing_city: process.env.SHIPROCKET_DEFAULT_CITY || 'Mumbai',
+    billing_city: customer.city || process.env.SHIPROCKET_DEFAULT_CITY || 'Mumbai',
     billing_pincode: finalPincode,
-    billing_state: process.env.SHIPROCKET_DEFAULT_STATE || 'Maharashtra',
+    billing_state: customer.state || process.env.SHIPROCKET_DEFAULT_STATE || 'Maharashtra',
     billing_country: 'India',
     billing_email: customer.email || 'orders@retralabs.in',
     billing_phone: cleanPhone,

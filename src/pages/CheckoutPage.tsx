@@ -14,7 +14,7 @@ const WHATSAPP_SUPPORT_NUMBER = '918217824384';
 // ── Airtable (via Netlify Function — token stays server-side) ────────────────
 async function saveOrder(fields: Record<string, unknown>, screenshot?: { contentType: string; filename: string; base64: string }, extra?: {
   cartItems?: { name: string; variant: string; quantity: number; unitPrice: number }[];
-  customer?: { name: string; email: string; phone: string; address: string; pincode: string };
+  customer?: { name: string; email: string; phone: string; address: string; city: string; state: string; pincode: string };
   paymentMethod?: 'prepay' | 'cod';
   total?: number;
   deliveryCharge?: number;
@@ -84,6 +84,8 @@ export default function CheckoutPage() {
     customer_email: '',
     customer_phone: '',
     shipping_address: '',
+    city: '',
+    state: '',
     pincode: '',
     disclaimer_accepted: false,
     age_confirmed: false,
@@ -112,10 +114,10 @@ export default function CheckoutPage() {
 
   /* ── Persist contact details permanently (survives order completion) ── */
   useEffect(() => {
-    const { customer_name, customer_email, customer_phone, shipping_address, pincode, referral_source, referral_friend_name, delivery_option } = formData;
+    const { customer_name, customer_email, customer_phone, shipping_address, city, state, pincode, referral_source, referral_friend_name, delivery_option } = formData;
     try {
       localStorage.setItem('rl_customer_details', JSON.stringify({
-        customer_name, customer_email, customer_phone, shipping_address, pincode, referral_source, referral_friend_name, delivery_option,
+        customer_name, customer_email, customer_phone, shipping_address, city, state, pincode, referral_source, referral_friend_name, delivery_option,
       }));
     } catch (_) {}
   }, [formData]);
@@ -202,7 +204,7 @@ export default function CheckoutPage() {
       `Name: ${formData.customer_name}\n` +
       `Email: ${formData.customer_email}\n` +
       `Phone: ${formData.customer_phone}${referralLine}\n\n` +
-      `*Shipping Address*\n${formData.shipping_address}${formData.pincode ? `, PIN: ${formData.pincode}` : ''}\n\n` +
+      `*Shipping Address*\n${formData.shipping_address}${formData.city ? `, ${formData.city}` : ''}${formData.state ? `, ${formData.state}` : ''}${formData.pincode ? `, PIN: ${formData.pincode}` : ''}\n\n` +
       `*Items*\n${lines.join('\n')}` +
       `${discountText}` +
       `${couponText}` +
@@ -249,7 +251,7 @@ export default function CheckoutPage() {
         'Name':      snapFormData.customer_name,
         'Email':     snapFormData.customer_email,
         'Phone':     snapFormData.customer_phone,
-        'Address':   `${snapFormData.shipping_address}, PIN: ${snapFormData.pincode}`,
+        'Address':   `${snapFormData.shipping_address}, ${snapFormData.city}, ${snapFormData.state}, PIN: ${snapFormData.pincode}`,
         'Items':     itemsSummary,
         'Total (₹)': snapTotal,
         'Payment':   snapPaymentMethod === 'cod' ? 'COD' : 'UPI/Prepay',
@@ -268,7 +270,9 @@ export default function CheckoutPage() {
           name: snapFormData.customer_name,
           email: snapFormData.customer_email,
           phone: snapFormData.customer_phone,
-          address: `${snapFormData.shipping_address}, PIN: ${snapFormData.pincode}`,
+          address: snapFormData.shipping_address,
+          city: snapFormData.city,
+          state: snapFormData.state,
           pincode: snapFormData.pincode,
         },
         paymentMethod: snapPaymentMethod,
@@ -288,8 +292,8 @@ export default function CheckoutPage() {
         email: snapFormData.customer_email,
         phone: snapFormData.customer_phone,
         address: snapFormData.shipping_address,
-        city: '',
-        state: '',
+        city: snapFormData.city,
+        state: snapFormData.state,
         pincode: snapFormData.pincode,
         items: cartSnapshot.map(i => ({
           name: i.product.name,
@@ -366,7 +370,7 @@ export default function CheckoutPage() {
         'Name':        snapFormData.customer_name,
         'Email':       snapFormData.customer_email,
         'Phone':       snapFormData.customer_phone,
-        'Address':     `${snapFormData.shipping_address}, PIN: ${snapFormData.pincode}`,
+        'Address':     `${snapFormData.shipping_address}, ${snapFormData.city}, ${snapFormData.state}, PIN: ${snapFormData.pincode}`,
         'Items':       itemsSummary,
         'Total (₹)':   snapTotal,
         'Payment':     'UPI QR',
@@ -388,8 +392,8 @@ export default function CheckoutPage() {
         email: snapFormData.customer_email,
         phone: snapFormData.customer_phone,
         address: snapFormData.shipping_address,
-        city: '',
-        state: '',
+        city: snapFormData.city,
+        state: snapFormData.state,
         pincode: snapFormData.pincode,
         items: cartSnapshot.map(i => ({
           name: i.product.name,
@@ -508,7 +512,7 @@ export default function CheckoutPage() {
 
             <div className="mb-4 pb-4 border-b border-slate-100">
               <p className="text-xs text-slate-500 mb-1">Delivery Address</p>
-              <p className="text-sm font-semibold text-slate-900">{formData.shipping_address}, PIN: {formData.pincode}</p>
+              <p className="text-sm font-semibold text-slate-900">{formData.shipping_address}, {formData.city}, {formData.state}, PIN: {formData.pincode}</p>
             </div>
 
             <div className="mb-4 pb-4 border-b border-slate-100 space-y-2">
@@ -550,7 +554,7 @@ export default function CheckoutPage() {
               `*Name:* ${formData.customer_name}\n` +
               `*Phone:* ${formData.customer_phone}\n` +
               `*Email:* ${formData.customer_email}\n` +
-              `*Address:* ${formData.shipping_address}, PIN: ${formData.pincode}\n` +
+              `*Address:* ${formData.shipping_address}, ${formData.city}, ${formData.state}, PIN: ${formData.pincode}\n` +
               (orderSnapshot ? `*Items:* ${orderSnapshot.items}\n*Total:* ₹${orderSnapshot.total.toLocaleString('en-IN')}\n` : '') +
               `\nPlease help me with my order.`
             )}`}
@@ -622,7 +626,7 @@ export default function CheckoutPage() {
               <div className="flex justify-between"><span className="text-slate-400">Name</span><span className="font-semibold text-white">{formData.customer_name}</span></div>
               <div className="flex justify-between"><span className="text-slate-400">Phone</span><span className="font-semibold text-white">{formData.customer_phone}</span></div>
               <div className="flex justify-between"><span className="text-slate-400">Email</span><span className="font-semibold text-white text-right max-w-[60%] break-all">{formData.customer_email}</span></div>
-              <div className="pt-2 border-t border-slate-700"><span className="text-slate-400 block mb-1">Address</span><span className="font-semibold text-white text-sm">{formData.shipping_address}, PIN: {formData.pincode}</span></div>
+              <div className="pt-2 border-t border-slate-700"><span className="text-slate-400 block mb-1">Address</span><span className="font-semibold text-white text-sm">{formData.shipping_address}, {formData.city}, {formData.state}, PIN: {formData.pincode}</span></div>
             </div>
           </div>
 
@@ -1007,6 +1011,36 @@ export default function CheckoutPage() {
                     onChange={(e) => setFormData({ ...formData, shipping_address: e.target.value })}
                     className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-800 transition-colors text-base resize-none"
                   />
+                </div>
+
+                {/* City & State */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                      City <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="City"
+                      value={formData.city}
+                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-800 transition-colors text-base"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                      State <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="State"
+                      value={formData.state}
+                      onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-800 transition-colors text-base"
+                    />
+                  </div>
                 </div>
 
                 {/* Pincode */}
