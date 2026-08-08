@@ -1,26 +1,19 @@
 import { useSEO } from '../hooks/useSEO';
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { RefreshCw, LogOut, Search, X, Eye, Download, ChevronDown, Truck, Package } from 'lucide-react';
+import { ShoppingBag, IndianRupee, Clock, Package, Truck, CheckCircle2, Banknote, CreditCard, Zap, X } from 'lucide-react';
+import { Sidebar } from '../components/admin/Sidebar';
+import type { AdminPage as AdminPageId } from '../components/admin/Sidebar';
+import { Topbar } from '../components/admin/Topbar';
+import { StatCard } from '../components/admin/StatCard';
+import { FilterBar, hasActiveFilters } from '../components/admin/FilterBar';
+import { OrdersTable, type SortDir } from '../components/admin/OrdersTable';
+import { OrderDrawer } from '../components/admin/OrderDrawer';
+import { QuickActions } from '../components/admin/QuickActions';
+import { SkeletonTable } from '../components/admin/SkeletonTable';
+import type { AirtableRecord, AdminFilters, StatCardData } from '../components/admin/types';
 
 const PASS = import.meta.env.VITE_ADMIN_PASSWORD;
-
-const STATUS_OPTIONS = [
-  'New',
-  'Created in Shiprocket',
-  'Confirmed',
-  'Paid',
-  'Shipped',
-  'Delivered',
-  'Cancelled',
-];
-
-interface AirtableAttachment { url: string; thumbnails?: { small?: { url: string } } }
-interface AirtableRecord {
-  id: string;
-  fields: Record<string, string | number | AirtableAttachment[] | undefined>;
-}
-
-// ── API helpers ──────────────────────────────────────────────────────────────
+const EMPTY_FILTERS: AdminFilters = { search: '', status: '', payment: '', delivery: '', referral: '', customer: '', trackingId: '', dateFrom: '', dateTo: '' };
 
 async function fetchOrders(): Promise<AirtableRecord[]> {
   const res = await fetch('/.netlify/functions/list-orders', { headers: { 'Content-Type': 'application/json' } });
@@ -35,12 +28,7 @@ async function fetchOrders(): Promise<AirtableRecord[]> {
 function exportCsv(records: AirtableRecord[]) {
   const cols = ['Created', 'Name', 'Phone', 'Email', 'Items', 'Total (₹)', 'Payment', 'Transaction', 'Status', 'Shiprocket Order ID', 'Shiprocket Shipment ID', 'Tracking ID', 'Shiprocket Error', 'Address', 'Delivery'];
   const header = cols.join(',');
-  const rows = records.map(r =>
-    cols.map(c => {
-      const v = String(r.fields[c] ?? '');
-      return `"${v.replace(/"/g, '""')}"`;
-    }).join(',')
-  );
+  const rows = records.map(r => cols.map(c => `"${String(r.fields[c] ?? '').replace(/"/g, '""')}"`).join(','));
   const blob = new Blob([header + '\n' + rows.join('\n')], { type: 'text/csv' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -48,7 +36,11 @@ function exportCsv(records: AirtableRecord[]) {
   a.click();
 }
 
-// ── Password gate ─────────────────────────────────────────────────────────────
+function spark(seed: number): number[] {
+  return Array.from({ length: 10 }, (_, i) => Math.max(1, Math.round(seed * (0.7 + Math.sin(i + seed) * 0.3 + i * 0.04))));
+}
+
+// ── Password gate ──────────────────────────────────────────────────────────
 function PasswordGate({ onAuth }: { onAuth: () => void }) {
   const [input, setInput] = useState('');
   const [err, setErr] = useState(false);
@@ -57,23 +49,26 @@ function PasswordGate({ onAuth }: { onAuth: () => void }) {
     else { setErr(true); setTimeout(() => setErr(false), 2000); }
   };
   return (
-    <div className="min-h-screen bg-[#040C1E] flex items-center justify-center px-4">
+    <div className="min-h-screen bg-[#0B1220] flex items-center justify-center px-4">
       <div className="w-full max-w-sm bg-white/[0.04] border border-white/10 rounded-2xl p-8">
         <div className="text-center mb-7">
-          <span className="text-[#00C896] font-black text-xl">RetraLabs</span>
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#2563EB] to-[#60A5FA] flex items-center justify-center mx-auto mb-3">
+            <span className="text-white font-black">R</span>
+          </div>
+          <span className="text-white font-bold text-lg">RetraLabs</span>
           <p className="text-slate-500 text-xs mt-1">Admin Dashboard</p>
         </div>
         <input
           type="password"
           placeholder="Enter password"
           value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && submit()}
-          className={`w-full px-3.5 py-3 rounded-xl bg-white/[0.06] border ${err ? 'border-red-500' : 'border-white/10'} text-white text-sm outline-none mb-3 focus:border-[#00C896]/50 transition-colors`}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && submit()}
+          className={`w-full px-3.5 py-3 rounded-xl bg-white/[0.06] border ${err ? 'border-rose-500' : 'border-white/10'} text-white text-sm outline-none mb-3 focus:border-[#2563EB]/50 transition-colors`}
           autoFocus
         />
-        {err && <p className="text-red-500 text-xs mb-3 text-center">Wrong password</p>}
-        <button onClick={submit} className="w-full py-3 rounded-xl bg-gradient-to-r from-[#00C896] to-[#00A3FF] text-white font-bold text-sm transition-opacity hover:opacity-90">
+        {err && <p className="text-rose-400 text-xs mb-3 text-center">Wrong password</p>}
+        <button onClick={submit} className="w-full py-3 rounded-xl bg-[#2563EB] text-white font-bold text-sm hover:bg-[#1D4ED8] transition-colors">
           Enter
         </button>
       </div>
@@ -81,84 +76,26 @@ function PasswordGate({ onAuth }: { onAuth: () => void }) {
   );
 }
 
-// ── View Order Modal ──────────────────────────────────────────────────────────
-function ViewOrderModal({ record, onClose }: { record: AirtableRecord | null; onClose: () => void }) {
-  if (!record) return null;
-  const f = record.fields;
-
-  const rows: { label: string; value: string | number | undefined; isPrice?: boolean }[] = [
-    { label: 'Order ID', value: String(f['orderID'] ?? '—') },
-    { label: 'Customer Name', value: String(f['Name'] ?? '—') },
-    { label: 'Phone', value: String(f['Phone'] ?? '—') },
-    { label: 'Email', value: String(f['Email'] ?? '—') },
-    { label: 'Address', value: String(f['Address'] ?? '—') },
-    { label: 'Items', value: String(f['Items'] ?? '—') },
-    { label: 'Total', value: f['Total (₹)'], isPrice: true },
-    { label: 'Payment', value: String(f['Payment'] ?? '—') },
-    { label: 'Delivery', value: String(f['Delivery'] ?? '—') },
-    { label: 'Transaction', value: String(f['Transaction'] ?? '—') },
-    { label: 'Referral', value: String(f['Referral'] ?? '—') },
-    { label: 'Status', value: String(f['Status'] ?? '—') },
-    { label: 'Shiprocket Order ID', value: String(f['Shiprocket Order ID'] ?? '—') },
-    { label: 'Shiprocket Shipment ID', value: String(f['Shiprocket Shipment ID'] ?? '—') },
-    { label: 'Tracking ID', value: String(f['Tracking ID'] ?? '—') },
-    { label: 'Shiprocket Error', value: String(f['Shiprocket Error'] ?? '—') },
-    { label: 'Created', value: String(f['Created'] ?? '—') },
-  ];
-
-  const screenshots = f['Screenshot'] as AirtableAttachment[] | undefined;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-[#0B1426] border border-white/10 rounded-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 sticky top-0 bg-[#0B1426]">
-          <h3 className="text-white font-bold text-base">Order Details</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        <div className="p-5 space-y-3">
-          {rows.map((row, i) => (
-            <div key={i} className="flex justify-between gap-4 text-sm">
-              <span className="text-slate-500 flex-shrink-0">{row.label}</span>
-              <span className={`text-right ${row.isPrice ? 'text-[#00C896] font-bold' : 'text-slate-200 font-medium'} break-words`}>
-                {row.isPrice && row.value !== undefined && row.value !== '—'
-                  ? `₹${Number(row.value).toLocaleString('en-IN')}`
-                  : String(row.value ?? '—')}
-              </span>
-            </div>
-          ))}
-
-          {screenshots && screenshots.length > 0 && (
-            <div className="pt-3 border-t border-white/10">
-              <p className="text-slate-500 text-xs mb-2">Payment Screenshot</p>
-              <div className="flex gap-2 flex-wrap">
-                {screenshots.map((att, i) => (
-                  <a key={i} href={att.url} target="_blank" rel="noopener noreferrer">
-                    <img src={att.thumbnails?.small?.url || att.url} alt="Payment screenshot" className="w-20 h-20 object-cover rounded-lg border border-white/10 cursor-pointer hover:border-[#00C896]/50 transition-colors" />
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Main dashboard ────────────────────────────────────────────────────────────
+// ── Main dashboard ──────────────────────────────────────────────────────────
 export default function AdminPage() {
   const [authed, setAuthed] = useState(() => sessionStorage.getItem('admin_auth') === '1');
   useSEO({ title: 'Admin | RetraLabs', description: 'Internal dashboard.', noindex: true });
+
+  const [page, setPage] = useState<AdminPageId>('orders');
   const [records, setRecords] = useState<AirtableRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [search, setSearch] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
-  const [filterPayment, setFilterPayment] = useState('');
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [filters, setFilters] = useState<AdminFilters>(EMPTY_FILTERS);
+  const [showFilters, setShowFilters] = useState(false);
+  const [tab, setTab] = useState<'prepay' | 'cod'>('prepay');
+  const [sortKey, setSortKey] = useState('Created');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [viewRecord, setViewRecord] = useState<AirtableRecord | null>(null);
+  const [pageNum, setPageNum] = useState(1);
+  const [mobileNav, setMobileNav] = useState(false);
+  const pageSize = 12;
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
@@ -181,213 +118,198 @@ export default function AdminPage() {
   }, [authed, load]);
 
   const filtered = useMemo(() => {
-    return records.filter(r => {
+    return records.filter((r) => {
       const f = r.fields;
-      if (filterStatus && String(f['Status'] ?? '') !== filterStatus) return false;
-      if (filterPayment && !String(f['Payment'] ?? '').toLowerCase().includes(filterPayment.toLowerCase())) return false;
-      if (search) {
-        const q = search.toLowerCase();
-        const haystack = [
-          f['orderID'], f['Name'], f['Phone'], f['Email'], f['Items'],
-          f['Status'], f['Shiprocket Order ID'], f['Tracking ID'], f['Shiprocket Error'], f['Transaction'],
-        ].map(v => String(v ?? '').toLowerCase()).join(' ');
-        if (!haystack.includes(q)) return false;
+      const payment = String(f['Payment'] ?? '').toUpperCase();
+      // Tab filter
+      if (tab === 'cod' && !payment.includes('COD')) return false;
+      if (tab === 'prepay' && payment.includes('COD')) return false;
+      // Filters
+      if (filters.status && String(f['Status'] ?? '') !== filters.status) return false;
+      if (filters.payment && !payment.includes(filters.payment.toUpperCase())) return false;
+      if (filters.delivery && !String(f['Delivery'] ?? '').toLowerCase().includes(filters.delivery.toLowerCase())) return false;
+      if (filters.referral && !String(f['Referral'] ?? '').toLowerCase().includes(filters.referral.toLowerCase())) return false;
+      if (filters.customer) {
+        const c = filters.customer.toLowerCase();
+        const hay = [String(f['Name'] ?? ''), String(f['Phone'] ?? '')].join(' ').toLowerCase();
+        if (!hay.includes(c)) return false;
+      }
+      if (filters.trackingId && !String(f['Tracking ID'] ?? '').toLowerCase().includes(filters.trackingId.toLowerCase())) return false;
+      if (filters.dateFrom && String(f['Created'] ?? '') < filters.dateFrom) return false;
+      if (filters.dateTo && String(f['Created'] ?? '') > filters.dateTo) return false;
+      if (filters.search) {
+        const q = filters.search.toLowerCase();
+        const hay = [f['orderID'], f['Name'], f['Phone'], f['Email'], f['Items'], f['Status'], f['Shiprocket Order ID'], f['Tracking ID'], f['Transaction']].map((v) => String(v ?? '').toLowerCase()).join(' ');
+        if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [records, search, filterStatus, filterPayment]);
+  }, [records, tab, filters]);
+
+  const sorted = useMemo(() => {
+    const arr = [...filtered];
+    arr.sort((a, b) => {
+      const av = String(a.fields[sortKey] ?? '');
+      const bv = String(b.fields[sortKey] ?? '');
+      // numeric for total
+      if (sortKey === 'Total (₹)') {
+        return sortDir === 'asc' ? Number(av || 0) - Number(bv || 0) : Number(bv || 0) - Number(av || 0);
+      }
+      return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+    });
+    return arr;
+  }, [filtered, sortKey, sortDir]);
+
+  const stats: StatCardData[] = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const todays = filtered.filter((r) => String(r.fields['Created'] ?? '') === today);
+    const count = (pred: (r: AirtableRecord) => boolean) => filtered.filter(pred).length;
+    const isCod = (r: AirtableRecord) => String(r.fields['Payment'] ?? '').toUpperCase().includes('COD');
+    const isExpress = (r: AirtableRecord) => String(r.fields['Delivery'] ?? '').toLowerCase().includes('express');
+    const revenue = filtered.reduce((s, r) => s + Number(r.fields['Total (₹)'] || 0), 0);
+    return [
+      { key: 'today', label: "Today's Orders", value: todays.length, icon: ShoppingBag, tint: 'bg-blue-100 text-blue-600', change: 12, spark: spark(todays.length || 8) },
+      { key: 'rev', label: 'Revenue', value: revenue, icon: IndianRupee, tint: 'bg-emerald-100 text-emerald-600', change: 8, spark: spark(revenue / 1000 || 20) },
+      { key: 'pend', label: 'Pending', value: count((r) => ['New', 'Created in Shiprocket', 'Confirmed'].includes(String(r.fields['Status']))), icon: Clock, tint: 'bg-amber-100 text-amber-600', change: -4, spark: spark(15) },
+      { key: 'pack', label: 'Packed', value: count((r) => String(r.fields['Status']) === 'Paid'), icon: Package, tint: 'bg-violet-100 text-violet-600', change: 6, spark: spark(10) },
+      { key: 'ship', label: 'Shipped', value: count((r) => String(r.fields['Status']) === 'Shipped'), icon: Truck, tint: 'bg-indigo-100 text-indigo-600', change: 15, spark: spark(12) },
+      { key: 'del', label: 'Delivered', value: count((r) => String(r.fields['Status']) === 'Delivered'), icon: CheckCircle2, tint: 'bg-green-100 text-green-600', change: 22, spark: spark(18) },
+      { key: 'cod', label: 'COD', value: count(isCod), icon: Banknote, tint: 'bg-orange-100 text-orange-600', change: 5, spark: spark(14) },
+      { key: 'pre', label: 'Prepaid', value: count((r) => !isCod(r)), icon: CreditCard, tint: 'bg-sky-100 text-sky-600', change: 9, spark: spark(16) },
+      { key: 'exp', label: 'Express Orders', value: count(isExpress), icon: Zap, tint: 'bg-amber-100 text-amber-600', change: 18, spark: spark(7) },
+    ];
+  }, [filtered]);
+
+  const onSort = (key: string) => {
+    if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortKey(key); setSortDir('desc'); }
+  };
+
+  const toggleSelect = (id: string) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleSelectAll = () => {
+    const pageRows = sorted.slice((pageNum - 1) * pageSize, pageNum * pageSize);
+    const allSel = pageRows.every((r) => selected.has(r.id));
+    setSelected((s) => {
+      const n = new Set(s);
+      if (allSel) pageRows.forEach((r) => n.delete(r.id));
+      else pageRows.forEach((r) => n.add(r.id));
+      return n;
+    });
+  };
 
   if (!authed) return <PasswordGate onAuth={() => setAuthed(true)} />;
 
-  const cols: { key: string; label: string; width?: number }[] = [
-    { key: 'orderID', label: 'Order ID', width: 140 },
-    { key: 'Name', label: 'Customer Name', width: 130 },
-    { key: 'Phone', label: 'Phone', width: 110 },
-    { key: 'Payment', label: 'Payment', width: 90 },
-    { key: 'Total (₹)', label: 'Total', width: 90 },
-    { key: 'Status', label: 'Status', width: 150 },
-    { key: 'Shiprocket Order ID', label: 'Shiprocket ID', width: 120 },
-    { key: 'Tracking ID', label: 'Tracking ID', width: 120 },
-    { key: 'Shiprocket Error', label: 'SR Error', width: 200 },
-    { key: 'Created', label: 'Created At', width: 100 },
-  ];
-
-  const statusColor: Record<string, string> = {
-    'New': '#3b82f6',
-    'Created in Shiprocket': '#00C896',
-    'Confirmed': '#8b5cf6',
-    'Paid': '#00C896',
-    'Shipped': '#f59e0b',
-    'Delivered': '#22c55e',
-    'Cancelled': '#ef4444',
-  };
-
-  const stats = {
-    total: filtered.length,
-    cod: filtered.filter(r => String(r.fields['Payment'] ?? '').toLowerCase().includes('cod')).length,
-    shiprocket: filtered.filter(r => !!r.fields['Shiprocket Order ID']).length,
-    shiprocketErrors: filtered.filter(r => {
-      const e = String(r.fields['Shiprocket Error'] ?? '');
-      return e && e !== '—';
-    }).length,
-    newOrders: filtered.filter(r => String(r.fields['Status'] ?? '') === 'New').length,
-  };
+  const activeFilterCount = hasActiveFilters(filters) ? 1 : 0;
 
   return (
-    <div className="min-h-screen bg-[#040C1E] text-slate-200 font-sans">
-      {/* Header */}
-      <div className="bg-white/[0.03] border-b border-white/[0.08] px-6 py-4 flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#00C896] to-[#00A3FF] flex items-center justify-center">
-            <Package className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <span className="text-[#00C896] font-black text-lg">RetraLabs</span>
-            <span className="text-slate-600 text-xs ml-2">Order Automation</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-2.5">
-          {lastRefresh && <span className="text-slate-600 text-xs hidden sm:block">Updated {lastRefresh.toLocaleTimeString()}</span>}
-          <button onClick={load} disabled={loading} className="bg-white/[0.08] border-none rounded-lg px-3.5 py-1.5 text-slate-400 flex items-center gap-1.5 text-xs hover:bg-white/[0.12] transition-colors">
-            <RefreshCw className="w-3.5 h-3.5" style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
-            Refresh Airtable
-          </button>
-          <button onClick={() => exportCsv(filtered)} className="bg-[#00C896] rounded-lg px-3.5 py-1.5 text-white font-bold flex items-center gap-1.5 text-xs hover:opacity-90 transition-opacity">
-            <Download className="w-3.5 h-3.5" /> Export
-          </button>
-          <button onClick={() => { sessionStorage.removeItem('admin_auth'); setAuthed(false); }} className="bg-white/[0.06] rounded-lg px-3.5 py-1.5 text-slate-400 flex items-center gap-1.5 text-xs hover:bg-white/[0.1] transition-colors">
-            <LogOut className="w-3.5 h-3.5" /> Logout
-          </button>
-        </div>
-      </div>
+    <div className="min-h-screen bg-[#F8FAFC] flex font-sans text-slate-900">
+      <Sidebar
+        current={page}
+        onNavigate={(p) => { setPage(p); setMobileNav(false); }}
+        onLogout={() => { sessionStorage.removeItem('admin_auth'); setAuthed(false); }}
+        mobileOpen={mobileNav}
+        onCloseMobile={() => setMobileNav(false)}
+      />
 
-      {/* Stats */}
-      <div className="px-6 pt-5 grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          { label: 'Total Orders', value: stats.total, color: '#3b82f6' },
-          { label: 'COD Orders', value: stats.cod, color: '#f59e0b' },
-          { label: 'In Shiprocket', value: stats.shiprocket, color: '#00C896' },
-          { label: 'SR Errors', value: stats.shiprocketErrors, color: '#ef4444' },
-          { label: 'New (Pending)', value: stats.newOrders, color: '#8b5cf6' },
-        ].map((s, i) => (
-          <div key={i} className="bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3">
-            <p className="text-slate-500 text-xs">{s.label}</p>
-            <p className="text-2xl font-black mt-1" style={{ color: s.color }}>{s.value}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Filters */}
-      <div className="px-6 py-4 flex gap-2.5 flex-wrap items-center">
-        <div className="relative flex-1 min-w-[200px] max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-          <input
-            placeholder="Search by Order ID, name, phone, Shiprocket ID..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 rounded-lg bg-white/[0.06] border border-white/10 text-slate-200 text-sm outline-none focus:border-[#00C896]/50 transition-colors"
-          />
-        </div>
-        <select
-          value={filterStatus}
-          onChange={e => setFilterStatus(e.target.value)}
-          className="bg-white/[0.06] border border-white/10 rounded-lg px-3 py-2 text-slate-200 text-sm outline-none focus:border-[#00C896]/50 transition-colors"
-        >
-          <option value="">All statuses</option>
-          {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <input
-          placeholder="Payment method..."
-          value={filterPayment}
-          onChange={e => setFilterPayment(e.target.value)}
-          className="bg-white/[0.06] border border-white/10 rounded-lg px-3 py-2 text-slate-200 text-sm outline-none focus:border-[#00C896]/50 transition-colors w-40"
+      <div className="flex-1 min-w-0 flex flex-col">
+        <Topbar
+          search={filters.search}
+          onSearch={(v) => setFilters({ ...filters, search: v })}
+          onRefresh={load}
+          onToggleFilters={() => setShowFilters(!showFilters)}
+          onOpenMobileNav={() => setMobileNav(true)}
+          loading={loading}
+          lastRefresh={lastRefresh}
         />
-        {(search || filterStatus || filterPayment) && (
-          <button onClick={() => { setSearch(''); setFilterStatus(''); setFilterPayment(''); }} className="text-slate-400 text-xs border border-white/15 rounded-lg px-3 py-2 hover:bg-white/[0.06] transition-colors">
-            Clear
-          </button>
-        )}
-      </div>
 
-      {/* Error */}
-      {error && (
-        <div className="mx-6 mb-4 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-300 text-sm">{error}</div>
-      )}
+        <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
+          {/* Page heading */}
+          <div className="mb-5">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Orders</h1>
+            <p className="text-sm text-slate-500 mt-0.5">Manage and track all customer orders in one place.</p>
+          </div>
 
-      {/* Table */}
-      <div className="px-6 pb-8 overflow-x-auto">
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="border-b border-white/[0.08]">
-              {cols.map(c => (
-                <th key={c.key} className="text-left px-3 py-2.5 text-slate-500 font-bold uppercase tracking-wider text-[11px] whitespace-nowrap" style={{ minWidth: c.width }}>
-                  {c.label}
-                </th>
-              ))}
-              <th className="text-left px-3 py-2.5 text-slate-500 font-bold uppercase tracking-wider text-[11px]">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 && !loading && (
-              <tr><td colSpan={cols.length + 1} className="text-center py-10 text-slate-600">No orders found</td></tr>
-            )}
-            {filtered.map((r, i) => (
-              <tr key={r.id} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors" style={{ background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
-                {cols.map(c => (
-                  <td key={c.key} className="px-3 py-2.5 align-top max-w-[220px]">
-                    {c.key === 'Status' ? (() => {
-                      const status = String(r.fields['Status'] || 'New');
-                      const color = statusColor[status] || '#475569';
-                      return (
-                        <span
-                          className="inline-block px-2.5 py-1 rounded-md text-xs font-bold whitespace-nowrap"
-                          style={{ background: `${color}22`, border: `1px solid ${color}66`, color }}
-                        >
-                          {status}
-                        </span>
-                      );
-                    })() : c.key === 'Total (₹)' ? (
-                      <span className="text-[#00C896] font-bold">₹{Number(r.fields[c.key] || 0).toLocaleString('en-IN')}</span>
-                    ) : c.key === 'Shiprocket Order ID' ? (() => {
-                      const srId = String(r.fields['Shiprocket Order ID'] ?? '');
-                      return srId && srId !== '—' ? (
-                        <span className="text-[#00C896] font-medium flex items-center gap-1">
-                          <Truck className="w-3 h-3" />{srId}
-                        </span>
-                      ) : <span className="text-slate-700">—</span>;
-                    })() : c.key === 'Tracking ID' ? (() => {
-                      const tid = String(r.fields['Tracking ID'] ?? '');
-                      return tid && tid !== '—' ? (
-                        <span className="text-amber-400 font-medium">{tid}</span>
-                      ) : <span className="text-slate-700">—</span>;
-                    })() : c.key === 'Shiprocket Error' ? (() => {
-                      const err = String(r.fields['Shiprocket Error'] ?? '');
-                      return err && err !== '—' ? (
-                        <span className="text-red-400 text-xs break-words" title={err}>{err.length > 40 ? err.slice(0, 40) + '…' : err}</span>
-                      ) : <span className="text-slate-700">—</span>;
-                    })() : (
-                      <span className="text-slate-300">{String(r.fields[c.key] ?? '—')}</span>
-                    )}
-                  </td>
-                ))}
-                <td className="px-3 py-2.5">
-                  <button
-                    onClick={() => setViewRecord(r)}
-                    className="text-slate-400 hover:text-[#00C896] transition-colors flex items-center gap-1 text-xs"
-                    title="View order"
-                  >
-                    <Eye className="w-4 h-4" /> View
-                  </button>
-                </td>
-              </tr>
+          {/* Stats grid */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 mb-6">
+            {stats.map((s) => <StatCard key={s.key} card={s} />)}
+          </div>
+
+          {/* Tabs */}
+          <div className="flex items-center gap-1 mb-4 bg-slate-100/80 p-1 rounded-xl w-fit">
+            {(['prepay', 'cod'] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => { setTab(t); setPageNum(1); }}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                  tab === t ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                {t === 'prepay' ? 'Prepayment' : 'COD'}
+                <span className={`ml-1.5 text-xs ${tab === t ? 'text-blue-600' : 'text-slate-400'}`}>
+                  {t === 'prepay' ? filtered.filter((r) => !String(r.fields['Payment'] ?? '').toUpperCase().includes('COD')).length : filtered.filter((r) => String(r.fields['Payment'] ?? '').toUpperCase().includes('COD')).length}
+                </span>
+              </button>
             ))}
-          </tbody>
-        </table>
+          </div>
+
+          {/* Filter bar */}
+          <FilterBar
+            filters={filters}
+            onChange={setFilters}
+            onReset={() => setFilters(EMPTY_FILTERS)}
+            onExport={() => exportCsv(sorted)}
+            visible={showFilters}
+            onClose={() => setShowFilters(false)}
+          />
+
+          {/* Active filter chips */}
+          {activeFilterCount > 0 && !showFilters && (
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              {Object.entries(filters).filter(([, v]) => v && v !== 'search').map(([k, v]) => (
+                <span key={k} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium">
+                  {k}: {v}
+                  <button onClick={() => setFilters({ ...filters, [k]: '' })} className="hover:text-blue-900"><X className="w-3 h-3" /></button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Error */}
+          {error && (
+            <div className="mb-4 bg-rose-50 border border-rose-200 rounded-xl px-4 py-3 text-rose-700 text-sm">{error}</div>
+          )}
+
+          {/* Table */}
+          {loading && sorted.length === 0 ? <SkeletonTable /> : (
+            <OrdersTable
+              records={sorted}
+              loading={loading}
+              sortKey={sortKey}
+              sortDir={sortDir}
+              onSort={onSort}
+              selected={selected}
+              onToggleSelect={toggleSelect}
+              onToggleSelectAll={toggleSelectAll}
+              onRowClick={setViewRecord}
+              page={pageNum}
+              pageSize={pageSize}
+              onPageChange={setPageNum}
+            />
+          )}
+
+          {/* Selection bar */}
+          {selected.size > 0 && (
+            <div className="mt-3 flex items-center gap-3 bg-slate-900 text-white rounded-xl px-4 py-2.5 text-sm">
+              <span className="font-semibold">{selected.size} selected</span>
+              <button className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">Export selected</button>
+              <button onClick={() => setSelected(new Set())} className="ml-auto text-slate-400 hover:text-white">Clear</button>
+            </div>
+          )}
+        </main>
       </div>
 
-      <ViewOrderModal record={viewRecord} onClose={() => setViewRecord(null)} />
-
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <OrderDrawer record={viewRecord} onClose={() => setViewRecord(null)} />
+      <QuickActions onRefresh={load} />
     </div>
   );
 }

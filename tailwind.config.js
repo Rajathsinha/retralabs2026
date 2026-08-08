@@ -7,7 +7,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Geist', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: ['Inter', 'Geist', 'system-ui', '-apple-system', 'sans-serif'],
       },
       colors: {
         brand: {
