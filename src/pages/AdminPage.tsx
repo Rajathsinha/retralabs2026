@@ -11,6 +11,10 @@ import { OrderDrawer } from '../components/admin/OrderDrawer';
 import { QuickActions } from '../components/admin/QuickActions';
 import { PrepaidLabelsModal } from '../components/admin/PrepaidLabelsModal';
 import { SkeletonTable } from '../components/admin/SkeletonTable';
+import { DashboardView } from '../components/admin/DashboardView';
+import { AnalyticsView } from '../components/admin/AnalyticsView';
+import { CustomersView } from '../components/admin/CustomersView';
+import { SettingsView } from '../components/admin/SettingsView';
 import type { AirtableRecord, AdminFilters, StatCardData } from '../components/admin/types';
 
 const PASS = import.meta.env.VITE_ADMIN_PASSWORD;
@@ -227,101 +231,137 @@ export default function AdminPage() {
         />
 
         <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
-          {/* Page heading */}
-          <div className="mb-5">
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Orders</h1>
-            <p className="text-sm text-slate-500 mt-0.5">Manage and track all customer orders in one place.</p>
-          </div>
-
-          {/* Stats grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 mb-6">
-            {stats.map((s) => <StatCard key={s.key} card={s} />)}
-          </div>
-
-          {/* Tabs */}
-          <div className="flex flex-wrap items-center gap-3 mb-4">
-            <div className="flex items-center gap-1 bg-slate-100/80 p-1 rounded-xl w-fit">
-            {(['prepay', 'cod'] as const).map((t) => (
-              <button
-                key={t}
-                onClick={() => { setTab(t); setPageNum(1); }}
-                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                  tab === t ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                {t === 'prepay' ? 'Prepayment' : 'COD'}
-                <span className={`ml-1.5 text-xs ${tab === t ? 'text-blue-600' : 'text-slate-400'}`}>
-                  {t === 'prepay' ? filtered.filter((r) => !String(r.fields['Payment'] ?? '').toUpperCase().includes('COD')).length : filtered.filter((r) => String(r.fields['Payment'] ?? '').toUpperCase().includes('COD')).length}
-                </span>
-              </button>
-            ))}
-            </div>
-            {tab === 'prepay' && (
-              <button
-                type="button"
-                onClick={() => setShowLabels(true)}
-                disabled={labelRecords.length === 0}
-                className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <FileText className="h-4 w-4" />
-                Print prepaid labels
-                <span className="rounded-md bg-white/15 px-1.5 py-0.5 text-xs">{prepaidLabelRecords.length > 0 ? prepaidLabelRecords.length : sorted.length}</span>
-              </button>
-            )}
-          </div>
-
-          {/* Filter bar */}
-          <FilterBar
-            filters={filters}
-            onChange={setFilters}
-            onReset={() => setFilters(EMPTY_FILTERS)}
-            onExport={() => exportCsv(sorted)}
-            visible={showFilters}
-            onClose={() => setShowFilters(false)}
-          />
-
-          {/* Active filter chips */}
-          {activeFilterCount > 0 && !showFilters && (
-            <div className="flex flex-wrap items-center gap-2 mb-3">
-              {Object.entries(filters).filter(([, v]) => v && v !== 'search').map(([k, v]) => (
-                <span key={k} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium">
-                  {k}: {v}
-                  <button onClick={() => setFilters({ ...filters, [k]: '' })} className="hover:text-blue-900"><X className="w-3 h-3" /></button>
-                </span>
-              ))}
-            </div>
+          {page === 'dashboard' && (
+            <>
+              <div className="mb-5">
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900">Dashboard</h1>
+                <p className="text-sm text-slate-500 mt-0.5">Overview of your store performance at a glance.</p>
+              </div>
+              <DashboardView stats={stats} records={records} onRowClick={setViewRecord} onGoToOrders={() => setPage('orders')} />
+            </>
           )}
 
-          {/* Error */}
-          {error && (
-            <div className="mb-4 bg-rose-50 border border-rose-200 rounded-xl px-4 py-3 text-rose-700 text-sm">{error}</div>
+          {page === 'orders' && (
+            <>
+              <div className="mb-5">
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900">Orders</h1>
+                <p className="text-sm text-slate-500 mt-0.5">Manage and track all customer orders in one place.</p>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 mb-6">
+                {stats.map((s) => <StatCard key={s.key} card={s} />)}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 mb-4">
+                <div className="flex items-center gap-1 bg-slate-100/80 p-1 rounded-xl w-fit">
+                {(['prepay', 'cod'] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => { setTab(t); setPageNum(1); }}
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                      tab === t ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    {t === 'prepay' ? 'Prepayment' : 'COD'}
+                    <span className={`ml-1.5 text-xs ${tab === t ? 'text-blue-600' : 'text-slate-400'}`}>
+                      {t === 'prepay' ? filtered.filter((r) => !String(r.fields['Payment'] ?? '').toUpperCase().includes('COD')).length : filtered.filter((r) => String(r.fields['Payment'] ?? '').toUpperCase().includes('COD')).length}
+                    </span>
+                  </button>
+                ))}
+                </div>
+                {tab === 'prepay' && (
+                  <button
+                    type="button"
+                    onClick={() => setShowLabels(true)}
+                    disabled={labelRecords.length === 0}
+                    className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <FileText className="h-4 w-4" />
+                    Print prepaid labels
+                    <span className="rounded-md bg-white/15 px-1.5 py-0.5 text-xs">{prepaidLabelRecords.length > 0 ? prepaidLabelRecords.length : sorted.length}</span>
+                  </button>
+                )}
+              </div>
+
+              <FilterBar
+                filters={filters}
+                onChange={setFilters}
+                onReset={() => setFilters(EMPTY_FILTERS)}
+                onExport={() => exportCsv(sorted)}
+                visible={showFilters}
+                onClose={() => setShowFilters(false)}
+              />
+
+              {activeFilterCount > 0 && !showFilters && (
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                  {Object.entries(filters).filter(([, v]) => v && v !== 'search').map(([k, v]) => (
+                    <span key={k} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium">
+                      {k}: {v}
+                      <button onClick={() => setFilters({ ...filters, [k]: '' })} className="hover:text-blue-900"><X className="w-3 h-3" /></button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {error && (
+                <div className="mb-4 bg-rose-50 border border-rose-200 rounded-xl px-4 py-3 text-rose-700 text-sm">{error}</div>
+              )}
+
+              {loading && sorted.length === 0 ? <SkeletonTable /> : (
+                <OrdersTable
+                  records={sorted}
+                  loading={loading}
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={onSort}
+                  selected={selected}
+                  onToggleSelect={toggleSelect}
+                  onToggleSelectAll={toggleSelectAll}
+                  onRowClick={setViewRecord}
+                  page={pageNum}
+                  pageSize={pageSize}
+                  onPageChange={setPageNum}
+                />
+              )}
+
+              {selected.size > 0 && (
+                <div className="mt-3 flex items-center gap-3 bg-slate-900 text-white rounded-xl px-4 py-2.5 text-sm">
+                  <span className="font-semibold">{selected.size} selected</span>
+                  <button className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">Export selected</button>
+                  <button onClick={() => setSelected(new Set())} className="ml-auto text-slate-400 hover:text-white">Clear</button>
+                </div>
+              )}
+            </>
           )}
 
-          {/* Table */}
-          {loading && sorted.length === 0 ? <SkeletonTable /> : (
-            <OrdersTable
-              records={sorted}
-              loading={loading}
-              sortKey={sortKey}
-              sortDir={sortDir}
-              onSort={onSort}
-              selected={selected}
-              onToggleSelect={toggleSelect}
-              onToggleSelectAll={toggleSelectAll}
-              onRowClick={setViewRecord}
-              page={pageNum}
-              pageSize={pageSize}
-              onPageChange={setPageNum}
-            />
+          {page === 'analytics' && (
+            <>
+              <div className="mb-5">
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900">Analytics</h1>
+                <p className="text-sm text-slate-500 mt-0.5">Track revenue, trends, and product performance.</p>
+              </div>
+              <AnalyticsView records={records} />
+            </>
           )}
 
-          {/* Selection bar */}
-          {selected.size > 0 && (
-            <div className="mt-3 flex items-center gap-3 bg-slate-900 text-white rounded-xl px-4 py-2.5 text-sm">
-              <span className="font-semibold">{selected.size} selected</span>
-              <button className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">Export selected</button>
-              <button onClick={() => setSelected(new Set())} className="ml-auto text-slate-400 hover:text-white">Clear</button>
-            </div>
+          {page === 'customers' && (
+            <>
+              <div className="mb-5">
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900">Customers</h1>
+                <p className="text-sm text-slate-500 mt-0.5">View customer profiles, order history, and spending.</p>
+              </div>
+              <CustomersView records={records} onRowClick={setViewRecord} />
+            </>
+          )}
+
+          {page === 'settings' && (
+            <>
+              <div className="mb-5">
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900">Settings</h1>
+                <p className="text-sm text-slate-500 mt-0.5">Configure store, delivery, and notification preferences.</p>
+              </div>
+              <SettingsView />
+            </>
           )}
         </main>
       </div>
