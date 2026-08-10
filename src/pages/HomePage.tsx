@@ -10,6 +10,10 @@ import ProductCard from '../components/ProductCard';
 import { useSEO } from '../hooks/useSEO';
 import { getLocalBusinessSchema, getServiceAreaSchema } from '../utils/localSeoSchemas';
 import { BUSINESS_NAP } from '../constants/config';
+import { ParticleField } from '../components/ParticleField';
+import { MagneticButton } from '../components/MagneticButton';
+import { RevealSection, StaggerGroup } from '../components/Reveal';
+import { gsap, prefersReducedMotion, useParallax, usePinnedSection } from '../hooks/useGsapAnimations';
 
 const TrustpilotSection = lazy(() => import('../components/TrustpilotSection'));
 
@@ -113,42 +117,39 @@ function CharReveal({ text, className = '', color, staggerMs = 32, delayMs = 0 }
   );
 }
 
-function useInView(threshold = 0.15) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [inView, setInView] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { setInView(true); obs.disconnect(); } },
-      { threshold }
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [threshold]);
-  return { ref, inView };
-}
-
 function Reveal({ children, delay = 0, className = '' }: { children: React.ReactNode; delay?: number; className?: string }) {
-  const { ref, inView } = useInView();
   return (
-    <div
-      ref={ref}
-      className={className}
-      style={{
-        opacity: inView ? 1 : 0,
-        transform: inView ? 'translateY(0)' : 'translateY(24px)',
-        transition: `opacity 0.7s cubic-bezier(0.16,1,0.3,1) ${delay}s, transform 0.7s cubic-bezier(0.16,1,0.3,1) ${delay}s`,
-      }}
-    >
+    <RevealSection delay={delay} className={className}>
       {children}
-    </div>
+    </RevealSection>
   );
 }
 
 export default function HomePage() {
   const navigate = useNavigate();
   const [slideIndex, setSlideIndex] = useState(0);
+  const heroRef = useRef<HTMLElement>(null);
+  const heroVisualRef = useParallax<HTMLDivElement>(0.12);
+  const processRef = usePinnedSection<HTMLDivElement>((timeline, element) => {
+    const panels = element.querySelectorAll('[data-process-panel]');
+    timeline.fromTo(panels, { yPercent: 18, opacity: 0.35 }, { yPercent: 0, opacity: 1, stagger: 0.35, ease: 'none' });
+  }, { end: '+=180%', pinSpacing: true });
+
+  useEffect(() => {
+    const hero = heroRef.current;
+    if (!hero || prefersReducedMotion()) return;
+
+    const ctx = gsap.context(() => {
+      const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+      tl.fromTo('[data-hero-kicker]', { opacity: 0, x: -24 }, { opacity: 1, x: 0, duration: 0.8 })
+        .fromTo('[data-hero-copy]', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.9 }, '-=0.45')
+        .fromTo('[data-hero-visual]', { opacity: 0, scale: 0.92, rotate: 2 }, { opacity: 1, scale: 1, rotate: 0, duration: 1.4 }, '-=0.7')
+        .fromTo('[data-hero-badge]', { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.7, stagger: 0.12 }, '-=0.8');
+    }, hero);
+
+    return () => ctx.revert();
+  }, [slideIndex]);
+
 
   useSEO({
     title: 'Buy Research Peptides India | Retatrutide, Tirzepatide | RetraLabs Bengaluru',
@@ -187,15 +188,21 @@ export default function HomePage() {
     <div className="bg-white min-h-screen">
 
       {/* ═══════════════════════════ HERO ═══════════════════════════ */}
-      <section className="relative overflow-hidden">
-        <div className="max-w-[1440px] mx-auto px-3 sm:px-6 lg:px-10" style={{ paddingTop: 'clamp(40px,8vw,100px)', paddingBottom: 'clamp(40px,8vw,100px)' }}>
+      <section ref={heroRef} className="relative overflow-hidden bg-[#f8fafc]">
+        <div className="absolute inset-0 pointer-events-none opacity-70">
+          <ParticleField density={0.0001} color="rgba(37,99,235,0.38)" connectionColor="rgba(37,99,235,0.18)" maxDistance={150} />
+        </div>
+        <div className="absolute -right-32 -top-32 w-[32rem] h-[32rem] rounded-full bg-blue-100/40 blur-3xl pointer-events-none" />
+        <div className="relative max-w-[1440px] mx-auto px-3 sm:px-6 lg:px-10" style={{ paddingTop: 'clamp(40px,8vw,100px)', paddingBottom: 'clamp(40px,8vw,100px)' }}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 lg:gap-20 items-center">
 
             {/* ── Left Column ── */}
             <div className="min-w-0 flex flex-col" style={{ gap: 'clamp(16px, 3vw, 32px)' }}>
               {/* Badge */}
               <div
-                className="inline-flex items-center gap-1.5 w-fit px-3 py-[5px] rounded-full border border-[#2563EB]/20 bg-[#EFF6FF]"
+                data-hero-kicker
+                data-hero-badge
+                className="inline-flex items-center gap-1.5 w-fit px-3 py-[5px] rounded-full border border-[#2563EB]/20 bg-white/80 backdrop-blur-sm"
               >
                 <div className="w-[5px] h-[5px] rounded-full bg-[#2563EB] animate-pulse flex-shrink-0" />
                 <span className="text-[#2563EB] text-[9px] sm:text-[11px] font-bold tracking-[0.1em] uppercase">
@@ -204,7 +211,7 @@ export default function HomePage() {
               </div>
 
               {/* Headline + dots */}
-              <div>
+              <div data-hero-copy>
                 <div key={slideIndex}>
                     <h1
                       className="text-[#111111] text-[clamp(32px,6vw,64px)] tracking-[-0.03em] leading-[1.05]"
@@ -260,17 +267,12 @@ export default function HomePage() {
               {/* CTAs */}
               <div>
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-3 w-full sm:w-auto">
-                  <button
-                    type="button"
+                  <MagneticButton
                     onClick={() => navigate('/catalogue')}
-                    className="group flex items-center justify-center gap-2 bg-[#111111] hover:bg-[#1a1a1a] text-white font-semibold px-6 py-3 sm:px-7 sm:py-4 transition-all duration-200 hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.3)] flex-1 sm:flex-none"
-                    style={{ fontSize: 'clamp(13px,1.1vw,15px)', borderRadius: 10 }}
+                    className="group flex items-center justify-center gap-2 rounded-[10px] bg-[#111111] hover:bg-[#1a1a1a] text-white font-semibold px-6 py-3 sm:px-7 sm:py-4 text-[13px] sm:text-[15px] transition-all duration-200 hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.3)] flex-1 sm:flex-none"
                   >
-                    Shop the Real Stuff
-                    <div>
-                      <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    </div>
-                  </button>
+                    Shop the Real Stuff <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  </MagneticButton>
                   <a
                     href={BUSINESS_NAP.social.trustpilot}
                     target="_blank"
@@ -288,7 +290,7 @@ export default function HomePage() {
             </div>
 
             {/* ── Right Column — Product Image ── */}
-            <div className="relative flex items-center justify-center" style={{ height: 'clamp(200px, 46vw, 620px)' }}>
+            <div ref={heroVisualRef} data-hero-visual className="relative flex items-center justify-center" style={{ height: 'clamp(200px, 46vw, 620px)' }}>
               <div
                 className="relative w-full h-full"
                 style={{
@@ -333,7 +335,7 @@ export default function HomePage() {
               </div>
 
               {/* Floating badges — visible on sm+, inline trust row on mobile */}
-              <div className="hidden sm:block absolute top-6 left-4 px-5 py-3.5 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.12)]"
+              <div data-hero-badge className="hidden sm:block absolute top-6 left-4 px-5 py-3.5 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.12)]"
                 style={{
                   borderRadius: 16,
                   zIndex: 2,
@@ -346,7 +348,7 @@ export default function HomePage() {
                 <p className="text-[#111111] text-[13px] font-extrabold leading-tight tracking-tight">99%+ Purity</p>
                 <p className="text-[#374151] text-[11px] mt-0.5 font-bold">HPLC Verified</p>
               </div>
-              <div className="hidden sm:block absolute bottom-6 right-4 px-5 py-3.5 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.12)]"
+              <div data-hero-badge className="hidden sm:block absolute bottom-6 right-4 px-5 py-3.5 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.12)]"
                 style={{
                   borderRadius: 16,
                   zIndex: 2,
@@ -378,7 +380,7 @@ export default function HomePage() {
       {/* ═══════════════════ TRUST STRIP ═══════════════════ */}
       <section className="border-y border-[#E5E7EB]">
         <div className="max-w-[1440px] mx-auto">
-          <div className="grid grid-cols-2 lg:grid-cols-4">
+          <StaggerGroup className="grid grid-cols-2 lg:grid-cols-4" stagger={0.08} y={18}>
             {TRUST_ITEMS.map((item, i) => (
               <div
                 key={i}
@@ -398,6 +400,31 @@ export default function HomePage() {
                 </div>
               </div>
             ))}
+          </StaggerGroup>
+        </div>
+      </section>
+
+      {/* ═══════════════════ MOLECULAR PROCESS ═══════════════════ */}
+      <section className="relative overflow-hidden bg-[#07111f] text-white py-20 sm:py-28">
+        <div className="absolute inset-0 opacity-60 pointer-events-none"><ParticleField density={0.00008} color="rgba(125,211,252,0.5)" connectionColor="rgba(125,211,252,0.18)" maxDistance={140} /></div>
+        <div ref={processRef} className="relative min-h-[70vh] max-w-[1200px] mx-auto px-6 flex items-center">
+          <div className="grid lg:grid-cols-[0.8fr_1.2fr] gap-12 lg:gap-24 items-center w-full">
+            <div>
+              <p className="text-cyan-300 text-[11px] font-bold uppercase tracking-[0.2em] mb-4">Inside the lab</p>
+              <h2 className="text-3xl sm:text-5xl font-semibold tracking-tight leading-[1.05]">Purity is a process, not a promise.</h2>
+              <p className="mt-5 text-slate-300 text-sm sm:text-base leading-relaxed max-w-md">Every batch moves through a documented chain of identity, analysis, and controlled dispatch.</p>
+            </div>
+            <div className="space-y-3">
+              {[
+                ['01', 'Identity verified', 'Each compound is logged against its source and batch profile.'],
+                ['02', 'Analytically reviewed', 'Independent testing keeps the signal clear and the record complete.'],
+                ['03', 'Cold-chain ready', 'Careful handling protects the material from lab to doorstep.'],
+              ].map(([number, title, copy]) => (
+                <div data-process-panel key={number} className="border border-white/10 bg-white/[0.06] backdrop-blur-sm rounded-2xl p-5 sm:p-6">
+                  <div className="flex gap-4 items-start"><span className="text-cyan-300 font-mono text-xs">{number}</span><div><h3 className="font-semibold text-white">{title}</h3><p className="mt-1 text-sm text-slate-400 leading-relaxed">{copy}</p></div></div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
