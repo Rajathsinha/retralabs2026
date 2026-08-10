@@ -1,6 +1,6 @@
 import { useSEO } from '../hooks/useSEO';
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { ShoppingBag, IndianRupee, Clock, Package, Truck, CheckCircle2, Banknote, CreditCard, Zap, X } from 'lucide-react';
+import { ShoppingBag, IndianRupee, Clock, Package, Truck, CheckCircle2, Banknote, CreditCard, Zap, X, FileText } from 'lucide-react';
 import { Sidebar } from '../components/admin/Sidebar';
 import type { AdminPage as AdminPageId } from '../components/admin/Sidebar';
 import { Topbar } from '../components/admin/Topbar';
@@ -9,6 +9,7 @@ import { FilterBar, hasActiveFilters } from '../components/admin/FilterBar';
 import { OrdersTable, type SortDir } from '../components/admin/OrdersTable';
 import { OrderDrawer } from '../components/admin/OrderDrawer';
 import { QuickActions } from '../components/admin/QuickActions';
+import { PrepaidLabelsModal } from '../components/admin/PrepaidLabelsModal';
 import { SkeletonTable } from '../components/admin/SkeletonTable';
 import type { AirtableRecord, AdminFilters, StatCardData } from '../components/admin/types';
 
@@ -93,6 +94,7 @@ export default function AdminPage() {
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [viewRecord, setViewRecord] = useState<AirtableRecord | null>(null);
+  const [showLabels, setShowLabels] = useState(false);
   const [pageNum, setPageNum] = useState(1);
   const [mobileNav, setMobileNav] = useState(false);
   const pageSize = 12;
@@ -200,6 +202,8 @@ export default function AdminPage() {
   if (!authed) return <PasswordGate onAuth={() => setAuthed(true)} />;
 
   const activeFilterCount = hasActiveFilters(filters) ? 1 : 0;
+  const prepaidLabelRecords = sorted.filter((record) => selected.has(record.id));
+  const labelRecords = prepaidLabelRecords.length > 0 ? prepaidLabelRecords : sorted;
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex font-sans text-slate-900">
@@ -235,7 +239,8 @@ export default function AdminPage() {
           </div>
 
           {/* Tabs */}
-          <div className="flex items-center gap-1 mb-4 bg-slate-100/80 p-1 rounded-xl w-fit">
+          <div className="flex flex-wrap items-center gap-3 mb-4">
+            <div className="flex items-center gap-1 bg-slate-100/80 p-1 rounded-xl w-fit">
             {(['prepay', 'cod'] as const).map((t) => (
               <button
                 key={t}
@@ -250,6 +255,19 @@ export default function AdminPage() {
                 </span>
               </button>
             ))}
+            </div>
+            {tab === 'prepay' && (
+              <button
+                type="button"
+                onClick={() => setShowLabels(true)}
+                disabled={labelRecords.length === 0}
+                className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <FileText className="h-4 w-4" />
+                Print prepaid labels
+                <span className="rounded-md bg-white/15 px-1.5 py-0.5 text-xs">{prepaidLabelRecords.length > 0 ? prepaidLabelRecords.length : sorted.length}</span>
+              </button>
+            )}
           </div>
 
           {/* Filter bar */}
@@ -309,6 +327,7 @@ export default function AdminPage() {
       </div>
 
       <OrderDrawer record={viewRecord} onClose={() => setViewRecord(null)} />
+      {showLabels && <PrepaidLabelsModal records={labelRecords} onClose={() => setShowLabels(false)} />}
       <QuickActions onRefresh={load} />
     </div>
   );
