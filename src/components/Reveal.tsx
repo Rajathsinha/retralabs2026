@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { useTextReveal } from '../hooks/useGsapAnimations';
+import { useTextReveal, useSectionReveal, useStaggerChildren } from '../hooks/useGsapAnimations';
 
 interface RevealTextProps {
   children: string;
