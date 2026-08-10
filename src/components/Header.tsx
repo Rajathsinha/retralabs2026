@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
-import { ShoppingCart, Menu, X, Search, Calculator, ChevronDown } from 'lucide-react';
+import { ShoppingCart, Menu, X, Search, ChevronDown } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useCurrency, CURRENCIES } from '../context/CurrencyContext';
 import Logo from './Logo';
@@ -19,7 +19,6 @@ const MARQUEE_ITEMS = [
 const NAV_ITEMS: { path: string; label: string; external?: boolean }[] = [
   { path: '/catalogue',   label: 'Shop' },
   { path: '/catalogue',   label: 'Peptides' },
-  { path: '/calculator',  label: 'Calculator' },
   { path: '/support',     label: 'Resources' },
   { path: BUSINESS_NAP.social.trustpilot, label: 'Reviews', external: true },
   { path: '/about',       label: 'About Us' },
@@ -162,15 +161,6 @@ export default function Header() {
                 >
                   <Search className="w-[20px] h-[20px]" strokeWidth={1.8} />
                 </button>
-
-                {/* Reconstitution Calculator */}
-                <RouterLink
-                  to="/calculator"
-                  aria-label="Reconstitution calculator"
-                  className="w-10 h-10 flex items-center justify-center rounded-full text-[#374151] hover:text-[#111111] hover:bg-[#F5F5F5] transition-all duration-200"
-                >
-                  <Calculator className="w-[20px] h-[20px]" strokeWidth={1.8} />
-                </RouterLink>
 
                 {/* Currency selector */}
                 <div className="relative" ref={currencyRef}>
