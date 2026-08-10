@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Printer, X, MapPin, Phone } from 'lucide-react';
+import { Printer, X, MapPin, Phone, Package } from 'lucide-react';
 import type { AirtableRecord } from './types';
 
 interface PrepaidLabelsModalProps {
@@ -33,26 +33,38 @@ function Label({ record }: { record: AirtableRecord }) {
   const customerName = field(record, 'Name') || 'Customer name not provided';
   const phone = field(record, 'Phone') || 'Phone not provided';
   const addressLines = getAddressLines(record);
+  const orderId = field(record, 'orderID') || '—';
+  const pincode = (addressLines.find((l) => /^\d{6}$/.test(l.replace(/[^0-9]/g, ''))) || '').replace(/[^0-9]/g, '');
 
   return (
     <article className="shipping-label">
-      <div className="label-block">
-        <p className="label-heading">FROM</p>
-        <p className="label-name">{SENDER.name}</p>
-        <p className="label-phone"><Phone className="label-icon" />{SENDER.phone}</p>
-        {SENDER.address.map((line) => <p key={line} className="label-line">{line}</p>)}
+      {/* Compact FROM strip */}
+      <div className="label-from">
+        <span className="label-from-tag">FROM</span>
+        <span className="label-from-text">{SENDER.name} · {SENDER.phone}</span>
       </div>
 
-      <div className="label-divider" />
-
-      <div className="label-block label-to">
-        <p className="label-heading">TO</p>
+      {/* Dominant TO section */}
+      <div className="label-to">
+        <p className="label-heading">DELIVER TO</p>
         <p className="label-name">{customerName}</p>
         <p className="label-phone"><Phone className="label-icon" />{phone}</p>
         <p className="label-address-icon"><MapPin className="label-icon label-map-icon" /><span>{addressLines.map((line) => <span className="label-address-line" key={line}>{line}</span>)}</span></p>
       </div>
 
-      <p className="label-order">{field(record, 'orderID')}</p>
+      {/* Barcode-style order footer */}
+      <div className="label-footer">
+        <div className="label-pincode">
+          <span className="label-pincode-label">PINCODE</span>
+          <span className="label-pincode-value">{pincode || '—'}</span>
+        </div>
+        <div className="label-barcode" aria-hidden="true">
+          {orderId.split('').map((ch, i) => (
+            <span key={i} className="label-bar" style={{ opacity: i % 2 ? 1 : 0.4 }} />
+          ))}
+        </div>
+        <p className="label-order-id">{orderId}</p>
+      </div>
     </article>
   );
 }

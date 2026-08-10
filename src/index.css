@@ -180,27 +180,53 @@
     position: relative;
     min-width: 0;
     overflow: hidden;
-    border: 0.35mm dashed #64748b;
-    padding: 7mm;
+    border: 0.35mm solid #1e293b;
+    padding: 0;
     color: #0f172a;
     font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
   }
 
+  /* Compact FROM strip */
+  .label-from {
+    display: flex;
+    align-items: center;
+    gap: 2mm;
+    padding: 2.5mm 5mm;
+    background: #f1f5f9;
+    border-bottom: 0.35mm solid #cbd5e1;
+  }
+  .label-from-tag {
+    color: #475569;
+    font-size: 7.5pt;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+  }
+  .label-from-text {
+    color: #334155;
+    font-size: 8.5pt;
+    font-weight: 600;
+  }
+
+  /* Dominant TO section */
+  .label-to {
+    flex: 1;
+    padding: 5mm 5mm 3mm;
+  }
   .label-heading {
     margin: 0 0 2mm;
-    color: #475569;
-    font-size: 9pt;
+    color: #2563eb;
+    font-size: 8pt;
     font-weight: 700;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.14em;
   }
-
   .label-name {
-    margin: 0 0 1.5mm;
-    font-size: 14pt;
+    margin: 0 0 2mm;
+    font-size: 15pt;
     font-weight: 700;
-    line-height: 1.2;
+    line-height: 1.15;
   }
-
   .label-phone,
   .label-line,
   .label-address-icon {
@@ -208,42 +234,66 @@
     align-items: flex-start;
     gap: 1.5mm;
     margin: 0 0 1mm;
-    font-size: 10.5pt;
+    font-size: 10pt;
     line-height: 1.3;
   }
-
   .label-icon {
     width: 3.5mm;
     height: 3.5mm;
     flex: 0 0 auto;
     margin-top: 0.5mm;
   }
-
   .label-map-icon {
     color: #2563eb;
   }
-
   .label-address-line {
     display: block;
   }
 
-  .label-divider {
-    height: 0.35mm;
-    margin: 4mm 0;
-    background: #cbd5e1;
+  /* Barcode-style footer */
+  .label-footer {
+    border-top: 0.35mm solid #cbd5e1;
+    padding: 3mm 5mm;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5mm;
   }
-
-  .label-to .label-name {
-    font-size: 16pt;
+  .label-pincode {
+    display: flex;
+    align-items: baseline;
+    gap: 1.5mm;
   }
-
-  .label-order {
-    position: absolute;
-    right: 7mm;
-    bottom: 5mm;
-    margin: 0;
+  .label-pincode-label {
+    font-size: 7pt;
+    font-weight: 700;
+    letter-spacing: 0.14em;
     color: #64748b;
+  }
+  .label-pincode-value {
+    font-size: 11pt;
+    font-weight: 700;
+    color: #0f172a;
+  }
+  .label-barcode {
+    display: flex;
+    align-items: center;
+    gap: 0.3mm;
+    height: 8mm;
+  }
+  .label-bar {
+    display: inline-block;
+    width: 0.5mm;
+    height: 100%;
+    background: #0f172a;
+  }
+  .label-order-id {
+    margin: 0;
     font-size: 8pt;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #334155;
+    font-family: 'Courier New', monospace;
   }
 }
 
