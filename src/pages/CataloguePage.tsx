@@ -24,8 +24,8 @@ type ProductCfg = {
 };
 
 const PRODUCT_CFG: Record<string, ProductCfg> = {
-  'Retatrutide':                        { tag: 'Weight Loss',  tagColor: '#2563EB', tagBg: '#EFF6FF', category: 'weight-loss', reviews: 41 },
-  'Tirzepatide':                        { tag: 'Weight Loss',  tagColor: '#1D4ED8', tagBg: '#EFF6FF', category: 'weight-loss', reviews: 27 },
+  'Retatrutide':                        { tag: 'Metabolic',    tagColor: '#2563EB', tagBg: '#EFF6FF', category: 'metabolic',  reviews: 41 },
+  'Tirzepatide':                        { tag: 'Metabolic',    tagColor: '#1D4ED8', tagBg: '#EFF6FF', category: 'metabolic',  reviews: 27 },
   'CJC-1295 (No DAC) + Ipamorelin Stack':{ tag: 'Research',   tagColor: '#7C3AED', tagBg: '#F5F3FF', category: 'research',    reviews: 32 },
   'MOT-C':                              { tag: 'Research',     tagColor: '#0D9488', tagBg: '#F0FDFA', category: 'research',    reviews: 16 },
   'GHK-Cu':                             { tag: 'Anti-Aging',   tagColor: '#1D4ED8', tagBg: '#EFF6FF', category: 'anti-aging',  reviews: 39 },
@@ -37,8 +37,8 @@ const PRODUCT_CFG: Record<string, ProductCfg> = {
   'NAD+':                               { tag: 'Anti-Aging',   tagColor: '#7C3AED', tagBg: '#F5F3FF', category: 'anti-aging',  reviews: 14 },
   'SS-31':                              { tag: 'Anti-Aging',   tagColor: '#DB2777', tagBg: '#FDF2F8', category: 'anti-aging',  reviews: 13 },
   'Kisspeptin-10':                      { tag: 'Research',     tagColor: '#EC4899', tagBg: '#FDF2F8', category: 'research',    reviews: 7  },
-  'AOD 9604':                           { tag: 'Weight Loss',  tagColor: '#EA580C', tagBg: '#FFF7ED', category: 'weight-loss', reviews: 11 },
-  'Cagrilintide':                       { tag: 'Weight Loss',  tagColor: '#16A34A', tagBg: '#F0FDF4', category: 'weight-loss', reviews: 6  },
+  'AOD 9604':                           { tag: 'Metabolic',    tagColor: '#EA580C', tagBg: '#FFF7ED', category: 'metabolic',  reviews: 11 },
+  'Cagrilintide':                       { tag: 'Metabolic',    tagColor: '#16A34A', tagBg: '#F0FDF4', category: 'metabolic',  reviews: 6  },
   'Klow Blend':                         { tag: 'Healing',      tagColor: '#0891B2', tagBg: '#ECFEFF', category: 'healing',     reviews: 8  },
   'The Wolverine Stack':                { tag: 'Recovery',     tagColor: '#6B21A8', tagBg: '#F5F3FF', category: 'recovery',    reviews: 29 },
   'Epithalon':                          { tag: 'Anti-Aging',   tagColor: '#2563EB', tagBg: '#EFF6FF', category: 'anti-aging',  reviews: 9  },
@@ -47,7 +47,7 @@ const PRODUCT_CFG: Record<string, ProductCfg> = {
 
 const CATEGORIES = [
   { id: 'all',         label: 'All Products' },
-  { id: 'weight-loss', label: 'Weight Loss'  },
+  { id: 'metabolic',  label: 'Metabolic'   },
   { id: 'recovery',    label: 'Recovery'     },
   { id: 'anti-aging',  label: 'Anti-Aging'   },
   { id: 'healing',     label: 'Healing'      },
@@ -295,7 +295,7 @@ export default function CataloguePage() {
               </div>
               <div className="py-3 px-5 space-y-2">
                 {[
-                  { label: 'Weight Management',  color: '#2563EB' },
+                  { label: 'Metabolic Research',  color: '#2563EB' },
                   { label: 'Tissue Recovery',     color: '#EA580C' },
                   { label: 'Cellular Longevity',  color: '#7C3AED' },
                   { label: 'Cognitive Support',   color: '#4338CA' },

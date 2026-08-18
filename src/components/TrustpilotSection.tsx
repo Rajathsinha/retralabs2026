@@ -154,7 +154,7 @@ const REVIEWS = [
     id: 13,
     name: 'Shubham Singla',
     location: 'India',
-    text: 'Trustworthy to buy and very effective after consumption. It was very effective in my weight loss journey.',
+    text: 'Trustworthy to buy and very effective after consumption. It was very effective in my research journey.',
     product: 'Retatrutide',
     date: 'May 1, 2026',
     initial: 'S',
