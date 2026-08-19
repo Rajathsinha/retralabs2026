@@ -8,7 +8,6 @@
  * NOTE: Update REVIEWS array with your actual Trustpilot review text.
  */
 import { useState } from 'react';
-import { BadgeCheck } from 'lucide-react';
 
 // ── Trustpilot brand star (exact SVG shape) ───────────────────────────────────
 function TpStar({ className = 'w-5 h-5' }: { className?: string }) {
@@ -28,139 +27,14 @@ function TpStar({ className = 'w-5 h-5' }: { className?: string }) {
   );
 }
 
-// ── Real Trustpilot reviews ───────────────────────────────────────────────────
+// ── Trustpilot review screenshots ─────────────────────────────────────────────
 const REVIEWS = [
-  {
-    id: 1,
-    name: 'Dhruv Soni',
-    location: 'India',
-    text: 'The order was late but it sure was legit and works fine.',
-    product: 'Retatrutide',
-    date: 'May 25, 2026',
-    initial: 'D',
-    gradient: 'from-sky-400 to-blue-500',
-  },
-  {
-    id: 2,
-    name: 'Vamshi Vikram',
-    location: 'India',
-    text: 'I tried Reta 10mg and finished the whole vial — it genuinely worked for me. I went from 79 kg to 73 kg in just one month. I\'m already planning to order a second vial.',
-    product: 'Retatrutide 10mg',
-    date: 'May 25, 2026',
-    initial: 'V',
-    gradient: 'from-violet-400 to-purple-500',
-  },
-  {
-    id: 3,
-    name: 'Nittin Sharma',
-    location: 'India',
-    text: 'Had a great experience working with them, got my reta delivered before time and the results are mind blowing. I have been conned in the past so was very skeptical before ordering, but now they have became my go to people. Highly recommended.',
-    product: 'Retatrutide',
-    date: 'May 1, 2026',
-    initial: 'N',
-    gradient: 'from-rose-400 to-pink-500',
-  },
-  {
-    id: 4,
-    name: 'Chethan Kumar',
-    location: 'India',
-    text: 'Product quality is top class. Used Reta and GHK-Cu — Reta worked really well, week 4 and suppression and food noise was literally zero. Overall quality is great.',
-    product: 'Retatrutide · GHK-Cu',
-    date: 'May 1, 2026',
-    initial: 'C',
-    gradient: 'from-indigo-400 to-violet-500',
-  },
-  {
-    id: 5,
-    name: 'looksmaxxer',
-    location: 'India',
-    text: 'The stuff is BOMB 🔥',
-    product: 'Retatrutide',
-    date: 'May 15, 2026',
-    initial: 'L',
-    gradient: 'from-orange-400 to-red-500',
-  },
-  {
-    id: 6,
-    name: 'Mohan',
-    location: 'India',
-    text: 'From long time I was looking for a genuine Indian seller and finally I found this website. Original quality products in nominal price range, excellent customer support on WhatsApp and fast delivery. I happily recommend this website.',
-    product: 'Retatrutide',
-    date: 'May 19, 2026',
-    initial: 'M',
-    gradient: 'from-cyan-400 to-teal-500',
-  },
-  {
-    id: 7,
-    name: 'Alwin',
-    location: 'India',
-    text: 'I had my doubts at first but it was all cleared after seeing the results. Great product, works very well. Delivered to my city and well packaged. Had zero side effects. Happy with the results and happy with Retralabs.',
-    product: 'Retatrutide',
-    date: 'Apr 18, 2026',
-    initial: 'A',
-    gradient: 'from-teal-400 to-emerald-500',
-  },
-  {
-    id: 8,
-    name: 'Mohankrishna',
-    location: 'United Kingdom',
-    text: 'I taken Reta from them — it was a great experience. I lost 5kg in a month, it works great. Experience with the company and people are great.',
-    product: 'Retatrutide',
-    date: 'Apr 15, 2026',
-    initial: 'M',
-    gradient: 'from-emerald-400 to-green-500',
-  },
-  {
-    id: 9,
-    name: 'Mohammad Asad Khan',
-    location: 'India',
-    text: 'Been using Retatrutide and trust me this is legit and I have been noticing all its effects.',
-    product: 'Retatrutide',
-    date: 'Mar 19, 2026',
-    initial: 'M',
-    gradient: 'from-blue-400 to-indigo-500',
-  },
-  {
-    id: 10,
-    name: 'Faizan Shaikh',
-    location: 'India',
-    text: 'The service is excellent — very supportive and quite reasonable. The quality, transparency, and support are top notch. Getting this quality at this price range is kinda impossible. Really good to go.',
-    product: 'Retatrutide',
-    date: 'Mar 9, 2026',
-    initial: 'F',
-    gradient: 'from-amber-400 to-orange-500',
-  },
-  {
-    id: 11,
-    name: 'Shaikh Mohammad Ismeazam',
-    location: 'India',
-    text: 'Got my Reta delivered from Retralabs recently and yes it was genuine. Appetite is a lot suppressed now. No cravings for sugary foods. Lost more than 1kg in my first week. Thanks for the genuine product.',
-    product: 'Retatrutide',
-    date: 'Feb 6, 2026',
-    initial: 'S',
-    gradient: 'from-purple-400 to-pink-500',
-  },
-  {
-    id: 12,
-    name: 'Elephants World',
-    location: 'India',
-    text: 'Seriously the product was authentic. Services are top notch, communication is up to the standards and amazing results.',
-    product: 'Retatrutide',
-    date: 'May 23, 2026',
-    initial: 'E',
-    gradient: 'from-lime-400 to-green-500',
-  },
-  {
-    id: 13,
-    name: 'Shubham Singla',
-    location: 'India',
-    text: 'Trustworthy to buy and very effective after consumption. It was very effective in my research journey.',
-    product: 'Retatrutide',
-    date: 'May 1, 2026',
-    initial: 'S',
-    gradient: 'from-slate-400 to-blue-500',
-  },
-];
+  { id: 1, image: '/testimonials/image.png' },
+  { id: 2, image: '/testimonials/image copy.png' },
+  { id: 3, image: '/testimonials/image copy 2.png' },
+  { id: 4, image: '/testimonials/image copy 3.png' },
+  { id: 5, image: '/testimonials/image copy 4.png' },
+] as const;
 
 type Review = typeof REVIEWS[number];
 
@@ -168,7 +42,7 @@ type Review = typeof REVIEWS[number];
 function ReviewCard({ review }: { review: Review }) {
   return (
     <div
-      className="relative flex-shrink-0 w-[288px] rounded-2xl p-5 cursor-default transition-all duration-200 ease-out hover:-translate-y-2 hover:scale-[1.025]"
+      className="relative flex-shrink-0 w-[min(520px,84vw)] rounded-2xl p-2 cursor-default transition-all duration-200 ease-out hover:-translate-y-2 hover:scale-[1.015]"
       style={{
         background: 'rgba(255,255,255,0.025)',
         border: '1px solid rgba(255,255,255,0.07)',
@@ -177,7 +51,6 @@ function ReviewCard({ review }: { review: Review }) {
         willChange: 'transform',
       }}
     >
-      {/* Top accent line */}
       <div
         className="absolute inset-x-0 top-0 h-px rounded-t-2xl pointer-events-none"
         style={{
@@ -185,55 +58,12 @@ function ReviewCard({ review }: { review: Review }) {
             'linear-gradient(90deg, transparent 10%, rgba(0,182,122,0.35) 50%, transparent 90%)',
         }}
       />
-
-      {/* Stars */}
-      <div className="flex gap-[3px] mb-3">
-        {[1, 2, 3, 4, 5].map(i => (
-          <TpStar key={i} className="w-[14px] h-[14px]" />
-        ))}
-      </div>
-
-      {/* Review text */}
-      <p
-        className="text-[13px] text-slate-300/90 leading-relaxed mb-4 line-clamp-3"
-      >
-        &ldquo;{review.text}&rdquo;
-      </p>
-
-      {/* Reviewer row */}
-      <div className="flex items-center gap-2.5">
-        {/* Avatar */}
-        <div
-          className={`w-8 h-8 rounded-full bg-gradient-to-br ${review.gradient} flex items-center justify-center text-white text-[11px] font-bold shrink-0`}
-        >
-          {review.initial}
-        </div>
-
-        {/* Name + location */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1">
-            <span className="text-[12px] font-semibold text-white leading-none truncate">
-              {review.name}
-            </span>
-            <BadgeCheck className="w-3 h-3 text-emerald-400 shrink-0" />
-          </div>
-          <span className="text-[10px] text-slate-600 leading-none mt-0.5 block">
-            {review.location}
-          </span>
-        </div>
-
-        {/* Date */}
-        <span className="text-[9px] text-slate-700 shrink-0 font-medium">
-          {review.date}
-        </span>
-      </div>
-
-      {/* Purchase indicator */}
-      <div className="mt-3 pt-3 border-t border-white/[0.04]">
-        <span className="text-[9px] text-slate-700 uppercase tracking-[0.1em] font-medium">
-          ✓ Verified · {review.product}
-        </span>
-      </div>
+      <img
+        src={review.image}
+        alt="Trustpilot customer review"
+        className="block w-full h-auto rounded-xl bg-white"
+        loading="lazy"
+      />
     </div>
   );
 }
@@ -357,7 +187,7 @@ export default function TrustpilotSection() {
             rel="noopener noreferrer"
             className="hover:text-slate-400 transition-colors duration-200"
           >
-            37 verified reviews on Trustpilot ↗
+            5 verified reviews on Trustpilot ↗
           </a>
         </p>
       </div>
