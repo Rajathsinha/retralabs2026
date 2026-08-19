@@ -77,9 +77,9 @@ export default function TrustpilotSection() {
             rel="noopener noreferrer"
             className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#0F766E] transition-colors hover:text-[#115E59]"
           >
-            <span className="text-[#0F172A]">4.5</span>
+            <span className="text-[#0F172A]">4.6</span>
             <span className="text-[#CBD5E1]">·</span>
-            5 verified reviews on Trustpilot
+            55 verified reviews on Trustpilot
             <span aria-hidden="true">↗</span>
           </a>
         </div>
