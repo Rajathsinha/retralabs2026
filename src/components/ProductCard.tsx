@@ -5,6 +5,7 @@ import { useCart } from '../context/CartContext';
 import { ProductWithVariants } from '../types';
 import { getProductImageUrl } from '../utils/imageUrl';
 import { PRODUCTS } from '../data/products';
+import { productDisplayName } from '../utils/productDisplayName';
 
 const BAC_WATER = PRODUCTS.find(p => p.name.toLowerCase().includes('bacteriostatic'));
 
@@ -63,7 +64,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       <div className="flex flex-col flex-1 px-4 pt-3.5 pb-4 gap-2">
         {/* Name */}
         <h3 className="text-[#101828] text-[14px] font-semibold leading-snug tracking-[-0.01em] line-clamp-2 min-h-[2.6em]">
-          {product.name}
+          {productDisplayName(product)}
         </h3>
 
         {/* Stars + rating */}

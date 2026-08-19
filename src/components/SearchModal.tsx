@@ -5,6 +5,7 @@ import { Search, X, ArrowUpRight } from 'lucide-react';
 import { getProductImageUrl, BAC_WATER_IMAGE_URL } from '../utils/imageUrl';
 import { useCurrency } from '../context/CurrencyContext';
 import { PRODUCTS } from '../data/products';
+import { productDisplayName } from '../utils/productDisplayName';
 
 interface Props { isOpen: boolean; onClose: () => void; }
 
@@ -151,7 +152,7 @@ function SearchOverlay({ isOpen, onClose }: Props) {
                             className="text-sm font-medium tracking-wide truncate"
                             style={{ color: focused ? '#0a0a0a' : '#2c2b28' }}
                           >
-                            <HighlightMatch text={product.name} query={query} />
+                            <HighlightMatch text={productDisplayName(product)} query={query} />
                           </p>
                           <p className="text-xs truncate mt-0.5 tracking-wide" style={{ color: '#a09e98' }}>
                             {product.description}

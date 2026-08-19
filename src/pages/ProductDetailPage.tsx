@@ -9,6 +9,7 @@ import { getBreadcrumbSchema } from '../utils/localSeoSchemas';
 import { WHATSAPP_NUMBER } from '../constants/config';
 import { PRODUCTS } from '../data/products';
 import { PRODUCT_CONTENT } from '../data/productContent';
+import { productDisplayName } from '../utils/productDisplayName';
 import {
   ChevronRight, Star, Check, Package, Truck, Shield,
   ShieldCheck, FlaskConical, FileCheck, MessageCircle,
@@ -301,7 +302,7 @@ export default function ProductDetailPage() {
             <ChevronRight className="w-3 h-3" />
             <button onClick={() => navigate('/catalogue')} className="hover:text-[#374151] transition-colors">All Products</button>
             <ChevronRight className="w-3 h-3" />
-            <span className="text-[#374151] font-medium">{product.name}</span>
+            <span className="text-[#374151] font-medium">{productDisplayName(product)}</span>
           </nav>
         </div>
       </div>
@@ -358,7 +359,7 @@ export default function ProductDetailPage() {
             {/* Title + rating */}
             <div>
               <h1 className="text-[#111111] text-[28px] sm:text-[34px] font-bold tracking-[-0.03em] leading-tight mb-2">
-                {product.name}
+                {productDisplayName(product)}
               </h1>
               {!isBacWater && selectedVariant && (
                 <p className="text-[#6B7280] text-[16px] font-medium mb-3">

@@ -1,6 +1,7 @@
 import { Check } from 'lucide-react';
 import { ProductWithVariants, ProductVariant } from '../types';
 import { useCurrency } from '../context/CurrencyContext';
+import { productDisplayName } from '../utils/productDisplayName';
 
 interface ProductModalProps {
   product: ProductWithVariants;
@@ -50,7 +51,7 @@ export default function ProductModal({ product, isOpen, onClose, onAddToCart, ad
             )}
           </div>
           <h2 className="text-3xl font-bold text-gray-900">
-            {product.name}
+            {productDisplayName(product)}
           </h2>
           <p className="text-gray-600 font-normal text-base">
             {product.description}

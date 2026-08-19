@@ -7,6 +7,7 @@ import { useCurrency } from '../context/CurrencyContext';
 import { useSEO } from '../hooks/useSEO';
 import { getBreadcrumbSchema } from '../utils/localSeoSchemas';
 import ProductModal from '../components/ProductModal';
+import { productDisplayName } from '../utils/productDisplayName';
 import {
   Star, ShoppingCart, ChevronRight, Shield, Microscope,
   FlaskConical, Package, CheckCircle, Search, SlidersHorizontal,
@@ -112,7 +113,7 @@ function ProductCard({ product, onOpen, onAddToCart, addedVariantId, onNavigate 
       <div className="flex flex-col flex-1 px-4 pt-3.5 pb-4 gap-2">
         {/* Product name */}
         <h3 className="text-[#111111] text-[14px] sm:text-[15px] font-semibold leading-snug line-clamp-2 group-hover:text-[#2563EB] transition-colors duration-200">
-          {product.name}
+          {productDisplayName(product)}
         </h3>
 
         {/* Stars + reviews */}

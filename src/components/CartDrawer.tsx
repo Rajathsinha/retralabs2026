@@ -6,6 +6,7 @@ import { useCart } from '../context/CartContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { getProductImageUrl, BAC_WATER_IMAGE_URL } from '../utils/imageUrl';
 import { shareCartToWhatsApp, CartShareData } from '../utils/cartShare';
+import { productDisplayName } from '../utils/productDisplayName';
 import { WHATSAPP_NUMBER } from '../constants/config';
 
 export default function CartDrawer() {
@@ -30,7 +31,7 @@ export default function CartDrawer() {
     try {
       const data: CartShareData = {
         lines: cart.map(item => ({
-          name: item.product.name,
+          name: productDisplayName(item.product),
           config: item.variant.vial_configuration || `${item.variant.dosage_mg}mg`,
           qty: item.quantity,
           lineTotal: item.variant.price_inr * item.quantity,
@@ -135,7 +136,7 @@ export default function CartDrawer() {
 
                         {/* Info */}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold text-slate-900 leading-tight truncate">{item.product.name}</p>
+                          <p className="text-sm font-bold text-slate-900 leading-tight truncate">{productDisplayName(item.product)}</p>
                           <p className="text-xs text-slate-400 mt-0.5">{label}</p>
 
                           {/* Qty controls */}

@@ -6,6 +6,7 @@ import { Minus, Plus, Trash2, Check, MessageCircle, Tag, ShoppingBag, ArrowRight
 import { useCart } from '../context/CartContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { OrderFormData } from '../types';
+import { productDisplayName } from '../utils/productDisplayName';
 import UpiQrModal from '../components/UpiQrModal';
 
 const FAST_DELIVERY_CHARGE = 800;
@@ -594,7 +595,7 @@ export default function CheckoutPage() {
               {cart.map((item) => (
                 <div key={item.variant.id} className="flex justify-between items-start">
                   <div>
-                    <p className="text-sm font-semibold text-white">{item.product.name}</p>
+                    <p className="text-sm font-semibold text-white">{productDisplayName(item.product)}</p>
                     <p className="text-xs text-slate-400">{item.variant.vial_configuration || `${item.variant.dosage_mg}mg`} · qty ×{item.quantity}</p>
                   </div>
                   <p className="text-sm font-bold text-emerald-400">{format(item.variant.price_inr * item.quantity)}</p>
@@ -794,7 +795,7 @@ export default function CheckoutPage() {
                         onError={(e) => { (e.target as HTMLImageElement).src = BAC_WATER_IMAGE_URL; }}
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-slate-900 truncate">{item.product.name}</p>
+                        <p className="font-semibold text-slate-900 truncate">{productDisplayName(item.product)}</p>
                         <p className="text-sm text-slate-500">
                           {item.variant.vial_configuration || `${item.variant.dosage_mg}mg`} &mdash; {format(item.variant.price_inr)}
                         </p>
