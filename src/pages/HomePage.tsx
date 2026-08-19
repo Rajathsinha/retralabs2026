@@ -22,7 +22,7 @@ const BEST_SELLERS = ['1', '12', '13', '3'].map(
 ).filter(Boolean);
 
 const TRUST_ITEMS = [
-  { icon: Star,  value: '4.5 Rating',          label: 'Trustpilot Verified',   color: '#F59E0B' },
+  { icon: Star,  value: '4.6 Rating',          label: 'Trustpilot Verified',   color: '#F59E0B' },
   { icon: Zap,   value: 'Order by 2 PM',       label: 'Same-Day Dispatch',     color: '#2563EB' },
   { icon: Truck, value: 'Fastest Delivery',     label: 'India-Wide 1–2 Days',   color: '#16a34a' },
   { icon: Lock,  value: 'Discreet Packaging',   label: 'Zero Product Markings', color: '#374151' },
@@ -404,30 +404,53 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ═══════════════════ MOLECULAR PROCESS ═══════════════════ */}
-      <section className="relative overflow-hidden bg-[#07111f] text-white py-20 sm:py-28">
-        <div className="absolute inset-0 opacity-60 pointer-events-none"><ParticleField density={0.00008} color="rgba(125,211,252,0.5)" connectionColor="rgba(125,211,252,0.18)" maxDistance={140} /></div>
-        <div ref={processRef} className="relative min-h-[70vh] max-w-[1200px] mx-auto px-6 flex items-center">
-          <div className="grid lg:grid-cols-[0.8fr_1.2fr] gap-12 lg:gap-24 items-center w-full">
-            <div>
-              <p className="text-cyan-300 text-[11px] font-bold uppercase tracking-[0.2em] mb-4">Inside the lab</p>
-              <h2 className="text-3xl sm:text-5xl font-semibold tracking-tight leading-[1.05]">Purity is a process, not a promise.</h2>
-              <p className="mt-5 text-slate-300 text-sm sm:text-base leading-relaxed max-w-md">Every batch moves through a documented chain of identity, analysis, and controlled dispatch.</p>
+      {/* ═══════════════════ BEST SELLERS ═══════════════════ */}
+      <section style={{ paddingTop: 80, paddingBottom: 80, paddingLeft: 24, paddingRight: 24 }}>
+        <div className="max-w-[1440px] mx-auto">
+          <Reveal>
+            <div className="flex items-end justify-between mb-8">
+              <div>
+                <p className="text-[#2563EB] text-[11px] font-bold uppercase tracking-[0.15em] mb-2.5">
+                  Most Popular
+                </p>
+                <h2 className="text-[#111111] text-[32px] font-bold tracking-[-0.02em]">
+                  Best Sellers
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate('/catalogue')}
+                className="group flex items-center gap-1.5 text-[#2563EB] text-[14px] font-semibold hover:text-[#1d4ed8] transition-colors"
+              >
+                View all <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+              </button>
             </div>
-            <div className="space-y-3">
-              {[
-                ['01', 'Identity verified', 'Each compound is logged against its source and batch profile.'],
-                ['02', 'Analytically reviewed', 'Independent testing keeps the signal clear and the record complete.'],
-                ['03', 'Cold-chain ready', 'Careful handling protects the material from lab to doorstep.'],
-              ].map(([number, title, copy]) => (
-                <div data-process-panel key={number} className="border border-white/10 bg-white/[0.06] backdrop-blur-sm rounded-2xl p-5 sm:p-6">
-                  <div className="flex gap-4 items-start"><span className="text-cyan-300 font-mono text-xs">{number}</span><div><h3 className="font-semibold text-white">{title}</h3><p className="mt-1 text-sm text-slate-400 leading-relaxed">{copy}</p></div></div>
-                </div>
-              ))}
+          </Reveal>
+
+          <Reveal delay={0.05}>
+            <div className="flex items-center gap-2 mb-6 px-4 py-2.5 bg-[#EFF6FF] border border-[#BFDBFE] rounded-[10px]">
+              <Zap className="w-3.5 h-3.5 text-[#2563EB] flex-shrink-0" strokeWidth={2} />
+              <p className="text-[#2563EB] text-[12px] font-semibold">
+                Order by 2 PM for same-day dispatch — ships India-wide in 1–2 days
+              </p>
             </div>
+          </Reveal>
+
+          {/* Product grid — 4 cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            {BEST_SELLERS.map((product, i) => (
+              <Reveal key={product.id} delay={i * 0.08}>
+                <ProductCard product={product} />
+              </Reveal>
+            ))}
           </div>
         </div>
       </section>
+
+      {/* ═══════════════════ TRUSTPILOT ═══════════════════ */}
+      <Suspense fallback={<div className="h-64 bg-[#F5F7FA]" />}>
+        <TrustpilotSection />
+      </Suspense>
 
       {/* ═══════════════════ COD BANNER ═══════════════════ */}
       <section style={{ padding: '48px 24px' }}>
@@ -468,40 +491,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ═══════════════════ BEST SELLERS ═══════════════════ */}
-      <section style={{ paddingTop: 80, paddingBottom: 80, paddingLeft: 24, paddingRight: 24 }}>
-        <div className="max-w-[1440px] mx-auto">
-          <Reveal>
-            <div className="flex items-end justify-between mb-12">
-              <div>
-                <p className="text-[#2563EB] text-[11px] font-bold uppercase tracking-[0.15em] mb-2.5">
-                  Most Popular
-                </p>
-                <h2 className="text-[#111111] text-[32px] font-bold tracking-[-0.02em]">
-                  Best Sellers
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => navigate('/catalogue')}
-                className="group flex items-center gap-1.5 text-[#2563EB] text-[14px] font-semibold hover:text-[#1d4ed8] transition-colors"
-              >
-                View all <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-              </button>
-            </div>
-          </Reveal>
-
-          {/* Product grid — 4 cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-            {BEST_SELLERS.map((product, i) => (
-              <Reveal key={product.id} delay={i * 0.08}>
-                <ProductCard product={product} />
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* ═══════════════════ FEATURE ICONS ═══════════════════ */}
       <section className="border-t border-[#E5E7EB] bg-[#F5F7FA]" style={{ paddingTop: 80, paddingBottom: 80, paddingLeft: 24, paddingRight: 24 }}>
         <div className="max-w-[1440px] mx-auto">
@@ -526,14 +515,30 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ═══════════════════ SOCIAL PROOF ═══════════════════ */}
-
-
-
-      {/* ═══════════════════ TRUSTPILOT ═══════════════════ */}
-      <Suspense fallback={<div className="h-64 bg-[#F5F7FA]" />}>
-        <TrustpilotSection />
-      </Suspense>
+      {/* ═══════════════════ MOLECULAR PROCESS ═══════════════════ */}
+      <section className="relative overflow-hidden bg-[#07111f] text-white py-20 sm:py-28">
+        <div className="absolute inset-0 opacity-60 pointer-events-none"><ParticleField density={0.00008} color="rgba(125,211,252,0.5)" connectionColor="rgba(125,211,252,0.18)" maxDistance={140} /></div>
+        <div ref={processRef} className="relative min-h-[70vh] max-w-[1200px] mx-auto px-6 flex items-center">
+          <div className="grid lg:grid-cols-[0.8fr_1.2fr] gap-12 lg:gap-24 items-center w-full">
+            <div>
+              <p className="text-cyan-300 text-[11px] font-bold uppercase tracking-[0.2em] mb-4">Inside the lab</p>
+              <h2 className="text-3xl sm:text-5xl font-semibold tracking-tight leading-[1.05]">Purity is a process, not a promise.</h2>
+              <p className="mt-5 text-slate-300 text-sm sm:text-base leading-relaxed max-w-md">Every batch moves through a documented chain of identity, analysis, and controlled dispatch.</p>
+            </div>
+            <div className="space-y-3">
+              {[
+                ['01', 'Identity verified', 'Each compound is logged against its source and batch profile.'],
+                ['02', 'Analytically reviewed', 'Independent testing keeps the signal clear and the record complete.'],
+                ['03', 'Cold-chain ready', 'Careful handling protects the material from lab to doorstep.'],
+              ].map(([number, title, copy]) => (
+                <div data-process-panel key={number} className="border border-white/10 bg-white/[0.06] backdrop-blur-sm rounded-2xl p-5 sm:p-6">
+                  <div className="flex gap-4 items-start"><span className="text-cyan-300 font-mono text-xs">{number}</span><div><h3 className="font-semibold text-white">{title}</h3><p className="mt-1 text-sm text-slate-400 leading-relaxed">{copy}</p></div></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* ═══════════════════ RECONSTITUTION CALCULATOR ═══════════════════ */}
       <section className="border-t border-[#E5E7EB] bg-[#F5F7FA]" style={{ paddingTop: 80, paddingBottom: 80, paddingLeft: 24, paddingRight: 24 }}>
@@ -756,6 +761,39 @@ export default function HomePage() {
                 Browse the Full Catalogue
                 <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
               </button>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ═══════════════════ FINAL CTA ═══════════════════ */}
+      <section className="bg-[#111111]" style={{ paddingTop: 80, paddingBottom: 80, paddingLeft: 24, paddingRight: 24 }}>
+        <div className="max-w-[900px] mx-auto text-center">
+          <Reveal>
+            <h2 className="text-white text-[32px] sm:text-[40px] font-bold tracking-[-0.02em] leading-[1.1]">
+              Ready to order?
+            </h2>
+            <p className="text-[#9CA3AF] text-[15px] mt-3 max-w-[480px] mx-auto leading-relaxed">
+              Join 2,400+ researchers who trust RetraLabs for verified, research-grade peptides. Order by 2 PM for same-day dispatch.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-8">
+              <button
+                type="button"
+                onClick={() => navigate('/catalogue')}
+                className="group inline-flex items-center gap-2 bg-white text-[#111111] font-bold px-7 py-4 rounded-[10px] transition-all duration-200 hover:shadow-[0_8px_24px_-4px_rgba(255,255,255,0.2)] text-[15px]"
+              >
+                Shop the Catalogue
+                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+              </button>
+              <a
+                href={BUSINESS_NAP.social.trustpilot}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group inline-flex items-center gap-2 border-[1.5px] border-[#374151] hover:border-[#4B5563] text-[#D1D5DB] hover:text-white font-semibold px-7 py-4 rounded-[10px] transition-all duration-200 text-[15px]"
+              >
+                Read Reviews
+                <Star className="w-4 h-4 text-[#F59E0B]" strokeWidth={2} />
+              </a>
             </div>
           </Reveal>
         </div>
