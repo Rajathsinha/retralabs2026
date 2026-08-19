@@ -670,7 +670,7 @@ export default function ProductDetailPage() {
               ))}
             </div>
             <h2 className="text-[#111111] text-[22px] sm:text-[26px] font-bold tracking-[-0.02em] mb-5">
-              {product.name} — Frequently Asked Questions
+              {productDisplayName(product)} — Frequently Asked Questions
             </h2>
             <div className="flex flex-col gap-3">
               {content.faqs.map((faq, i) => (
@@ -743,7 +743,7 @@ export default function ProductDetailPage() {
                     />
                   </div>
                   <div className="p-4">
-                    <h3 className="text-[#111111] text-[13px] font-semibold line-clamp-1 mb-1">{rp.name}</h3>
+                    <h3 className="text-[#111111] text-[13px] font-semibold line-clamp-1 mb-1">{productDisplayName(rp)}</h3>
                     <div className="flex items-center gap-0.5 mb-2">
                       {[1,2,3,4,5].map(i => <Star key={i} className="w-3 h-3 fill-[#F59E0B] text-[#F59E0B]" strokeWidth={0} />)}
                       <span className="text-[#9CA3AF] text-[10px] ml-1">({rpReviews.count})</span>
