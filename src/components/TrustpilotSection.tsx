@@ -12,17 +12,6 @@ const REVIEW_IMAGES = [
   { id: 11, src: '/testimonials/image copy 8.png' },
   { id: 12, src: '/testimonials/image copy 9.png' },
   { id: 13, src: '/testimonials/image copy copy.png' },
-  { id: 14, src: '/testimonials/IMG_8254.JPG' },
-  { id: 15, src: '/testimonials/IMG_8255.JPG' },
-  { id: 16, src: '/testimonials/IMG_8256.JPG' },
-  { id: 17, src: '/testimonials/IMG_8258.JPG' },
-  { id: 18, src: '/testimonials/IMG_8260.JPG' },
-  { id: 19, src: '/testimonials/IMG_8261.JPG' },
-  { id: 20, src: '/testimonials/IMG_8264.JPG' },
-  { id: 21, src: '/testimonials/IMG_8267.JPG' },
-  { id: 22, src: '/testimonials/IMG_8268.JPG' },
-  { id: 23, src: '/testimonials/IMG_8269.JPG' },
-  { id: 24, src: '/testimonials/IMG_8272.JPG' },
 ] as const;
 
 function TrustpilotStar({ size = 18 }: { size?: number }) {
