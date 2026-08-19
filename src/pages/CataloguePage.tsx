@@ -104,7 +104,7 @@ function ProductCard({ product, onOpen, onAddToCart, addedVariantId, onNavigate 
             className="absolute top-3 left-3 px-2.5 py-1 text-[10px] font-bold tracking-[0.06em] uppercase"
             style={{ borderRadius: 8, color: cfg.tagColor, background: cfg.tagBg }}
           >
-            {cfg.tag}
+            RESEARCH USE ONLY
           </div>
         )}
       </div>
