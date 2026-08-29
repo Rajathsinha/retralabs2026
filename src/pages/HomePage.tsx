@@ -44,6 +44,7 @@ const HERO_SLIDES = [
   {
     lines: ["India's #1 Research", 'Peptides Company'],
     accent: '7 Years Old.',
+    link: BUSINESS_NAP.social.indiamart,
   },
 ];
 
@@ -224,12 +225,24 @@ export default function HomePage() {
                       <CharReveal text={`${slide.lines[0]} ${slide.lines[1]}`} staggerMs={28} />
                     </h1>
                     <div style={{ marginTop: '0.5rem' }}>
-                      <h2
-                        className="text-[#2563EB] text-[clamp(32px,6vw,64px)] tracking-[-0.03em] leading-[1.05]"
-                        style={{ fontFamily: "'Geist', system-ui, sans-serif", fontWeight: 300 }}
-                      >
-                        <CharReveal text={slide.accent} staggerMs={35} delayMs={slide.lines[0].length + slide.lines[1].length + 1} />
-                      </h2>
+                      {slide.link ? (
+                        <a
+                          href={slide.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[#2563EB] text-[clamp(32px,6vw,64px)] tracking-[-0.03em] leading-[1.05] hover:text-[#1d4ed8] transition-colors cursor-pointer"
+                          style={{ fontFamily: "'Geist', system-ui, sans-serif", fontWeight: 300, textDecoration: 'none' }}
+                        >
+                          <CharReveal text={slide.accent} staggerMs={35} delayMs={slide.lines[0].length + slide.lines[1].length + 1} />
+                        </a>
+                      ) : (
+                        <h2
+                          className="text-[#2563EB] text-[clamp(32px,6vw,64px)] tracking-[-0.03em] leading-[1.05]"
+                          style={{ fontFamily: "'Geist', system-ui, sans-serif", fontWeight: 300 }}
+                        >
+                          <CharReveal text={slide.accent} staggerMs={35} delayMs={slide.lines[0].length + slide.lines[1].length + 1} />
+                        </h2>
+                      )}
                     </div>
                 </div>
 
