@@ -751,15 +751,20 @@ export default function CheckoutPage() {
                   onClick={() => setShowQrModal(true)}
                   className="flex flex-col items-center gap-2 p-4 bg-slate-800/50 hover:bg-slate-700 border border-slate-700 hover:border-blue-500 rounded-xl transition-all duration-200"
                 >
-                  <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                    <div className="w-6 h-6 border-2 border-blue-400 rounded" />
-                  </div>
+                  <img
+                    src="/retralabs-payment-qr.png"
+                    alt="RetraLabs UPI QR"
+                    className="w-12 h-12 rounded-lg object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
                   <span className="text-xs font-semibold text-white text-center">UPI QR Code</span>
                 </button>
 
                 {/* PAYTM */}
                 <a
-                  href={`upi://pay?pa=7019917927@superyes&pn=RetraLabs&am=${grandTotal}&tn=RetraLabs%20Order`}
+                  href={`upi://pay?pa=retralabs@ptaxis&pn=RetraLabs&am=${grandTotal}&tn=RetraLabs%20Order`}
                   className="flex flex-col items-center gap-2 p-4 bg-slate-800/50 hover:bg-slate-700 border border-slate-700 hover:border-blue-600 rounded-xl transition-all duration-200"
                 >
                   <div className="w-12 h-12 bg-blue-600/20 rounded-lg flex items-center justify-center">
@@ -770,7 +775,7 @@ export default function CheckoutPage() {
 
                 {/* GPAY */}
                 <a
-                  href={`upi://pay?pa=7019917927@superyes&pn=RetraLabs&am=${grandTotal}&tn=RetraLabs%20Order`}
+                  href={`upi://pay?pa=retralabs@ptaxis&pn=RetraLabs&am=${grandTotal}&tn=RetraLabs%20Order`}
                   className="flex flex-col items-center gap-2 p-4 bg-slate-800/50 hover:bg-slate-700 border border-slate-700 hover:border-blue-400 rounded-xl transition-all duration-200"
                 >
                   <div className="w-12 h-12 bg-blue-400/20 rounded-lg flex items-center justify-center">

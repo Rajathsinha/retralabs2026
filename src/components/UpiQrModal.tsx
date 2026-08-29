@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { X, CheckCircle, MessageCircle, Upload, Copy } from 'lucide-react';
 
-const UPI_ID = '7019917927@superyes';
+const UPI_ID = 'retralabs@ptaxis';
 
 interface UpiQrModalProps {
   isOpen: boolean;
