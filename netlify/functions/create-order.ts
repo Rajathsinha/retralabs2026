@@ -41,6 +41,7 @@ interface CreateOrderBody {
     pincode: string;
   };
   paymentMethod: 'prepay' | 'cod';
+  deliveryOption?: 'normal' | 'fast';
   total: number;
   deliveryCharge: number;
   codCharge: number;
@@ -156,6 +157,7 @@ async function createInnofulfillOrder(
   deliveryCharge: number,
   codCharge: number,
   paymentMethod: 'prepay' | 'cod',
+  deliveryOption?: 'normal' | 'fast',
 ): Promise<{ innofulfillOrderId?: string; awbNumber?: string }> {
   const phone = cleanPhone(customer.phone);
   const pickupName = process.env.INNOFULFILL_PICKUP_NAME || 'RetraLabs';
@@ -182,7 +184,7 @@ async function createInnofulfillOrder(
     orderStatus: 'CONFIRMED',
     parcelCategory: 'ECOMM',
     deliveryPromise: 'ECOMM',
-    deliveryMode: 'SURFACE',
+    deliveryMode: deliveryOption === 'fast' ? 'AIR' : 'SURFACE',
     autoManifest: true,
     addresses: [
       {
@@ -424,6 +426,7 @@ export const handler: Handler = async (event) => {
             body.deliveryCharge,
             body.codCharge,
             body.paymentMethod,
+            body.deliveryOption,
           );
             innofulfillOrderId = inno.innofulfillOrderId;
             awbNumber = inno.awbNumber;

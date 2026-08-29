@@ -11,12 +11,14 @@ import UpiQrModal from '../components/UpiQrModal';
 
 const FAST_DELIVERY_CHARGE = 800;
 const WHATSAPP_SUPPORT_NUMBER = '918217824384';
+const SOUTHERN_STATES = ['karnataka', 'kerala', 'tamil nadu', 'tamilnadu', 'andhra pradesh', 'telangana', 'puducherry', 'lakshadweep', 'andaman and nicobar islands'];
 
 // ── Airtable (via Netlify Function — token stays server-side) ────────────────
 async function saveOrder(fields: Record<string, unknown>, screenshot?: { contentType: string; filename: string; base64: string }, extra?: {
   cartItems?: { name: string; variant: string; quantity: number; unitPrice: number }[];
   customer?: { name: string; email: string; phone: string; address: string; city: string; state: string; pincode: string };
   paymentMethod?: 'prepay' | 'cod';
+  deliveryOption?: 'normal' | 'fast';
   total?: number;
   deliveryCharge?: number;
   codCharge?: number;
@@ -123,7 +125,19 @@ export default function CheckoutPage() {
     } catch (_) {}
   }, [formData]);
 
-  const [orderReady, setOrderReady] = useState(false);   // step 2: review screen
+  const [showExpressTerms, setShowExpressTerms] = useState(false);
+  const [expressTermsAccepted, setExpressTermsAccepted] = useState(false);
+  const [expressBlocked, setExpressBlocked] = useState(false);
+
+  /* ── Check if express is blocked for the selected state ── */
+  useEffect(() => {
+    if (formData.delivery_option === 'fast' && formData.state) {
+      const isSouthern = SOUTHERN_STATES.includes(formData.state.trim().toLowerCase());
+      setExpressBlocked(isSouthern);
+    } else {
+      setExpressBlocked(false);
+    }
+  }, [formData.delivery_option, formData.state]);
   const [submitting, setSubmitting] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [whatsappUrl, setWhatsappUrl] = useState('');
@@ -164,6 +178,10 @@ export default function CheckoutPage() {
     if (cart.length === 0) return;
     if (formData.pincode.length !== 6) {
       alert('Please enter a valid 6-digit PIN code.');
+      return;
+    }
+    if (formData.delivery_option === 'fast' && SOUTHERN_STATES.includes((formData.state || '').trim().toLowerCase())) {
+      alert('Express delivery is not available for southern states. Please choose Standard delivery.');
       return;
     }
     if (!formData.referral_source) {
@@ -279,6 +297,7 @@ export default function CheckoutPage() {
           pincode: snapFormData.pincode,
         },
         paymentMethod: snapPaymentMethod,
+        deliveryOption: snapFormData.delivery_option,
         total: snapTotal,
         deliveryCharge: snapDeliveryCharge,
         codCharge: snapCodCharge,
@@ -400,6 +419,7 @@ export default function CheckoutPage() {
           pincode: snapFormData.pincode,
         },
         paymentMethod: 'prepay',
+        deliveryOption: snapFormData.delivery_option,
         total: snapTotal,
         deliveryCharge: snapDeliveryCharge,
         codCharge: 0,
@@ -1174,7 +1194,7 @@ export default function CheckoutPage() {
                     {/* Normal delivery */}
                     <button
                       type="button"
-                      onClick={() => setFormData({ ...formData, delivery_option: 'normal' })}
+                      onClick={() => { setFormData({ ...formData, delivery_option: 'normal' }); setExpressTermsAccepted(false); }}
                       className={`relative flex flex-col items-start gap-1.5 p-4 rounded-xl border-2 text-left transition-all ${
                         formData.delivery_option === 'normal'
                           ? 'border-slate-900 bg-slate-900 text-white shadow-lg'
@@ -1201,24 +1221,29 @@ export default function CheckoutPage() {
                     {/* Fast delivery */}
                     <button
                       type="button"
-                      onClick={() => setFormData({ ...formData, delivery_option: 'fast' })}
+                      onClick={() => {
+                        if (expressBlocked) return;
+                        setShowExpressTerms(true);
+                      }}
                       className={`relative flex flex-col items-start gap-1.5 p-4 rounded-xl border-2 text-left transition-all ${
-                        formData.delivery_option === 'fast'
-                          ? 'border-amber-500 bg-amber-500 text-white shadow-lg shadow-amber-500/30'
-                          : 'border-slate-200 bg-white text-slate-700 hover:border-amber-400'
+                        expressBlocked
+                          ? 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'
+                          : formData.delivery_option === 'fast'
+                            ? 'border-amber-500 bg-amber-500 text-white shadow-lg shadow-amber-500/30'
+                            : 'border-slate-200 bg-white text-slate-700 hover:border-amber-400'
                       }`}
                     >
                       <div className="flex items-center gap-2">
-                        <Zap className={`w-4 h-4 ${formData.delivery_option === 'fast' ? 'text-white' : 'text-amber-500'}`} />
+                        <Zap className={`w-4 h-4 ${expressBlocked ? 'text-slate-300' : formData.delivery_option === 'fast' ? 'text-white' : 'text-amber-500'}`} />
                         <span className="text-sm font-bold">Express</span>
                       </div>
-                      <p className={`text-xs ${formData.delivery_option === 'fast' ? 'text-amber-100' : 'text-slate-500'}`}>
-                        1–2 days · Major cities only
+                      <p className={`text-xs ${expressBlocked ? 'text-slate-400' : formData.delivery_option === 'fast' ? 'text-amber-100' : 'text-slate-500'}`}>
+                        {expressBlocked ? 'Not available in your region' : '1–2 days · Major cities only'}
                       </p>
-                      <span className={`text-base font-black ${formData.delivery_option === 'fast' ? 'text-white' : 'text-amber-600'}`}>
+                      <span className={`text-base font-black ${expressBlocked ? 'text-slate-300' : formData.delivery_option === 'fast' ? 'text-white' : 'text-amber-600'}`}>
                         +{format(FAST_DELIVERY_CHARGE)}
                       </span>
-                      {formData.delivery_option === 'fast' && (
+                      {formData.delivery_option === 'fast' && !expressBlocked && (
                         <div className="absolute top-2.5 right-2.5 w-5 h-5 bg-white rounded-full flex items-center justify-center">
                           <Check className="w-3 h-3 text-amber-500" />
                         </div>
@@ -1391,6 +1416,75 @@ export default function CheckoutPage() {
                   )}
                 </button>
               </form>
+
+              {/* Express Delivery Terms Modal */}
+              {showExpressTerms && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowExpressTerms(false)}>
+                  <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center gap-3 mb-5">
+                      <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <Zap className="w-5 h-5 text-amber-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-slate-900">Express Delivery Terms</h3>
+                        <p className="text-xs text-slate-500">Please read and accept to continue</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 text-sm text-slate-600 mb-5">
+                      <div className="flex items-start gap-2.5">
+                        <Clock className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                        <p><strong>1–2 business days</strong> for metro cities.</p>
+                      </div>
+                      <div className="flex items-start gap-2.5">
+                        <Clock className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                        <p><strong>2–3 business days</strong> for Tier 2 and Tier 3 cities.</p>
+                      </div>
+                      <div className="flex items-start gap-2.5">
+                        <X className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                        <p>Express delivery is <strong>not available</strong> for southern states (Karnataka, Kerala, Tamil Nadu, Andhra Pradesh, Telangana).</p>
+                      </div>
+                      <div className="flex items-start gap-2.5">
+                        <Check className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+                        <p>Express delivery is <strong>refundable if the delay exceeds 4 days</strong> (prepayment only).</p>
+                      </div>
+                    </div>
+
+                    <label className="flex items-start gap-3 cursor-pointer p-3 bg-amber-50 rounded-xl border border-amber-200 mb-4">
+                      <input
+                        type="checkbox"
+                        checked={expressTermsAccepted}
+                        onChange={(e) => setExpressTermsAccepted(e.target.checked)}
+                        className="mt-0.5 w-4 h-4 rounded border-amber-300 accent-amber-600 cursor-pointer flex-shrink-0"
+                      />
+                      <span className="text-sm text-amber-900 leading-relaxed">
+                        I have read and agree to the Express Delivery terms and conditions.
+                      </span>
+                    </label>
+
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setShowExpressTerms(false)}
+                        className="flex-1 py-3 rounded-xl border-2 border-slate-200 text-slate-700 font-semibold text-sm hover:bg-slate-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!expressTermsAccepted}
+                        onClick={() => {
+                          setFormData({ ...formData, delivery_option: 'fast' });
+                          setShowExpressTerms(false);
+                        }}
+                        className="flex-1 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-sm transition-colors"
+                      >
+                        Accept & Continue
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
