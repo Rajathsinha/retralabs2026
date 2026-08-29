@@ -308,11 +308,13 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    const orderId = await generateOrderId(baseId, table, token);
-    const fieldsWithId: Record<string, unknown> = { ...body.fields, orderID: orderId };
+    // Don't set orderID — it's an Airtable Auto Number field that assigns its own value
+    const fieldsWithId: Record<string, unknown> = { ...body.fields };
+    delete fieldsWithId.orderID;
 
     // 1. Create the Airtable record (retry dropping unknown fields)
     let recordId: string | null = null;
+    let airtableOrderId: string | null = null;
     for (let attempt = 0; attempt < 5; attempt++) {
       const createRes = await fetch(
         `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}`,
@@ -326,6 +328,7 @@ export const handler: Handler = async (event) => {
       const createJson: any = await createRes.json().catch(() => null);
       if (createRes.ok) {
         recordId = createJson?.id || null;
+        airtableOrderId = createJson?.fields?.orderID || null;
         break;
       }
 
@@ -353,6 +356,14 @@ export const handler: Handler = async (event) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         body: JSON.stringify({ error: 'Airtable: failed to create record after retries' }),
       };
+    }
+
+    // Use the orderID Airtable auto-assigned; fall back to a generated one if missing
+    let orderId: string;
+    if (airtableOrderId) {
+      orderId = airtableOrderId;
+    } else {
+      orderId = await generateOrderId(baseId, table, token);
     }
 
     // 2. Upload screenshot attachment if provided (UPI prepay only)
