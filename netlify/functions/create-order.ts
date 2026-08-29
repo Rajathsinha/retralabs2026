@@ -61,7 +61,7 @@ const corsHeaders = {
 
 // ── Innofulfill ───────────────────────────────────────────────────────────────
 
-const INNOFULFILL_BASE = process.env.INNOFULFILL_SANDBOX === 'true'
+const INNOFULFILL_BASE = ['sandbox', 'test', 'true'].includes((process.env.INNOFULFILL_ENV || process.env.INNOFULFILL_SANDBOX || '').toLowerCase())
   ? 'https://sandbox.apis.innofulfill.com'
   : 'https://apis.innofulfill.com';
 
