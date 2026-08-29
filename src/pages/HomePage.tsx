@@ -157,9 +157,9 @@ export default function HomePage() {
 
 
   useSEO({
-    title: 'Buy Research Peptides India | Retatrutide, Tirzepatide | RetraLabs Bengaluru',
-    description: 'Buy HPLC-verified research peptides in India from RetraLabs, Bengaluru. Retatrutide, Tirzepatide, GHK-Cu with 99%+ purity and COA. Fast India-wide shipping from Karnataka.',
-    keywords: 'where to buy peptides in india, buy peptides india, buy peptides online india, buy research peptides india, retatrutide india, tirzepatide india, peptide supplier bengaluru, research peptides karnataka, buy peptides bangalore',
+    title: 'Buy Research Peptides India — Retatrutide (Reta), Tirzepatide, GHK-Cu | 99%+ Purity, COA | RetraLabs',
+    description: "India's oldest research peptide supplier since 2019. Buy Retatrutide (Reta), Tirzepatide, GHK-Cu, BPC-157 and more — 99%+ HPLC-verified, COA included. 2,400+ orders shipped India-wide with COD. RetraLabs, Bengaluru.",
+    keywords: 'buy peptides india, peptides india, peptide supplier india, research peptides india, oldest peptide company india, buy retatrutide india, retatrutide india, reta india, buy reta india, where to buy reta india, buy GHK-Cu india, GHK-Cu india, copper peptide india, buy tirzepatide india, tirzepatide india, buy BPC-157 india, BPC-157 india, HPLC verified peptides india, COA peptides india, retralabs, retralabs india, peptide company india since 2019',
     canonical: 'https://retralabs.in/',
     schema: [getLocalBusinessSchema(), getServiceAreaSchema()],
   });
