@@ -3,7 +3,7 @@ import type { OrderStatus } from './types';
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; dot: string; label: string }> = {
   'New':                   { bg: 'bg-amber-50',   text: 'text-amber-700',   dot: 'bg-amber-500',   label: 'Pending' },
-  'Created in Shiprocket': { bg: 'bg-sky-50',    text: 'text-sky-700',     dot: 'bg-sky-500',     label: 'Created' },
+  'Created in Innofulfill': { bg: 'bg-sky-50',    text: 'text-sky-700',     dot: 'bg-sky-500',     label: 'Created' },
   'Confirmed':             { bg: 'bg-violet-50',  text: 'text-violet-700',  dot: 'bg-violet-500',  label: 'Confirmed' },
   'Paid':                  { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500', label: 'Paid' },
   'Shipped':               { bg: 'bg-indigo-50',  text: 'text-indigo-700',  dot: 'bg-indigo-500',  label: 'Shipped' },

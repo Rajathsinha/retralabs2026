@@ -10,7 +10,7 @@ export interface AirtableRecord {
 
 export type OrderStatus =
   | 'New'
-  | 'Created in Shiprocket'
+  | 'Created in Innofulfill'
   | 'Confirmed'
   | 'Paid'
   | 'Shipped'
@@ -19,7 +19,7 @@ export type OrderStatus =
 
 export const STATUS_OPTIONS: OrderStatus[] = [
   'New',
-  'Created in Shiprocket',
+  'Created in Innofulfill',
   'Confirmed',
   'Paid',
   'Shipped',

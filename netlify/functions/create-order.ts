@@ -14,10 +14,10 @@ interface OrderFields {
   Status: string;
   Created: string;
   Transaction?: string;
-  'Shiprocket Order ID'?: string;
-  'Shiprocket Shipment ID'?: string;
+  'Innofulfill Order ID'?: string;
+  'AWB Number'?: string;
   'Tracking ID'?: string;
-  'Shiprocket Error'?: string;
+  'Innofulfill Error'?: string;
 }
 
 interface CartLineItem {
@@ -59,44 +59,45 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
-// ── Shiprocket ────────────────────────────────────────────────────────────────
+// ── Innofulfill ───────────────────────────────────────────────────────────────
+
+const INNOFULFILL_BASE = process.env.INNOFULFILL_SANDBOX === 'true'
+  ? 'https://sandbox.apis.innofulfill.com'
+  : 'https://apis.innofulfill.com';
 
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
-async function getShiprocketToken(): Promise<string | null> {
-  const email = process.env.SHIPROCKET_EMAIL;
-  const password = process.env.SHIPROCKET_PASSWORD;
-  if (!email || !password) return null;
+async function getInnofulfillToken(): Promise<string | null> {
+  const username = process.env.INNOFULFILL_USERNAME;
+  const password = process.env.INNOFULFILL_PASSWORD;
+  if (!username || !password) return null;
 
   if (cachedToken && Date.now() < cachedToken.expiresAt) {
     return cachedToken.token;
   }
 
-  const res = await fetch('https://apiv2.shiprocket.in/v1/external/auth/login', {
+  const res = await fetch(`${INNOFULFILL_BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ username, password, signinType: 'EMAIL' }),
   });
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
-    throw new Error(`Shiprocket auth failed (HTTP ${res.status}): ${detail}`);
+    throw new Error(`Innofulfill auth failed (HTTP ${res.status}): ${detail}`);
   }
   const json: any = await res.json();
-  const token = json?.token as string | undefined;
-  if (!token) throw new Error('Shiprocket auth: no token in response');
-  cachedToken = { token, expiresAt: Date.now() + 8 * 60 * 60 * 1000 };
+  const token = json?.id_token as string | undefined;
+  if (!token) throw new Error('Innofulfill auth: no id_token in response');
+  cachedToken = { token, expiresAt: Date.now() + 23 * 60 * 60 * 1000 };
   return token;
 }
 
-function splitAddress(address: string): { address: string; city: string; state: string; pincode: string } {
-  const pinMatch = address.match(/\b(\d{6})\b/);
-  const pincode = pinMatch ? pinMatch[1] : '';
-  const withoutPin = address.replace(/,?\s*PIN:?\s*\d{6}\b/i, '').replace(/\b\d{6}\b/, '').trim().replace(/,\s*$/, '');
-  return { address: withoutPin || address, city: '', state: '', pincode };
+function cleanPhone(phone: string): string {
+  return (phone || '').replace(/\D/g, '').replace(/^91/, '').slice(-10).padStart(10, '0');
 }
 
-async function updateShiprocketError(baseId: string, table: string, token: string, recordId: string, errorMsg: string): Promise<void> {
-  let fields: Record<string, unknown> = { 'Shiprocket Error': errorMsg };
+async function updateInnofulfillError(baseId: string, table: string, token: string, recordId: string, errorMsg: string): Promise<void> {
+  let fields: Record<string, unknown> = { 'Innofulfill Error': errorMsg };
   for (let attempt = 0; attempt < 5; attempt++) {
     const res = await fetch(
       `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}/${recordId}`,
@@ -121,7 +122,7 @@ async function updateShiprocketError(baseId: string, table: string, token: strin
   }
 }
 
-async function createShiprocketOrder(
+async function createInnofulfillOrder(
   token: string,
   orderId: string,
   customer: { name: string; email: string; phone: string; address: string; city: string; state: string; pincode: string },
@@ -130,62 +131,100 @@ async function createShiprocketOrder(
   deliveryCharge: number,
   codCharge: number,
   paymentMethod: 'prepay' | 'cod',
-): Promise<{ shiprocketOrderId?: string; shipmentId?: string }> {
-  const addr = splitAddress(customer.address || `${customer.address}, PIN: ${customer.pincode}`);
-  const finalPincode = customer.pincode || addr.pincode;
+): Promise<{ innofulfillOrderId?: string; awbNumber?: string }> {
+  const phone = cleanPhone(customer.phone);
+  const pickupName = process.env.INNOFULFILL_PICKUP_NAME || 'RetraLabs';
+  const pickupPhone = process.env.INNOFULFILL_PICKUP_PHONE || '9000000000';
+  const pickupZip = process.env.INNOFULFILL_PICKUP_ZIP || '560001';
+  const pickupCity = process.env.INNOFULFILL_PICKUP_CITY || 'Bengaluru';
+  const pickupState = process.env.INNOFULFILL_PICKUP_STATE || 'Karnataka';
+  const pickupAddress = process.env.INNOFULFILL_PICKUP_ADDRESS || 'RetraLabs Warehouse, Bengaluru, Karnataka 560001';
+  const carrierId = process.env.INNOFULFILL_CARRIER_ID || '';
+  const carrierName = process.env.INNOFULFILL_CARRIER_NAME || 'innofulfill_ecomm';
 
-  const subTotal = cartItems.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
-  const shippingCost = deliveryCharge + codCharge;
-  const discount = Math.max(0, subTotal - total + shippingCost);
-
-  // Shiprocket requires 10-digit Indian phone numbers
-  const cleanPhone = (customer.phone || '').replace(/\D/g, '').replace(/^91/, '').slice(-10).padStart(10, '0');
-
-  const products = cartItems.map((item) => ({
+  const isCod = paymentMethod === 'cod';
+  const items = cartItems.map((item) => ({
     name: item.name,
+    quantity: item.quantity,
+    unitPrice: item.unitPrice,
     sku: item.variant.replace(/\s+/g, '-').toUpperCase().slice(0, 40),
-    units: item.quantity,
-    selling_price: String(item.unitPrice),
-    discount: '0',
   }));
 
   const payload = {
-    order_id: orderId,
-    order_date: new Date().toISOString().slice(0, 10),
-    pickup_location: process.env.SHIPROCKET_PICKUP_LOCATION || 'Rajath PRIMARY',
-    channel_id: process.env.SHIPROCKET_CHANNEL_ID || '',
-    billing_customer_name: customer.name.slice(0, 70),
-    billing_last_name: '',
-    billing_address: addr.address.slice(0, 200),
-    billing_address_2: '',
-    billing_city: customer.city || process.env.SHIPROCKET_DEFAULT_CITY || 'Bangalore',
-    billing_pincode: finalPincode,
-    billing_state: customer.state || process.env.SHIPROCKET_DEFAULT_STATE || 'Karnataka',
-    billing_country: 'India',
-    billing_email: customer.email || 'orders@retralabs.in',
-    billing_phone: cleanPhone,
-    shipping_is_billing: true,
-    shipping_customer_name: '',
-    shipping_address: '',
-    shipping_address_2: '',
-    shipping_city: '',
-    shipping_pincode: '',
-    shipping_state: '',
-    shipping_country: '',
-    shipping_email: '',
-    shipping_phone: '',
-    order_items: products,
-    payment_method: paymentMethod === 'cod' ? 'COD' : 'Prepaid',
-    sub_total: String(subTotal),
-    length: '10',
-    breadth: '10',
-    height: '10',
-    weight: '0.5',
-    shipping_charges: String(shippingCost),
-    discount: String(discount),
+    referenceId: orderId,
+    orderDate: new Date().toISOString(),
+    orderType: 'FORWARD',
+    orderStatus: 'CONFIRMED',
+    parcelCategory: 'ECOMM',
+    deliveryPromise: 'ECOMM',
+    deliveryMode: 'SURFACE',
+    autoManifest: true,
+    addresses: [
+      {
+        type: 'PICKUP',
+        zip: pickupZip,
+        name: pickupName,
+        phone: pickupPhone,
+        email: 'orders@retralabs.in',
+        street: pickupAddress,
+        city: pickupCity,
+        state: pickupState,
+        country: 'India',
+      },
+      {
+        type: 'DELIVERY',
+        zip: customer.pincode || '',
+        name: customer.name.slice(0, 70),
+        phone,
+        email: customer.email || 'orders@retralabs.in',
+        street: customer.address || '',
+        city: customer.city || 'Bengaluru',
+        state: customer.state || 'Karnataka',
+        country: 'India',
+      },
+      {
+        type: 'BILLING',
+        zip: customer.pincode || '',
+        name: customer.name.slice(0, 70),
+        phone,
+        email: customer.email || 'orders@retralabs.in',
+        street: customer.address || '',
+        city: customer.city || 'Bengaluru',
+        state: customer.state || 'Karnataka',
+        country: 'India',
+      },
+      {
+        type: 'RETURN',
+        zip: pickupZip,
+        name: pickupName,
+        phone: pickupPhone,
+        email: 'orders@retralabs.in',
+        street: pickupAddress,
+        city: pickupCity,
+        state: pickupState,
+        country: 'India',
+      },
+    ],
+    shipments: [
+      {
+        dimensions: { length: 10, width: 10, height: 5 },
+        shipmentStatus: 'CONFIRMED',
+        physicalWeight: 0.5,
+        physicalWeightUnit: 'KG',
+        volumetricWeight: 0.1,
+        items,
+      },
+    ],
+    carrierId,
+    carrierName,
+    payment: {
+      type: isCod ? 'COD' : 'PREPAID',
+      currency: 'INR',
+      paymentMethod: isCod ? 'CASH' : 'ONLINE',
+    },
   };
 
-  const res = await fetch('https://apiv2.shiprocket.in/v1/external/orders/create/adhoc', {
+  const res = await fetch(`${INNOFULFILL_BASE}/gateway/booking-service/orders`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -200,12 +239,13 @@ async function createShiprocketOrder(
       typeof json?.error === 'string'
         ? json.error
         : json?.error?.message || json?.message || `HTTP ${res.status}`;
-    throw new Error(`Shiprocket: ${detail}`);
+    throw new Error(`Innofulfill: ${detail}`);
   }
 
+  const data = json?.data || json;
   return {
-    shiprocketOrderId: String(json?.order_id ?? ''),
-    shipmentId: String(json?.shipment_id ?? ''),
+    innofulfillOrderId: String(data?.orderId ?? data?.id ?? ''),
+    awbNumber: data?.shipments?.[0]?.awbNumber ? String(data.shipments[0].awbNumber) : undefined,
   };
 }
 
@@ -319,21 +359,21 @@ export const handler: Handler = async (event) => {
       }
     }
 
-    // 3. Create order in Shiprocket (COD orders only)
-    let shiprocketWarning: string | null = null;
-    let shiprocketOrderId: string | undefined;
-    let shiprocketShipmentId: string | undefined;
+    // 3. Create order in Innofulfill (COD orders only)
+    let innofulfillWarning: string | null = null;
+    let innofulfillOrderId: string | undefined;
+    let awbNumber: string | undefined;
 
     if (body.paymentMethod !== 'cod') {
-      shiprocketWarning = `Skipped: paymentMethod is '${body.paymentMethod || 'undefined'}' (Shiprocket runs for COD only)`;
+      innofulfillWarning = `Skipped: paymentMethod is '${body.paymentMethod || 'undefined'}' (Innofulfill runs for COD only)`;
     } else if (!body.cartItems?.length) {
-      shiprocketWarning = 'Skipped: no cartItems received by the function';
+      innofulfillWarning = 'Skipped: no cartItems received by the function';
     } else {
       try {
-        const srToken = await getShiprocketToken();
-        if (srToken) {
-          const sr = await createShiprocketOrder(
-            srToken,
+        const innoToken = await getInnofulfillToken();
+        if (innoToken) {
+          const inno = await createInnofulfillOrder(
+            innoToken,
             orderId,
             body.customer,
             body.cartItems,
@@ -342,16 +382,19 @@ export const handler: Handler = async (event) => {
             body.codCharge,
             body.paymentMethod,
           );
-          shiprocketOrderId = sr.shiprocketOrderId;
-          shiprocketShipmentId = sr.shipmentId;
+          innofulfillOrderId = inno.innofulfillOrderId;
+          awbNumber = inno.awbNumber;
 
-          // 4. Update Airtable with Shiprocket IDs and status (retry dropping unknown fields)
+          // 4. Update Airtable with Innofulfill IDs and status (retry dropping unknown fields)
           let updateFields: Record<string, unknown> = {
-            Status: 'Created in Shiprocket',
+            Status: 'Created in Innofulfill',
           };
-          if (shiprocketOrderId) updateFields['Shiprocket Order ID'] = shiprocketOrderId;
-          if (shiprocketShipmentId) updateFields['Shiprocket Shipment ID'] = shiprocketShipmentId;
-          updateFields['Shiprocket Error'] = '';
+          if (innofulfillOrderId) updateFields['Innofulfill Order ID'] = innofulfillOrderId;
+          if (awbNumber) {
+            updateFields['AWB Number'] = awbNumber;
+            updateFields['Tracking ID'] = awbNumber;
+          }
+          updateFields['Innofulfill Error'] = '';
 
           for (let attempt = 0; attempt < 5; attempt++) {
             const updateRes = await fetch(
@@ -374,16 +417,16 @@ export const handler: Handler = async (event) => {
               delete updateFields[unknownMatch[1]];
               continue;
             }
-            shiprocketWarning = `Airtable update for Shiprocket IDs failed: ${detail}`;
+            innofulfillWarning = `Airtable update for Innofulfill IDs failed: ${detail}`;
             break;
           }
         } else {
-          shiprocketWarning = 'Shiprocket not configured (missing SHIPROCKET_EMAIL or SHIPROCKET_PASSWORD env vars on Netlify)';
-          await updateShiprocketError(baseId!, table, token!, recordId, shiprocketWarning);
+          innofulfillWarning = 'Innofulfill not configured (missing INNOFULFILL_USERNAME or INNOFULFILL_PASSWORD env vars on Netlify)';
+          await updateInnofulfillError(baseId!, table, token!, recordId, innofulfillWarning);
         }
-      } catch (srErr) {
-        shiprocketWarning = srErr instanceof Error ? srErr.message : String(srErr);
-        await updateShiprocketError(baseId!, table, token!, recordId, shiprocketWarning);
+      } catch (innoErr) {
+        innofulfillWarning = innoErr instanceof Error ? innoErr.message : String(innoErr);
+        await updateInnofulfillError(baseId!, table, token!, recordId, innofulfillWarning);
       }
     }
 
@@ -394,9 +437,9 @@ export const handler: Handler = async (event) => {
         success: true,
         recordId,
         orderId,
-        shiprocketOrderId: shiprocketOrderId || null,
-        shiprocketShipmentId: shiprocketShipmentId || null,
-        shiprocketWarning,
+        innofulfillOrderId: innofulfillOrderId || null,
+        awbNumber: awbNumber || null,
+        innofulfillWarning,
         screenshotWarning: screenshotWarning || null,
       }),
     };

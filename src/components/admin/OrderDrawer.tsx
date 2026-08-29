@@ -118,11 +118,11 @@ export function OrderDrawer({ record, onClose }: OrderDrawerProps) {
           </Section>
 
           <Section icon={Truck} title="Tracking">
-            <Row label="Shiprocket Order ID" value={String(f['Shiprocket Order ID'] ?? '—')} />
-            <Row label="Shipment ID" value={String(f['Shiprocket Shipment ID'] ?? '—')} />
+            <Row label="Innofulfill Order ID" value={String(f['Innofulfill Order ID'] ?? '—')} />
+            <Row label="AWB Number" value={String(f['AWB Number'] ?? '—')} />
             <Row label="Tracking ID" value={tracking || '—'} />
-            {f['Shiprocket Error'] && String(f['Shiprocket Error']) !== '—' && (
-              <p className="mt-2 text-xs text-rose-600 bg-rose-50 rounded-lg px-3 py-2 break-words">{String(f['Shiprocket Error'])}</p>
+            {f['Innofulfill Error'] && String(f['Innofulfill Error']) !== '—' && (
+              <p className="mt-2 text-xs text-rose-600 bg-rose-50 rounded-lg px-3 py-2 break-words">{String(f['Innofulfill Error'])}</p>
             )}
           </Section>
 

@@ -31,7 +31,7 @@ async function fetchOrders(): Promise<AirtableRecord[]> {
 }
 
 function exportCsv(records: AirtableRecord[]) {
-  const cols = ['Created', 'Name', 'Phone', 'Email', 'Items', 'Total (₹)', 'Payment', 'Transaction', 'Status', 'Shiprocket Order ID', 'Shiprocket Shipment ID', 'Tracking ID', 'Shiprocket Error', 'Address', 'Delivery'];
+  const cols = ['Created', 'Name', 'Phone', 'Email', 'Items', 'Total (₹)', 'Payment', 'Transaction', 'Status', 'Innofulfill Order ID', 'AWB Number', 'Tracking ID', 'Innofulfill Error', 'Address', 'Delivery'];
   const header = cols.join(',');
   const rows = records.map(r => cols.map(c => `"${String(r.fields[c] ?? '').replace(/"/g, '""')}"`).join(','));
   const blob = new Blob([header + '\n' + rows.join('\n')], { type: 'text/csv' });
@@ -145,7 +145,7 @@ export default function AdminPage() {
       if (filters.dateTo && String(f['Created'] ?? '') > filters.dateTo) return false;
       if (filters.search) {
         const q = filters.search.toLowerCase();
-        const hay = [f['orderID'], f['Name'], f['Phone'], f['Email'], f['Items'], f['Status'], f['Shiprocket Order ID'], f['Tracking ID'], f['Transaction']].map((v) => String(v ?? '').toLowerCase()).join(' ');
+        const hay = [f['orderID'], f['Name'], f['Phone'], f['Email'], f['Items'], f['Status'], f['Innofulfill Order ID'], f['Tracking ID'], f['Transaction']].map((v) => String(v ?? '').toLowerCase()).join(' ');
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -176,7 +176,7 @@ export default function AdminPage() {
     return [
       { key: 'today', label: "Today's Orders", value: todays.length, icon: ShoppingBag, tint: 'bg-blue-100 text-blue-600', change: 12, spark: spark(todays.length || 8) },
       { key: 'rev', label: 'Revenue', value: revenue, icon: IndianRupee, tint: 'bg-emerald-100 text-emerald-600', change: 8, spark: spark(revenue / 1000 || 20) },
-      { key: 'pend', label: 'Pending', value: count((r) => ['New', 'Created in Shiprocket', 'Confirmed'].includes(String(r.fields['Status']))), icon: Clock, tint: 'bg-amber-100 text-amber-600', change: -4, spark: spark(15) },
+      { key: 'pend', label: 'Pending', value: count((r) => ['New', 'Created in Innofulfill', 'Confirmed'].includes(String(r.fields['Status']))), icon: Clock, tint: 'bg-amber-100 text-amber-600', change: -4, spark: spark(15) },
       { key: 'pack', label: 'Packed', value: count((r) => String(r.fields['Status']) === 'Paid'), icon: Package, tint: 'bg-violet-100 text-violet-600', change: 6, spark: spark(10) },
       { key: 'ship', label: 'Shipped', value: count((r) => String(r.fields['Status']) === 'Shipped'), icon: Truck, tint: 'bg-indigo-100 text-indigo-600', change: 15, spark: spark(12) },
       { key: 'del', label: 'Delivered', value: count((r) => String(r.fields['Status']) === 'Delivered'), icon: CheckCircle2, tint: 'bg-green-100 text-green-600', change: 22, spark: spark(18) },

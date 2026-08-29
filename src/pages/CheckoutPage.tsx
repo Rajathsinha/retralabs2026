@@ -20,7 +20,7 @@ async function saveOrder(fields: Record<string, unknown>, screenshot?: { content
   total?: number;
   deliveryCharge?: number;
   codCharge?: number;
-}): Promise<{ recordId: string | null; orderId: string | null; shiprocketOrderId: string | null; shiprocketShipmentId: string | null; shiprocketWarning: string | null }> {
+}): Promise<{ recordId: string | null; orderId: string | null; innofulfillOrderId: string | null; awbNumber: string | null; innofulfillWarning: string | null }> {
   const res = await fetch('/.netlify/functions/create-order', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -32,7 +32,7 @@ async function saveOrder(fields: Record<string, unknown>, screenshot?: { content
     throw new Error(detail);
   }
   if (json.screenshotWarning) console.warn(json.screenshotWarning);
-  return { recordId: json.recordId || null, orderId: json.orderId || null, shiprocketOrderId: json.shiprocketOrderId || null, shiprocketShipmentId: json.shiprocketShipmentId || null, shiprocketWarning: json.shiprocketWarning || null };
+  return { recordId: json.recordId || null, orderId: json.orderId || null, innofulfillOrderId: json.innofulfillOrderId || null, awbNumber: json.awbNumber || null, innofulfillWarning: json.innofulfillWarning || null };
 }
 
 async function fileToBase64(file: File): Promise<string> {
@@ -248,7 +248,7 @@ export default function CheckoutPage() {
 
     try {
       // Critical: the order record must exist before we show success
-      const { orderId, shiprocketOrderId, shiprocketShipmentId, shiprocketWarning } = await saveOrder({
+      const { orderId, innofulfillOrderId, innofulfillWarning } = await saveOrder({
         'Name':      snapFormData.customer_name,
         'Email':     snapFormData.customer_email,
         'Phone':     snapFormData.customer_phone,
@@ -313,8 +313,8 @@ export default function CheckoutPage() {
       if (!emailResult.success) {
         setNotifyWarning(`Email: ${emailResult.error}`);
       }
-      if (!shiprocketOrderId && shiprocketWarning) {
-        setNotifyWarning(prev => prev ? `${prev}; Shiprocket: ${shiprocketWarning}` : `Shiprocket: ${shiprocketWarning}`);
+      if (!innofulfillOrderId && innofulfillWarning) {
+        setNotifyWarning(prev => prev ? `${prev}; Innofulfill: ${innofulfillWarning}` : `Innofulfill: ${innofulfillWarning}`);
       }
 
       setOrderSnapshot({
