@@ -1,7 +1,7 @@
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useState } from 'react';
 import { useSEO } from '../hooks/useSEO';
-import { getCategoryBySlug, getCategoryProducts } from '../data/seoData';
+import { getCategoryBySlug, getCategoryProducts, CATEGORIES } from '../data/seoData';
 import { getCategorySchema } from '../utils/seoSchemas';
 import { useCurrency } from '../context/CurrencyContext';
 import { ChevronRight, Star, ArrowRight, Check } from 'lucide-react';
