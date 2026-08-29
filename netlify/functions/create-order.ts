@@ -67,6 +67,14 @@ const INNOFULFILL_BASE = ['sandbox', 'test', 'true'].includes((process.env.INNOF
 
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
+function innofulfillHeaders(token?: string): Record<string, string> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const tenantId = process.env.INNOFULFILL_TENANT_ID;
+  if (tenantId) headers['X-Tenant-Id'] = tenantId;
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return headers;
+}
+
 async function getInnofulfillToken(): Promise<string | null> {
   const username = process.env.INNOFULFILL_USERNAME;
   const password = process.env.INNOFULFILL_PASSWORD;
@@ -78,7 +86,7 @@ async function getInnofulfillToken(): Promise<string | null> {
 
   const res = await fetch(`${INNOFULFILL_BASE}/auth/login`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: innofulfillHeaders(),
     body: JSON.stringify({ username, password, signinType: 'EMAIL' }),
   });
   if (!res.ok) {
@@ -226,10 +234,7 @@ async function createInnofulfillOrder(
 
   const res = await fetch(`${INNOFULFILL_BASE}/gateway/booking-service/orders`, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: innofulfillHeaders(token),
     body: JSON.stringify(payload),
   });
 
