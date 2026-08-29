@@ -98,9 +98,16 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
     setOcrProgress(0);
     setFraudWarning('');
 
+    let worker: { recognize: (img: File) => Promise<{ data: { text: string } }>; terminate: () => void } | null = null;
+
     try {
-      const { default: Tesseract } = await import('tesseract.js');
-      const result = await Tesseract.recognize(file, 'eng', {
+      const Tesseract = await import('tesseract.js');
+      if (controller.signal.aborted) return;
+
+      worker = await Tesseract.createWorker('eng', 1, {
+        workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@7.0.0/dist/worker.min.js',
+        langPath: 'https://tessdata.projectnaptha.com/4.0.0',
+        corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@7.0.0',
         logger: (m: { status: string; progress: number }) => {
           if (m.status === 'recognizing text' && !controller.signal.aborted) {
             setOcrProgress(Math.round(m.progress * 100));
@@ -108,9 +115,16 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
         },
       });
 
+      if (controller.signal.aborted) {
+        worker.terminate();
+        return;
+      }
+
+      const { data } = await worker.recognize(file);
+
       if (controller.signal.aborted) return;
 
-      const text = result.data.text;
+      const text = data.text;
       const matched = verifyAmount(text, amount);
 
       if (matched) {
@@ -121,10 +135,14 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
           `The amount in your screenshot doesn't match ₹${amount.toLocaleString('en-IN')}. Please upload a screenshot showing the correct payment amount, or contact support if you believe this is an error.`
         );
       }
-    } catch (err) {
+    } catch {
       if (controller.signal.aborted) return;
       setOcrStatus('error');
       setFraudWarning('Could not verify the screenshot automatically. Your order will be manually reviewed.');
+    } finally {
+      if (worker) {
+        try { worker.terminate(); } catch { /* ignore */ }
+      }
     }
   }, [amount]);
 
