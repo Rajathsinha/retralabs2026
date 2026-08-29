@@ -231,6 +231,15 @@ export default function Footer() {
                 <MessageCircle className="w-4 h-4 flex-shrink-0" />
                 WhatsApp Support
               </button>
+              <a
+                href={BUSINESS_NAP.social.indiamart}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors"
+              >
+                <Globe className="w-4 h-4 flex-shrink-0" />
+                IndiaMART Profile
+              </a>
             </div>
           </div>
 

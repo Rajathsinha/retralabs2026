@@ -43,7 +43,7 @@ const HERO_SLIDES = [
   },
   {
     lines: ["India's #1 Research", 'Peptides Company'],
-    accent: '6 Years Old.',
+    accent: '7 Years Old.',
   },
 ];
 

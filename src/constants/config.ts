@@ -29,5 +29,6 @@ export const BUSINESS_NAP = {
   social: {
     trustpilot: 'https://www.trustpilot.com/review/retralabs.in',
     reddit: 'https://www.reddit.com/r/retralabs/',
+    indiamart: 'https://www.indiamart.com/retralabs-bengaluru/profile.html?srsltid=AfmBOoqGPtMQQN_bMb77devHIjxqtjn10SpBhMHTVvW6W0nyhHhLZdFS',
   },
 } as const;
