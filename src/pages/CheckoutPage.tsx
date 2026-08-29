@@ -2,7 +2,7 @@ import { useSEO } from '../hooks/useSEO';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getProductImageUrl, BAC_WATER_IMAGE_URL } from '../utils/imageUrl';
-import { Minus, Plus, Trash2, Check, MessageCircle, Tag, ShoppingBag, ArrowRight, X, GraduationCap, Zap, Clock, Banknote } from 'lucide-react';
+import { Minus, Plus, Trash2, Check, MessageCircle, Tag, ShoppingBag, ArrowRight, X, GraduationCap, Zap, Clock, Banknote, Package, Truck } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { OrderFormData } from '../types';
@@ -135,6 +135,8 @@ export default function CheckoutPage() {
     items: string;
     total: number;
     orderId: string | null;
+    awbNumber: string | null;
+    innofulfillOrderId: string | null;
     cartItems: Array<{ name: string; config: string; qty: number; price: number }>;
     deliveryOption: string;
     paymentMethod: 'prepay' | 'cod';
@@ -248,7 +250,7 @@ export default function CheckoutPage() {
 
     try {
       // Critical: the order record must exist before we show success
-      const { orderId, innofulfillOrderId, innofulfillWarning } = await saveOrder({
+      const { orderId, innofulfillOrderId, awbNumber, innofulfillWarning } = await saveOrder({
         'Name':      snapFormData.customer_name,
         'Email':     snapFormData.customer_email,
         'Phone':     snapFormData.customer_phone,
@@ -282,7 +284,8 @@ export default function CheckoutPage() {
         codCharge: snapCodCharge,
       });
 
-      const finalOrderId = orderId || `RL-${Date.now()}`;
+      if (!orderId) throw new Error('Server did not return an order ID');
+      const finalOrderId = orderId;
 
       // Non-critical: customer email — surface failures without blocking the order
       const snapSubtotal = cartSnapshot.reduce((s, i) => s + i.variant.price_inr * i.quantity, 0);
@@ -321,6 +324,8 @@ export default function CheckoutPage() {
         items: itemsSummaryFlat,
         total: snapTotal,
         orderId: finalOrderId,
+        awbNumber: awbNumber || null,
+        innofulfillOrderId: innofulfillOrderId || null,
         cartItems: cartSnapshot.map(i => ({ name: i.product.name, config: i.variant.vial_configuration || `${i.variant.dosage_mg}mg`, qty: i.quantity, price: i.variant.price_inr })),
         deliveryOption: snapFormData.delivery_option,
         paymentMethod: snapPaymentMethod,
@@ -365,7 +370,7 @@ export default function CheckoutPage() {
 
     try {
       // Critical: the order record must exist before we show success
-      const { orderId, innofulfillOrderId, innofulfillWarning } = await saveOrder({
+      const { orderId, innofulfillOrderId, awbNumber, innofulfillWarning } = await saveOrder({
         'Name':        snapFormData.customer_name,
         'Email':       snapFormData.customer_email,
         'Phone':       snapFormData.customer_phone,
@@ -400,7 +405,8 @@ export default function CheckoutPage() {
         codCharge: 0,
       });
 
-      const finalOrderId = orderId || `RL-${Date.now()}`;
+      if (!orderId) throw new Error('Server did not return an order ID');
+      const finalOrderId = orderId;
 
       // Non-critical: customer email — surface failures without blocking
       const snapSubtotal = cartSnapshot.reduce((s, i) => s + i.variant.price_inr * i.quantity, 0);
@@ -439,6 +445,8 @@ export default function CheckoutPage() {
         items: itemsSummaryFlat,
         total: snapTotal,
         orderId: finalOrderId,
+        awbNumber: awbNumber || null,
+        innofulfillOrderId: innofulfillOrderId || null,
         cartItems: cartSnapshot.map(i => ({ name: i.product.name, config: i.variant.vial_configuration || `${i.variant.dosage_mg}mg`, qty: i.quantity, price: i.variant.price_inr })),
         deliveryOption: snapFormData.delivery_option,
         paymentMethod: 'prepay',
@@ -514,6 +522,63 @@ export default function CheckoutPage() {
             </div>
           )}
 
+          {/* AWB / Shipment info */}
+          {snap?.awbNumber ? (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center flex-shrink-0">
+                  <Package className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-emerald-900">Shipment Created</p>
+                  <p className="text-xs text-emerald-700">Your order has been dispatched for fulfillment</p>
+                </div>
+              </div>
+              <div className="space-y-1.5 text-sm bg-white rounded-xl p-3 border border-emerald-100">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">AWB Number</span>
+                  <span className="font-bold text-slate-900">{snap.awbNumber}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Courier</span>
+                  <span className="font-semibold text-slate-700">Innofulfill</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Order Status</span>
+                  <span className="font-semibold text-emerald-600">Confirmed</span>
+                </div>
+              </div>
+              <button
+                onClick={() => navigate(`/track?orderId=${encodeURIComponent(snap.orderId || '')}`)}
+                className="w-full mt-3 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-colors"
+              >
+                <Truck className="w-4 h-4" />
+                Track Shipment
+              </button>
+            </div>
+          ) : (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-amber-400 rounded-full flex items-center justify-center flex-shrink-0">
+                  <Truck className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-amber-900">Tracking details being generated</p>
+                  <p className="text-xs text-amber-700">Your order has been placed successfully. Your tracking details are being generated.</p>
+                </div>
+              </div>
+              {snap?.orderId && (
+                <button
+                  onClick={() => navigate(`/track?orderId=${encodeURIComponent(snap.orderId || '')}`)}
+                  className="w-full mt-3 flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 rounded-xl transition-colors"
+                >
+                  <Truck className="w-4 h-4" />
+                  Track Order
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-5">
             <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Your Order Details</p>
 
@@ -561,12 +626,6 @@ export default function CheckoutPage() {
                 <span>₹{snapTotal.toLocaleString('en-IN')}</span>
               </div>
             </div>
-          </div>
-
-          {/* Tracking note */}
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 mb-4 text-center">
-            <p className="text-sm font-semibold text-amber-900">Need a tracking ID?</p>
-            <p className="text-xs text-amber-700 mt-1">Contact WhatsApp Support below — we'll share your tracking details on priority.</p>
           </div>
 
           {/* WhatsApp support nudge */}

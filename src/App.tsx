@@ -20,6 +20,7 @@ const PrivacyPolicyPage  = lazy(() => import('./pages/PrivacyPolicyPage'));
 const TermsPage          = lazy(() => import('./pages/TermsPage'));
 const RefundPolicyPage   = lazy(() => import('./pages/RefundPolicyPage'));
 const AdminPage          = lazy(() => import('./pages/AdminPage'));
+const TrackOrderPage     = lazy(() => import('./pages/TrackOrderPage'));
 const HeroUIWrapper      = lazy(() => import('./providers/HeroUIWrapper'));
 
 // ─── Error Boundary ───────────────────────────────────────────────────────────
@@ -112,6 +113,7 @@ export default function App() {
             <Route path="/privacy"         element={<PrivacyPolicyPage />} />
             <Route path="/terms"           element={<TermsPage />} />
             <Route path="/refund"          element={<RefundPolicyPage />} />
+            <Route path="/track"            element={<TrackOrderPage />} />
           </Route>
           {/* Admin — no header/footer */}
           <Route path="/admin" element={<Suspense fallback={<div style={{ minHeight: '100vh', background: '#040C1E' }} />}><AdminPage /></Suspense>} />

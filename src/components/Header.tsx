@@ -20,6 +20,7 @@ const NAV_ITEMS: { path: string; label: string; external?: boolean }[] = [
   { path: '/catalogue',   label: 'Shop' },
   { path: '/catalogue',   label: 'Peptides' },
   { path: '/support',     label: 'Resources' },
+  { path: '/track',       label: 'Track Order' },
   { path: BUSINESS_NAP.social.trustpilot, label: 'Reviews', external: true },
   { path: '/about',       label: 'About Us' },
 ];

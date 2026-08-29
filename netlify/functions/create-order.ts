@@ -46,11 +46,30 @@ interface CreateOrderBody {
   codCharge: number;
 }
 
-function generateOrderId(): string {
-  const now = new Date();
-  const ymd = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
-  const rand = String(Math.floor(1000 + Math.random() * 9000));
-  return `RL-${ymd}-${rand}`;
+async function generateOrderId(): Promise<string> {
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Supabase is not configured (missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY env vars)');
+  }
+  const res = await fetch(`${supabaseUrl}/rest/v1/rpc/get_next_order_id`, {
+    method: 'POST',
+    headers: {
+      'apikey': supabaseAnonKey,
+      'Authorization': `Bearer ${supabaseAnonKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: '{}',
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`Failed to generate order ID from Supabase (HTTP ${res.status}): ${detail}`);
+  }
+  const orderId = await res.json();
+  if (!orderId || typeof orderId !== 'string') {
+    throw new Error('Supabase get_next_order_id returned invalid result');
+  }
+  return orderId;
 }
 
 const corsHeaders = {
@@ -291,7 +310,7 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    const orderId = generateOrderId();
+    const orderId = await generateOrderId();
     const fieldsWithId: Record<string, unknown> = { ...body.fields, orderID: orderId };
 
     // 1. Create the Airtable record (retry dropping unknown fields)
@@ -375,7 +394,19 @@ export const handler: Handler = async (event) => {
       try {
         const innoToken = await getInnofulfillToken();
         if (innoToken) {
-          const inno = await createInnofulfillOrder(
+          // Idempotency: check if this Airtable record already has an Innofulfill Order ID
+          const existingRes = await fetch(
+            `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}/${recordId}`,
+            { headers: { Authorization: `Bearer ${token}` } },
+          );
+          const existingJson: any = await existingRes.json().catch(() => null);
+          const existingInnoId = existingJson?.fields?.['Innofulfill Order ID'];
+          const existingAwb = existingJson?.fields?.['AWB Number'];
+          if (existingInnoId) {
+            innofulfillOrderId = String(existingInnoId);
+            awbNumber = existingAwb ? String(existingAwb) : undefined;
+          } else {
+            const inno = await createInnofulfillOrder(
             innoToken,
             orderId,
             body.customer,
@@ -385,8 +416,9 @@ export const handler: Handler = async (event) => {
             body.codCharge,
             body.paymentMethod,
           );
-          innofulfillOrderId = inno.innofulfillOrderId;
-          awbNumber = inno.awbNumber;
+            innofulfillOrderId = inno.innofulfillOrderId;
+            awbNumber = inno.awbNumber;
+          }
 
           // 4. Update Airtable with Innofulfill IDs and status (retry dropping unknown fields)
           let updateFields: Record<string, unknown> = {

@@ -108,6 +108,7 @@ const COMPANY_LINKS = [
   { to: '/about', label: 'About Us' },
   { to: '/contact', label: 'Contact Us' },
   { to: '/support', label: 'Support' },
+  { to: '/track', label: 'Track Order' },
   { to: '/catalogue', label: 'Products' },
 ];
 
