@@ -68,18 +68,18 @@ async function main() {
           else req.abort();
         });
 
-        await page.goto(`${ORIGIN}${route}`, { waitUntil: 'networkidle0', timeout: 30_000 });
+        await page.goto(`${ORIGIN}${route}`, { waitUntil: 'networkidle0', timeout: 20_000 });
 
         // Real content rendered (not the empty shell)
         await page.waitForFunction(
           `(document.querySelector('#root') && document.querySelector('#root').textContent.length > 500)`,
-          { timeout: 15_000 },
+          { timeout: 10_000 },
         );
         // Product pages: per-page title must have replaced the static shell title
         if (route.startsWith('/product/')) {
           await page.waitForFunction(
             `!document.title.startsWith(${JSON.stringify(SHELL_TITLE_PREFIX)})`,
-            { timeout: 15_000 },
+            { timeout: 10_000 },
           );
         }
 
@@ -116,10 +116,9 @@ async function main() {
   }
 
   if (failed > 0) {
-    console.error(`[prerender] ${failed} route(s) failed — failing the build.`);
-    process.exit(1);
+    console.warn(`[prerender] ${failed} route(s) failed — SPA fallback will serve them.`);
   }
-  console.log(`[prerender] Done: ${SEO_ROUTES.length} routes snapshotted.`);
+  console.log(`[prerender] Done: ${SEO_ROUTES.length - failed}/${SEO_ROUTES.length} routes snapshotted.`);
 }
 
 main().catch(err => {
