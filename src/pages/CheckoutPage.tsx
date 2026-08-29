@@ -365,7 +365,7 @@ export default function CheckoutPage() {
 
     try {
       // Critical: the order record must exist before we show success
-      const { orderId } = await saveOrder({
+      const { orderId, innofulfillOrderId, innofulfillWarning } = await saveOrder({
         'Name':        snapFormData.customer_name,
         'Email':       snapFormData.customer_email,
         'Phone':       snapFormData.customer_phone,
@@ -378,7 +378,27 @@ export default function CheckoutPage() {
         'Transaction': txnRef,
         'Status':      'Paid',
         'Created':     new Date().toISOString().slice(0, 10),
-      }, screenshotPayload);
+      }, screenshotPayload, {
+        cartItems: cartSnapshot.map(i => ({
+          name: i.product.name,
+          variant: i.variant.vial_configuration || `${i.variant.dosage_mg}mg`,
+          quantity: i.quantity,
+          unitPrice: i.variant.price_inr,
+        })),
+        customer: {
+          name: snapFormData.customer_name,
+          email: snapFormData.customer_email,
+          phone: snapFormData.customer_phone,
+          address: snapFormData.shipping_address,
+          city: snapFormData.city,
+          state: snapFormData.state,
+          pincode: snapFormData.pincode,
+        },
+        paymentMethod: 'prepay',
+        total: snapTotal,
+        deliveryCharge: snapDeliveryCharge,
+        codCharge: 0,
+      });
 
       const finalOrderId = orderId || `RL-${Date.now()}`;
 
@@ -410,6 +430,9 @@ export default function CheckoutPage() {
       });
       if (!emailResult.success) {
         setNotifyWarning(`Email: ${emailResult.error}`);
+      }
+      if (!innofulfillOrderId && innofulfillWarning) {
+        setNotifyWarning(prev => prev ? `${prev}; Innofulfill: ${innofulfillWarning}` : `Innofulfill: ${innofulfillWarning}`);
       }
 
       setOrderSnapshot({

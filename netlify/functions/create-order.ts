@@ -359,14 +359,12 @@ export const handler: Handler = async (event) => {
       }
     }
 
-    // 3. Create order in Innofulfill (COD orders only)
+    // 3. Create order in Innofulfill (all orders — COD and prepaid)
     let innofulfillWarning: string | null = null;
     let innofulfillOrderId: string | undefined;
     let awbNumber: string | undefined;
 
-    if (body.paymentMethod !== 'cod') {
-      innofulfillWarning = `Skipped: paymentMethod is '${body.paymentMethod || 'undefined'}' (Innofulfill runs for COD only)`;
-    } else if (!body.cartItems?.length) {
+    if (!body.cartItems?.length) {
       innofulfillWarning = 'Skipped: no cartItems received by the function';
     } else {
       try {
