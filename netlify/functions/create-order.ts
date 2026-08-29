@@ -46,30 +46,28 @@ interface CreateOrderBody {
   codCharge: number;
 }
 
-async function generateOrderId(): Promise<string> {
-  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Supabase is not configured (missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY env vars)');
-  }
-  const res = await fetch(`${supabaseUrl}/rest/v1/rpc/get_next_order_id`, {
-    method: 'POST',
-    headers: {
-      'apikey': supabaseAnonKey,
-      'Authorization': `Bearer ${supabaseAnonKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: '{}',
-  });
+async function generateOrderId(baseId: string, table: string, token: string): Promise<string> {
+  const res = await fetch(
+    `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}?pageSize=100&sort%5B0%5D%5Bfield%5D=orderID&sort%5B0%5D%5Bdirection%5D=desc`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
-    throw new Error(`Failed to generate order ID from Supabase (HTTP ${res.status}): ${detail}`);
+    throw new Error(`Failed to fetch existing orders from Airtable (HTTP ${res.status}): ${detail}`);
   }
-  const orderId = await res.json();
-  if (!orderId || typeof orderId !== 'string') {
-    throw new Error('Supabase get_next_order_id returned invalid result');
+  const json: any = await res.json();
+  const records: any[] = json?.records || [];
+  let maxNum = 1000;
+  for (const rec of records) {
+    const id: string | undefined = rec?.fields?.orderID;
+    if (!id) continue;
+    const match = id.match(/RETR-(\d+)/);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (num > maxNum) maxNum = num;
+    }
   }
-  return orderId;
+  return `RETR-${maxNum + 1}`;
 }
 
 const corsHeaders = {
@@ -310,7 +308,7 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    const orderId = await generateOrderId();
+    const orderId = await generateOrderId(baseId, table, token);
     const fieldsWithId: Record<string, unknown> = { ...body.fields, orderID: orderId };
 
     // 1. Create the Airtable record (retry dropping unknown fields)
