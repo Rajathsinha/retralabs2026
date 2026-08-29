@@ -138,6 +138,8 @@ export default function CheckoutPage() {
       setExpressBlocked(false);
     }
   }, [formData.delivery_option, formData.state]);
+
+  const [orderReady, setOrderReady] = useState(false);   // step 2: review screen
   const [submitting, setSubmitting] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [whatsappUrl, setWhatsappUrl] = useState('');
