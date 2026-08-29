@@ -7,7 +7,7 @@ import { useCurrency } from '../context/CurrencyContext';
 import { useSEO } from '../hooks/useSEO';
 import { getBreadcrumbSchema } from '../utils/localSeoSchemas';
 import { getItemListSchema } from '../utils/seoSchemas';
-import { CATEGORIES } from '../data/seoData';
+import { CATEGORIES as SEO_CATEGORIES } from '../data/seoData';
 import ProductModal from '../components/ProductModal';
 import { productDisplayName } from '../utils/productDisplayName';
 import {
@@ -259,7 +259,7 @@ export default function CataloguePage() {
 
           {/* Category links */}
           <div className="flex flex-wrap gap-2 mt-5">
-            {CATEGORIES.map(cat => (
+            {SEO_CATEGORIES.map(cat => (
               <Link
                 key={cat.slug}
                 to={`/category/${cat.slug}`}
