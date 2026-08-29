@@ -741,49 +741,68 @@ export default function CheckoutPage() {
               </button>
             </div>
           ) : (
-            /* Prepay: Multiple payment options */
-            <div className="space-y-3 mb-6">
-              <p className="text-xs text-slate-400 text-center uppercase tracking-wider font-semibold mb-3">Pay via UPI</p>
+            /* Prepay: RetraLabs Secure Checkout */
+            <div className="space-y-4 mb-6">
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+                <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold px-2">RetraLabs Secure Checkout</span>
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+              </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                {/* UPI QR */}
-                <button
-                  onClick={() => setShowQrModal(true)}
-                  className="flex flex-col items-center gap-2 p-4 bg-slate-800/50 hover:bg-slate-700 border border-slate-700 hover:border-blue-500 rounded-xl transition-all duration-200"
-                >
-                  <img
-                    src="/retralabs-payment-qr.png"
-                    alt="RetraLabs UPI QR"
-                    className="w-12 h-12 rounded-lg object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
-                  <span className="text-xs font-semibold text-white text-center">UPI QR Code</span>
-                </button>
+              {/* Primary CTA — opens premium QR modal */}
+              <button
+                onClick={() => setShowQrModal(true)}
+                className="group w-full relative overflow-hidden flex items-center justify-between gap-4 p-5 bg-gradient-to-br from-slate-800/80 to-slate-900/80 hover:from-slate-700/80 hover:to-slate-800/80 border border-slate-700 hover:border-emerald-500/50 rounded-2xl transition-all duration-300 shadow-lg"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="relative w-14 h-14 bg-white rounded-xl p-1.5 flex-shrink-0 shadow-md">
+                    <img
+                      src="/retralabs-payment-qr.png"
+                      alt="UPI QR"
+                      className="w-full h-full rounded-lg object-cover"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                    <div className="absolute inset-1.5 rounded-lg overflow-hidden pointer-events-none">
+                      <div className="absolute left-0 right-0 h-0.5 bg-emerald-400 shadow-[0_0_8px_#34d399] animate-[rl-scan-inline_2.5s_ease-in-out_infinite]" />
+                    </div>
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-bold text-white">Pay via UPI QR</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Scan & pay · 3-min window</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 text-emerald-400 group-hover:translate-x-1 transition-transform">
+                  <span className="text-xs font-bold uppercase tracking-wider">Open</span>
+                  <ArrowRight className="w-4 h-4" />
+                </div>
+              </button>
 
-                {/* PAYTM */}
+              {/* UPI app deep links */}
+              <div className="grid grid-cols-2 gap-3">
                 <a
                   href={`upi://pay?pa=retralabs@ptaxis&pn=RetraLabs&am=${grandTotal}&tn=RetraLabs%20Order`}
-                  className="flex flex-col items-center gap-2 p-4 bg-slate-800/50 hover:bg-slate-700 border border-slate-700 hover:border-blue-600 rounded-xl transition-all duration-200"
+                  className="flex items-center justify-center gap-2 p-3.5 bg-slate-800/40 hover:bg-slate-700/60 border border-slate-700 hover:border-emerald-500/40 rounded-xl transition-all duration-200"
                 >
-                  <div className="w-12 h-12 bg-blue-600/20 rounded-lg flex items-center justify-center">
-                    <span className="text-xl font-black text-blue-400">₹</span>
-                  </div>
-                  <span className="text-xs font-semibold text-white text-center">Paytm</span>
+                  <span className="text-sm font-bold text-emerald-400">₹</span>
+                  <span className="text-xs font-semibold text-slate-200">Open in UPI App</span>
                 </a>
-
-                {/* GPAY */}
                 <a
                   href={`upi://pay?pa=retralabs@ptaxis&pn=RetraLabs&am=${grandTotal}&tn=RetraLabs%20Order`}
-                  className="flex flex-col items-center gap-2 p-4 bg-slate-800/50 hover:bg-slate-700 border border-slate-700 hover:border-blue-400 rounded-xl transition-all duration-200"
+                  className="flex items-center justify-center gap-2 p-3.5 bg-slate-800/40 hover:bg-slate-700/60 border border-slate-700 hover:border-emerald-500/40 rounded-xl transition-all duration-200"
                 >
-                  <div className="w-12 h-12 bg-blue-400/20 rounded-lg flex items-center justify-center">
-                    <span className="text-lg font-black text-blue-300">G</span>
-                  </div>
-                  <span className="text-xs font-semibold text-white text-center">Google Pay</span>
+                  <MessageCircle className="w-4 h-4 text-emerald-400" />
+                  <span className="text-xs font-semibold text-slate-200">Pay via WhatsApp</span>
                 </a>
               </div>
+
+              <style>{`
+                @keyframes rl-scan-inline {
+                  0% { top: 0%; opacity: 0; }
+                  10% { opacity: 1; }
+                  90% { opacity: 1; }
+                  100% { top: 100%; opacity: 0; }
+                }
+              `}</style>
             </div>
           )}
 
