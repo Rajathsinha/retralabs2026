@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState, useMemo } from 'react';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import {
-  ArrowRight, Star, CheckCircle, Zap, Truck, Lock,
+  ArrowRight, Star, CheckCircle, Zap, Truck, Lock, ShoppingBag,
   FlaskConical, Shield, Package, Microscope,
   AlertTriangle, Calculator, Beaker, Syringe, Droplets, ChevronDown,
 } from 'lucide-react';
@@ -22,10 +22,11 @@ const BEST_SELLERS = ['1', '12', '13', '3'].map(
 ).filter(Boolean);
 
 const TRUST_ITEMS = [
-  { icon: Star,  value: '4.6 Rating',          label: 'Trustpilot Verified',   color: '#F59E0B' },
+  { icon: Star,  value: '4.6 Rating',          label: 'Trustpilot Verified',   color: '#F59E0B', link: BUSINESS_NAP.social.trustpilot },
   { icon: Zap,   value: 'Order by 2 PM',       label: 'Same-Day Dispatch',     color: '#2563EB' },
   { icon: Truck, value: 'Fastest Delivery',     label: 'India-Wide 1–2 Days',   color: '#16a34a' },
   { icon: Lock,  value: 'Discreet Packaging',   label: 'Zero Product Markings', color: '#374151' },
+  { icon: ShoppingBag, value: 'Also on',        label: 'IndiaMART',            color: '#FB923C', link: BUSINESS_NAP.social.indiamart },
 ];
 
 const HERO_SLIDES = [
@@ -397,26 +398,39 @@ export default function HomePage() {
       {/* ═══════════════════ TRUST STRIP ═══════════════════ */}
       <section className="border-y border-[#E5E7EB]">
         <div className="max-w-[1440px] mx-auto">
-          <StaggerGroup className="grid grid-cols-2 lg:grid-cols-4" stagger={0.08} y={18}>
-            {TRUST_ITEMS.map((item, i) => (
-              <div
-                key={i}
-                className={`flex items-center justify-center gap-3.5 py-6 px-4 ${
-                  i < TRUST_ITEMS.length - 1 ? 'lg:border-r border-[#E5E7EB]' : ''
-                } ${i < 2 ? 'border-b lg:border-b-0 border-[#E5E7EB]' : ''}`}
-              >
-                <div
-                  className="w-10 h-10 rounded-[12px] flex items-center justify-center flex-shrink-0"
-                  style={{ backgroundColor: `${item.color}0F` }}
+          <StaggerGroup className="grid grid-cols-2 lg:grid-cols-5" stagger={0.08} y={18}>
+            {TRUST_ITEMS.map((item, i) => {
+              const inner = (
+                <>
+                  <div
+                    className="w-10 h-10 rounded-[12px] flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: `${item.color}0F` }}
+                  >
+                    <item.icon style={{ color: item.color, width: 18, height: 18 }} strokeWidth={2} />
+                  </div>
+                  <div>
+                    <p className="text-[#111111] text-[14px] font-semibold leading-tight">{item.value}</p>
+                    <p className="text-[#9CA3AF] text-[12px] mt-0.5 font-medium">{item.label}</p>
+                  </div>
+                </>
+              );
+              const cls = `flex items-center justify-center gap-3.5 py-6 px-4 ${
+                i < TRUST_ITEMS.length - 1 ? 'lg:border-r border-[#E5E7EB]' : ''
+              } ${i < 2 ? 'border-b lg:border-b-0 border-[#E5E7EB]' : ''}`;
+              return item.link ? (
+                <a
+                  key={i}
+                  href={item.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`${cls} hover:bg-[#F8FAFC] transition-colors`}
                 >
-                  <item.icon style={{ color: item.color, width: 18, height: 18 }} strokeWidth={2} />
-                </div>
-                <div>
-                  <p className="text-[#111111] text-[14px] font-semibold leading-tight">{item.value}</p>
-                  <p className="text-[#9CA3AF] text-[12px] mt-0.5 font-medium">{item.label}</p>
-                </div>
-              </div>
-            ))}
+                  {inner}
+                </a>
+              ) : (
+                <div key={i} className={cls}>{inner}</div>
+              );
+            })}
           </StaggerGroup>
         </div>
       </section>
