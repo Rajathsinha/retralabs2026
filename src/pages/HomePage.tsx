@@ -41,6 +41,10 @@ const HERO_SLIDES = [
     lines: ["India's Peptide Market", 'Was Broken.'],
     accent: 'We Fixed It.',
   },
+  {
+    lines: ["India's #1 Research", 'Peptides Company'],
+    accent: '6 Years Old.',
+  },
 ];
 
 const FEATURE_BLOCKS = [
