@@ -5,6 +5,7 @@ import { Mail, ArrowUpRight, MessageCircle, ShieldCheck, Globe, FileCheck, Flask
 import Logo from './Logo';
 import TrustpilotWidget from './TrustpilotWidget';
 import { WHATSAPP_NUMBER, BUSINESS_NAP } from '../constants/config';
+import { CATEGORIES } from '../data/seoData';
 
 const DISCLAIMER_ITEMS = [
   'These products are for research use only — not for personal consumption.',
@@ -110,6 +111,7 @@ const COMPANY_LINKS = [
   { to: '/support', label: 'Support' },
   { to: '/track', label: 'Track Order' },
   { to: '/catalogue', label: 'Products' },
+  { to: '/guides', label: 'Research Guides' },
 ];
 
 const LEGAL_LINKS = [
@@ -283,6 +285,20 @@ export default function Footer() {
               <li><FooterLink href="/product/7">Buy BPC-157 India</FooterLink></li>
               <li><FooterLink href="/product/4">Buy Semax India</FooterLink></li>
               <li><FooterLink href="/catalogue">All Research Peptides</FooterLink></li>
+            </ul>
+          </div>
+
+          {/* Categories Column */}
+          <div>
+            <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-5">
+              Categories
+            </h4>
+            <ul className="space-y-3">
+              {CATEGORIES.map(cat => (
+                <li key={cat.slug}>
+                  <FooterLink href={`/category/${cat.slug}`}>{cat.label}</FooterLink>
+                </li>
+              ))}
             </ul>
           </div>
 

@@ -11,8 +11,10 @@ import {
   CheckCircle2,
   RotateCcw,
 } from 'lucide-react';
+import { useSEO } from '../hooks/useSEO';
 
 export default function CalculatorPage() {
+  useSEO({ title: 'Peptide Reconstitution Calculator | RetraLabs', description: 'Calculate peptide reconstitution concentration and injection volume.', noindex: true });
   const [peptideAmount, setPeptideAmount] = useState('10');
   const [waterVolume,   setWaterVolume]   = useState('2');
   const [desiredDose,   setDesiredDose]   = useState('0.25');

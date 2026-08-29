@@ -23,7 +23,7 @@ const ORIGIN = `http://localhost:${PORT}`;
 
 // Title of the static shell (index.html) — product pages must have replaced it
 // before we snapshot, which proves the per-page useSEO hook has run.
-const SHELL_TITLE_PREFIX = 'Buy Retatrutide India | Research Peptides';
+const SHELL_TITLE_PREFIX = 'Buy Research Peptides India';
 
 async function main() {
   if (process.env.PRERENDER_SKIP === '1') {

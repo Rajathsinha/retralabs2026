@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getProductImageUrl } from '../utils/imageUrl';
 import { ProductWithVariants, ProductVariant } from '../types';
 import { useCart } from '../context/CartContext';
@@ -83,6 +83,16 @@ const SPEC_MAP: Record<string, Record<string, string>> = {
   'NAD+': { 'CAS Number': '53-84-9', 'Molecular Weight': '~663.4 Da', 'Purity': '>99.0%', 'Appearance': 'White lyophilised powder', 'Storage': '-20C (lyophilised)', 'Form': 'Lyophilised powder', 'Research Use': 'Cellular Energy / Longevity' },
   'Semax': { 'CAS Number': '80714-61-0', 'Molecular Weight': '~813.9 Da', 'Purity': '>99.1%', 'Appearance': 'White lyophilised powder', 'Storage': '-20C (lyophilised)', 'Form': 'Lyophilised powder', 'Research Use': 'Cognitive / Neuroprotection' },
   'Selank': { 'CAS Number': '129954-34-3', 'Molecular Weight': '~751.9 Da', 'Purity': '>99.2%', 'Appearance': 'White lyophilised powder', 'Storage': '-20C (lyophilised)', 'Form': 'Lyophilised powder', 'Research Use': 'Anxiolytic / Cognitive' },
+  'Tesamorelin': { 'CAS Number': '99364-41-7', 'Molecular Weight': '~5135.7 Da', 'Purity': '>99.2%', 'Appearance': 'White lyophilised powder', 'Storage': '-20C (lyophilised)', 'Form': 'Lyophilised powder', 'Research Use': 'GHRH / Metabolic' },
+  'MOT-C': { 'CAS Number': '108195-95-9', 'Molecular Weight': '~531.6 Da', 'Purity': '>99.0%', 'Appearance': 'White lyophilised powder', 'Storage': '-20C (lyophilised)', 'Form': 'Lyophilised powder', 'Research Use': 'Metabolic / Mitochondrial' },
+  'Cagrilintide': { 'CAS Number': '2411740-61-3', 'Molecular Weight': '~3904.3 Da', 'Purity': '>99.1%', 'Appearance': 'White lyophilised powder', 'Storage': '-20C (lyophilised)', 'Form': 'Lyophilised powder', 'Research Use': 'Metabolic / Amylin' },
+  'AOD 9604': { 'CAS Number': '66096-69-5', 'Molecular Weight': '~1815.0 Da', 'Purity': '>99.1%', 'Appearance': 'White lyophilised powder', 'Storage': '-20C (lyophilised)', 'Form': 'Lyophilised powder', 'Research Use': 'Metabolic / Fat Metabolism' },
+  'Epithalon': { 'CAS Number': '307291-78-9', 'Molecular Weight': '~390.4 Da', 'Purity': '>99.2%', 'Appearance': 'White lyophilised powder', 'Storage': '-20C (lyophilised)', 'Form': 'Lyophilised powder', 'Research Use': 'Telomerase / Longevity' },
+  'Kisspeptin-10': { 'CAS Number': '374675-21-5', 'Molecular Weight': '~1302.4 Da', 'Purity': '>99.1%', 'Appearance': 'White lyophilised powder', 'Storage': '-20C (lyophilised)', 'Form': 'Lyophilised powder', 'Research Use': 'Hormonal / Reproductive' },
+  'SS-31': { 'CAS Number': '736992-13-1', 'Molecular Weight': '~639.8 Da', 'Purity': '>99.0%', 'Appearance': 'White lyophilised powder', 'Storage': '-20C (lyophilised)', 'Form': 'Lyophilised powder', 'Research Use': 'Mitochondrial / Anti-Aging' },
+  'Klow Blend': { 'CAS Number': 'N/A (Blend)', 'Molecular Weight': 'N/A (Blend)', 'Purity': '>99.0%', 'Appearance': 'White lyophilised powder', 'Storage': '-20C (lyophilised)', 'Form': 'Lyophilised powder', 'Research Use': 'Tissue Repair / Healing' },
+  'CJC-1295 (No DAC) + Ipamorelin Stack': { 'CAS Number': 'N/A (Stack)', 'Molecular Weight': '~1812.1 Da (combined)', 'Purity': '>99.1%', 'Appearance': 'White lyophilised powder', 'Storage': '-20C (lyophilised)', 'Form': 'Lyophilised powder', 'Research Use': 'GHRH / GH Secretagogue' },
+  'The Wolverine Stack': { 'CAS Number': 'N/A (Stack)', 'Molecular Weight': '~6382.5 Da (combined)', 'Purity': '>99.1%', 'Appearance': 'White lyophilised powder', 'Storage': '-20C (lyophilised)', 'Form': 'Lyophilised powder', 'Research Use': 'Tissue Repair / Recovery' },
 };
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -288,6 +298,34 @@ export default function ProductDetailPage() {
   const isFlagship = product.name === 'Retatrutide' || product.name === 'Tirzepatide';
   const relatedProducts = PRODUCTS.filter(p => p.id !== product.id && !p.name.includes('Bacteriostatic')).slice(0, 4);
 
+  // Semantically grouped related products
+  const RELATED_MAP: Record<string, string[]> = {
+    'Retatrutide': ['2', '19', '11', '10'],
+    'Tirzepatide': ['1', '19', '15', '10'],
+    'GHK-Cu': ['16', '8', '18', '1'],
+    'BPC-157': ['9', '14', '12', '13'],
+    'TB-500': ['7', '14', '12', '13'],
+    'Semax': ['5', '4', '1', '2'],
+    'Selank': ['4', '5', '1', '2'],
+    'Tesamorelin': ['13', '17', '1', '2'],
+    'NAD+': ['3', '16', '18', '11'],
+    'MOT-C': ['1', '2', '15', '19'],
+    'CJC-1295 (No DAC) + Ipamorelin Stack': ['10', '17', '1', '2'],
+    'The Wolverine Stack': ['7', '9', '12', '13'],
+    'Klow Blend': ['7', '9', '14', '13'],
+    'AOD 9604': ['1', '2', '11', '10'],
+    'Epithalon': ['3', '8', '18', '16'],
+    'Kisspeptin-10': ['13', '10', '1', '2'],
+    'SS-31': ['8', '16', '3', '11'],
+    'Cagrilintide': ['1', '2', '11', '15'],
+  };
+  const relatedIds = RELATED_MAP[product.name] ?? [];
+  const semanticRelated = relatedIds
+    .map(id => PRODUCTS.find(p => p.id === id))
+    .filter((p): p is NonNullable<typeof p> => Boolean(p) && p.id !== product.id)
+    .slice(0, 4);
+  const finalRelated = semanticRelated.length >= 2 ? semanticRelated : relatedProducts;
+
   return (
     <>
     <div className="min-h-screen bg-white pb-24 lg:pb-0">
@@ -296,11 +334,11 @@ export default function ProductDetailPage() {
       <div className="border-b border-[#F0F0F0]">
         <div className="max-w-[1320px] mx-auto px-6 py-3.5">
           <nav className="flex items-center gap-1.5 text-[12px] text-[#9CA3AF]">
-            <button onClick={() => navigate('/')} className="hover:text-[#374151] transition-colors">Home</button>
+            <Link to="/" className="hover:text-[#374151] transition-colors">Home</Link>
             <ChevronRight className="w-3 h-3" />
-            <button onClick={() => navigate('/catalogue')} className="hover:text-[#374151] transition-colors">Shop</button>
+            <Link to="/catalogue" className="hover:text-[#374151] transition-colors">Shop</Link>
             <ChevronRight className="w-3 h-3" />
-            <button onClick={() => navigate('/catalogue')} className="hover:text-[#374151] transition-colors">All Products</button>
+            <Link to="/catalogue" className="hover:text-[#374151] transition-colors">All Products</Link>
             <ChevronRight className="w-3 h-3" />
             <span className="text-[#374151] font-medium">{productDisplayName(product)}</span>
           </nav>
@@ -324,7 +362,7 @@ export default function ProductDetailPage() {
                 >
                   <img
                     src={getProductImageUrl(product.image_url, product.name)}
-                    alt={product.name}
+                    alt={`${product.name} research peptide vial`}
                     className="w-full h-full object-contain p-1.5"
                   />
                 </div>
@@ -338,7 +376,7 @@ export default function ProductDetailPage() {
               >
                 <img
                   src={getProductImageUrl(product.image_url, product.name)}
-                  alt={product.name}
+                  alt={`${product.name} research peptide in India — ${purity}% HPLC verified, COA included`}
                   className="w-full h-full object-contain p-8 sm:p-12"
                 />
                 {isFlagship && (
@@ -723,7 +761,7 @@ export default function ProductDetailPage() {
         <div className="max-w-[1320px] mx-auto px-6 py-12">
           <h2 className="text-[#111111] text-[22px] font-bold tracking-[-0.02em] mb-8">You May Also Like</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
-            {relatedProducts.map(rp => {
+            {finalRelated.map(rp => {
               const rpAccent = ACCENT_MAP[rp.name] ?? '#2563EB';
               const rpReviews = REVIEWS_MAP[rp.name] ?? { count: 10, avg: 4.7 };
               const rpPrice = Math.min(...rp.variants.map(v => v.price_inr));

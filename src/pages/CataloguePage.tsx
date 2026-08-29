@@ -1,11 +1,13 @@
 import { useState, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { PRODUCTS } from '../data/products';
 import { ProductWithVariants, ProductVariant } from '../types';
 import { useCart } from '../context/CartContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { useSEO } from '../hooks/useSEO';
 import { getBreadcrumbSchema } from '../utils/localSeoSchemas';
+import { getItemListSchema } from '../utils/seoSchemas';
+import { CATEGORIES } from '../data/seoData';
 import ProductModal from '../components/ProductModal';
 import { productDisplayName } from '../utils/productDisplayName';
 import {
@@ -165,14 +167,17 @@ function ProductCard({ product, onOpen, onAddToCart, addedVariantId, onNavigate 
 
 export default function CataloguePage() {
   useSEO({
-    title: 'Buy Research Peptides India | Full Catalogue | RetraLabs Bengaluru',
-    description: 'Browse all HPLC-verified research peptides available in India. Retatrutide, Tirzepatide, GHK-Cu, BPC-157, and more. COD available. Ships from Bengaluru across India.',
+    title: 'Buy Research Peptides India | Full Catalogue — Retatrutide, Tirzepatide, GHK-Cu | RetraLabs',
+    description: 'Browse all HPLC-verified research peptides available in India. Retatrutide, Tirzepatide, GHK-Cu, BPC-157, TB-500, Semax, Selank and more. COA included, COD available. Ships from Bengaluru across India.',
     canonical: 'https://retralabs.in/catalogue',
-    keywords: 'buy peptides india, research peptides catalogue, peptide shop india, buy retatrutide bangalore, tirzepatide india catalogue',
-    schema: getBreadcrumbSchema([
-      { name: 'Home', url: 'https://retralabs.in/' },
-      { name: 'Catalogue', url: 'https://retralabs.in/catalogue' },
-    ]),
+    keywords: 'buy peptides india, research peptides catalogue, peptide shop india, buy retatrutide bangalore, tirzepatide india catalogue, buy bpc-157 india, buy ghk-cu india, buy semax india, buy selank india',
+    schema: [
+      getBreadcrumbSchema([
+        { name: 'Home', url: 'https://retralabs.in/' },
+        { name: 'Catalogue', url: 'https://retralabs.in/catalogue' },
+      ]),
+      getItemListSchema(PRODUCTS.map(p => ({ name: p.name, url: `https://retralabs.in/product/${p.id}` }))),
+    ],
   });
 
   const navigate = useNavigate();
@@ -238,19 +243,33 @@ export default function CataloguePage() {
         <div className="max-w-[1440px] mx-auto px-6 lg:px-10 py-8 sm:py-10">
           {/* Breadcrumb */}
           <nav className="flex items-center gap-1.5 text-[12px] text-[#9CA3AF] mb-5">
-            <button onClick={() => navigate('/')} className="hover:text-[#374151] transition-colors">Home</button>
+            <Link to="/" className="hover:text-[#374151] transition-colors">Home</Link>
             <ChevronRight className="w-3 h-3" />
-            <button onClick={() => navigate('/catalogue')} className="hover:text-[#374151] transition-colors">Shop</button>
+            <Link to="/catalogue" className="hover:text-[#374151] transition-colors">Shop</Link>
             <ChevronRight className="w-3 h-3" />
             <span className="text-[#374151] font-medium">All Products</span>
           </nav>
 
           <h1 className="text-[#111111] text-[32px] sm:text-[40px] font-bold tracking-[-0.02em] leading-tight mb-2">
-            Our Peptides
+            Research Peptides India
           </h1>
           <p className="text-[#6B7280] text-[15px] leading-relaxed">
-            Premium quality. Verified compounds. Delivered with trust.
+            Browse our full catalogue of HPLC-verified research peptides. 99%+ purity, COA included, India-wide shipping with COD.
           </p>
+
+          {/* Category links */}
+          <div className="flex flex-wrap gap-2 mt-5">
+            {CATEGORIES.map(cat => (
+              <Link
+                key={cat.slug}
+                to={`/category/${cat.slug}`}
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-[12px] font-semibold rounded-full border border-[#E5E7EB] bg-white text-[#374151] hover:border-[#111111] hover:bg-[#FAFAFA] transition-all"
+              >
+                {cat.label}
+                <ChevronRight className="w-3 h-3" />
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
 

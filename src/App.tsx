@@ -21,6 +21,9 @@ const TermsPage          = lazy(() => import('./pages/TermsPage'));
 const RefundPolicyPage   = lazy(() => import('./pages/RefundPolicyPage'));
 const AdminPage          = lazy(() => import('./pages/AdminPage'));
 const TrackOrderPage     = lazy(() => import('./pages/TrackOrderPage'));
+const CategoryPage       = lazy(() => import('./pages/CategoryPage'));
+const GuidePage          = lazy(() => import('./pages/GuidePage'));
+const GuidesIndexPage    = lazy(() => import('./pages/GuidesIndexPage'));
 const HeroUIWrapper      = lazy(() => import('./providers/HeroUIWrapper'));
 
 // ─── Error Boundary ───────────────────────────────────────────────────────────
@@ -114,6 +117,9 @@ export default function App() {
             <Route path="/terms"           element={<TermsPage />} />
             <Route path="/refund"          element={<RefundPolicyPage />} />
             <Route path="/track"            element={<TrackOrderPage />} />
+            <Route path="/category/:slug"  element={<CategoryPage />} />
+            <Route path="/guides"          element={<GuidesIndexPage />} />
+            <Route path="/guides/:slug"     element={<GuidePage />} />
           </Route>
           {/* Admin — no header/footer */}
           <Route path="/admin" element={<Suspense fallback={<div style={{ minHeight: '100vh', background: '#040C1E' }} />}><AdminPage /></Suspense>} />

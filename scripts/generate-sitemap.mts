@@ -14,12 +14,16 @@ const lastmod = new Date().toISOString().slice(0, 10);
 
 function priorityFor(route: string): string {
   if (route === '/') return '1.0';
-  if (route === '/catalogue' || route.startsWith('/product/')) return '0.9';
+  if (route === '/catalogue' || route === '/guides') return '0.9';
+  if (route.startsWith('/product/')) return '0.9';
+  if (route.startsWith('/category/')) return '0.8';
+  if (route.startsWith('/guides/')) return '0.7';
   return '0.6';
 }
 
 function changefreqFor(route: string): string {
   if (route === '/' || route === '/catalogue' || route.startsWith('/product/')) return 'weekly';
+  if (route.startsWith('/category/') || route.startsWith('/guides')) return 'monthly';
   return 'monthly';
 }
 
