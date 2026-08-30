@@ -2,14 +2,12 @@ import { handler as createOrder } from '../../netlify/functions/create-order';
 import { handler as trackOrder } from '../../netlify/functions/track-order';
 import { handler as listOrders } from '../../netlify/functions/list-orders';
 import { handler as brevoOrderEmail } from '../../netlify/functions/brevo-order-email';
-import { handler as emailTemplate } from '../../netlify/functions/email-template';
 
 const HANDLERS: Record<string, (event: any, context?: any) => Promise<any>> = {
   'create-order': createOrder,
   'track-order': trackOrder,
   'list-orders': listOrders,
   'brevo-order-email': brevoOrderEmail,
-  'email-template': emailTemplate,
 };
 
 export const onRequest: PagesFunction<Record<string, string>> = async (context) => {
