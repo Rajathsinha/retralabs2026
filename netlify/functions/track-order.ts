@@ -6,9 +6,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
-const INNOFULFILL_BASE = ['sandbox', 'test', 'true'].includes((process.env.INNOFULFILL_ENV || process.env.INNOFULFILL_SANDBOX || '').toLowerCase())
-  ? 'https://sandbox.apis.innofulfill.com'
-  : 'https://apis.innofulfill.com';
+function getInnofulfillBase(): string {
+  const envVal = (typeof process !== 'undefined' && process.env)
+    ? (process.env.INNOFULFILL_ENV || process.env.INNOFULFILL_SANDBOX || '')
+    : '';
+  return ['sandbox', 'test', 'true'].includes(envVal.toLowerCase())
+    ? 'https://sandbox.apis.innofulfill.com'
+    : 'https://apis.innofulfill.com';
+}
 
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
@@ -29,7 +34,8 @@ async function getInnofulfillToken(): Promise<string | null> {
     return cachedToken.token;
   }
 
-  const res = await fetch(`${INNOFULFILL_BASE}/auth/login`, {
+  const innoBase = getInnofulfillBase();
+  const res = await fetch(`${innoBase}/auth/login`, {
     method: 'POST',
     headers: innofulfillHeaders(),
     body: JSON.stringify({ username, password, signinType: 'EMAIL' }),
@@ -177,7 +183,7 @@ export const handler: Handler = async (event) => {
         if (innoToken) {
           // Attempt to retrieve order details by Innofulfill Order ID
           const orderCheckRes = await fetch(
-            `${INNOFULFILL_BASE}/gateway/booking-service/orders?orderId=${encodeURIComponent(innofulfillOrderId)}`,
+            `${getInnofulfillBase()}/gateway/booking-service/orders?orderId=${encodeURIComponent(innofulfillOrderId)}`,
             { headers: innofulfillHeaders(innoToken) },
           );
           if (orderCheckRes.ok) {
@@ -225,7 +231,7 @@ export const handler: Handler = async (event) => {
         const innoToken = await getInnofulfillToken();
         if (innoToken) {
           const trackRes = await fetch(
-            `${INNOFULFILL_BASE}/gateway/booking-service/shipments/track?awb=${encodeURIComponent(awbNumber)}`,
+            `${getInnofulfillBase()}/gateway/booking-service/shipments/track?awb=${encodeURIComponent(awbNumber)}`,
             { headers: innofulfillHeaders(innoToken) },
           );
           if (trackRes.ok) {

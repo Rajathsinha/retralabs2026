@@ -132,9 +132,14 @@ const corsHeaders = {
 
 // ── Innofulfill ───────────────────────────────────────────────────────────────
 
-const INNOFULFILL_BASE = ['sandbox', 'test', 'true'].includes((process.env.INNOFULFILL_ENV || process.env.INNOFULFILL_SANDBOX || '').toLowerCase())
-  ? 'https://sandbox.apis.innofulfill.com'
-  : 'https://apis.innofulfill.com';
+function getInnofulfillBase(): string {
+  const envVal = (typeof process !== 'undefined' && process.env)
+    ? (process.env.INNOFULFILL_ENV || process.env.INNOFULFILL_SANDBOX || '')
+    : '';
+  return ['sandbox', 'test', 'true'].includes(envVal.toLowerCase())
+    ? 'https://sandbox.apis.innofulfill.com'
+    : 'https://apis.innofulfill.com';
+}
 
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
@@ -158,8 +163,9 @@ async function getInnofulfillToken(): Promise<string | null> {
     return cachedToken.token;
   }
 
-  console.log(`[Innofulfill] Authenticating against ${INNOFULFILL_BASE}/auth/login as ${username}`);
-  const res = await fetch(`${INNOFULFILL_BASE}/auth/login`, {
+  const innoBase = getInnofulfillBase();
+  console.log(`[Innofulfill] Authenticating against ${innoBase}/auth/login as ${username}`);
+  const res = await fetch(`${innoBase}/auth/login`, {
     method: 'POST',
     headers: innofulfillHeaders(),
     body: JSON.stringify({ username, password, signinType: 'EMAIL' }),
@@ -327,7 +333,8 @@ async function createInnofulfillOrder(
   };
 
   console.log(`[Innofulfill] Creating shipment for ${orderId}`);
-  const res = await fetch(`${INNOFULFILL_BASE}/gateway/booking-service/orders`, {
+  const innoBase = getInnofulfillBase();
+  const res = await fetch(`${innoBase}/gateway/booking-service/orders`, {
     method: 'POST',
     headers: innofulfillHeaders(token),
     body: JSON.stringify(payload),
