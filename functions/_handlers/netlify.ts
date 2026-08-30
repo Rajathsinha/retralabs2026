@@ -13,7 +13,7 @@ const HANDLERS: Record<string, (event: any, context?: any) => Promise<any>> = {
 export const onRequest: PagesFunction<Record<string, string>> = async (context) => {
   const { request, env, params } = context;
 
-  // Safely inject env vars
+  // Safely inject env vars into process.env
   if (typeof process !== 'undefined' && process.env && env) {
     for (const [k, v] of Object.entries(env)) {
       if (typeof v === 'string') {
@@ -39,11 +39,9 @@ export const onRequest: PagesFunction<Record<string, string>> = async (context) 
 
   const handlerFn = HANDLERS[functionName];
 
+  // If not an API route, fall back to static assets (HTML/JS/CSS)
   if (!handlerFn) {
-    return new Response(JSON.stringify({ error: `Function '${functionName}' not found` }), {
-      status: 404,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return context.next();
   }
 
   const url = new URL(request.url);
@@ -83,3 +81,7 @@ export const onRequest: PagesFunction<Record<string, string>> = async (context) 
     });
   }
 };
+
+export const onRequestPost = onRequest;
+export const onRequestGet = onRequest;
+export const onRequestOptions = onRequest;
