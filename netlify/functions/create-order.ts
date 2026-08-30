@@ -236,11 +236,11 @@ async function createInnofulfillOrder(
 ): Promise<InnofulfillResult> {
   const phone = cleanPhone(customer.phone);
   const pickupName = process.env.INNOFULFILL_PICKUP_NAME || 'RetraLabs';
-  const pickupPhone = process.env.INNOFULFILL_PICKUP_PHONE || '9000000000';
-  const pickupZip = process.env.INNOFULFILL_PICKUP_ZIP || '560001';
+  const pickupPhone = process.env.INNOFULFILL_PICKUP_PHONE || '6360489397';
+  const pickupZip = process.env.INNOFULFILL_PICKUP_ZIP || '560016';
   const pickupCity = process.env.INNOFULFILL_PICKUP_CITY || 'Bengaluru';
   const pickupState = process.env.INNOFULFILL_PICKUP_STATE || 'Karnataka';
-  const pickupAddress = process.env.INNOFULFILL_PICKUP_ADDRESS || 'RetraLabs Warehouse, Bengaluru, Karnataka 560001';
+  const pickupAddress = process.env.INNOFULFILL_PICKUP_ADDRESS || 'Rajareddy layout 1st cross, shanti layout 8th cross, ramamurthy nagar, Bengaluru, Karnataka 560016';
   const carrierId = process.env.INNOFULFILL_CARRIER_ID || '';
   const carrierNameEnv = process.env.INNOFULFILL_CARRIER_NAME || 'innofulfill_ecomm';
 

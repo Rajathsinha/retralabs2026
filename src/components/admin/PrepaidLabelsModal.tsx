@@ -8,9 +8,9 @@ interface PrepaidLabelsModalProps {
 }
 
 const SENDER = {
-  name: 'Ashish',
-  phone: '7019917927',
-  address: ['Shanti Layout 8th Cross', 'Rammurthy Nagar', 'Bangalore 560016'],
+  name: 'RetraLabs',
+  phone: '6360489397',
+  address: ['Rajareddy layout 1st cross', 'Shanti layout 8th cross', 'Ramamurthy Nagar, Bengaluru 560016'],
 };
 
 function field(record: AirtableRecord, key: string): string {
