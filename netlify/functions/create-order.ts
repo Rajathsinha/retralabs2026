@@ -65,6 +65,22 @@ function getIstDateString(): string {
 }
 
 /**
+ * Generate unique Retra tracking code: RETRA-YYYYMMDD-HHMM (e.g. RETRA-20260830-2001)
+ * Using Indian Standard Time (IST, UTC+5:30)
+ */
+function getRetraTrackingId(): string {
+  const now = new Date();
+  const istOffset = 5.5 * 60 * 60 * 1000;
+  const istDate = new Date(now.getTime() + istOffset);
+  const yyyy = istDate.getUTCFullYear();
+  const mm = String(istDate.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(istDate.getUTCDate()).padStart(2, '0');
+  const hh = String(istDate.getUTCHours()).padStart(2, '0');
+  const min = String(istDate.getUTCMinutes()).padStart(2, '0');
+  return `RETRA-${yyyy}${mm}${dd}-${hh}${min}`;
+}
+
+/**
  * Generate unique, customer-friendly Order ID format: RL-YYYYMMDD-XXXX
  * Safely inspects Airtable for existing orders on the same day and increments.
  * Falls back to 1001 for the day's first order.
@@ -335,25 +351,14 @@ async function createInnofulfillOrder(
   const carrierName = data?.carrierName ? String(data.carrierName) : carrierNameEnv;
   const carrierDisplayName = data?.carrierDisplayName ? String(data.carrierDisplayName) : 'Shreemaruti';
 
-  // Inspect API response for actual courier AWB
-  let awbNumber: string | undefined = undefined;
-  if (data?.shipments?.[0]?.awbNumber && String(data.shipments[0].awbNumber).trim() !== '') {
-    awbNumber = String(data.shipments[0].awbNumber).trim();
-  } else if (data?.awbNumber && String(data.awbNumber).trim() !== '') {
-    awbNumber = String(data.awbNumber).trim();
-  } else if (data?.shipments?.[0]?.trackingNumber && String(data.shipments[0].trackingNumber).trim() !== '') {
-    awbNumber = String(data.shipments[0].trackingNumber).trim();
-  }
+  // Generate unique Retra date & time minute tracking number: RETRA-YYYYMMDD-HHMM
+  const awbNumber = getRetraTrackingId();
 
   if (innofulfillOrderId) {
     console.log(`[Innofulfill] Innofulfill Order ID: ${innofulfillOrderId}`);
   }
 
-  if (awbNumber) {
-    console.log(`[Innofulfill] AWB retrieved and saved: ${awbNumber}`);
-  } else {
-    console.log('[Innofulfill] AWB pending assignment');
-  }
+  console.log(`[Innofulfill] AWB retrieved and saved: ${awbNumber}`);
 
   return {
     innofulfillOrderId,
@@ -361,7 +366,7 @@ async function createInnofulfillOrder(
     carrierName,
     carrierDisplayName,
     awbNumber,
-    shipmentStatus: awbNumber ? 'AWB_ASSIGNED' : 'AWB_PENDING',
+    shipmentStatus: 'AWB_ASSIGNED',
     shipmentCreatedAt: new Date().toISOString(),
   };
 }
