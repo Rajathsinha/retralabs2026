@@ -1,5 +1,27 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { X, CheckCircle, MessageCircle, Upload, Copy, Shield, Lock, QrCode, Loader2, AlertCircle, ChevronRight, Image as ImageIcon, ShieldCheck, ShieldAlert } from 'lucide-react';
+import type { ReactNode } from 'react';
+import {
+  AlertCircle,
+  Check,
+  CheckCircle2,
+  ChevronRight,
+  HelpCircle,
+  Clock3,
+  Copy,
+  ExternalLink,
+  FileImage,
+  Google,
+  Image as ImageIcon,
+  Loader2,
+  LockKeyhole,
+  MessageCircle,
+  QrCode,
+  ShieldCheck,
+  Smartphone,
+  Upload,
+  WalletCards,
+  X,
+} from 'lucide-react';
 
 const UPI_ID = 'retralabs@ptaxis';
 const MERCHANT_NAME = 'RetraLabs';
@@ -7,6 +29,8 @@ const COUNTDOWN_SECONDS = 180;
 
 type Stage = 'idle' | 'verifying' | 'success' | 'expired';
 type OcrStatus = 'idle' | 'scanning' | 'matched' | 'mismatch' | 'error';
+type PaymentMethod = 'upi' | 'paytm' | 'gpay' | 'whatsapp';
+type PaymentTab = 'qr' | 'upi';
 
 interface UpiQrModalProps {
   isOpen: boolean;
@@ -16,32 +40,34 @@ interface UpiQrModalProps {
   whatsappUrl: string;
 }
 
-// Extract all rupee amounts from OCR text — handles ₹1,234 / Rs.1234 / 1,234.00 etc.
 function extractAmounts(text: string): number[] {
   const amounts: number[] = [];
-  // Match patterns like ₹1,234, ₹ 1,234.56, Rs.1,234, INR 1234, or bare 1,234.50
   const patterns = [
     /₹\s*([\d,]+\.?\d*)/gi,
     /Rs\.?\s*([\d,]+\.?\d*)/gi,
     /INR\s*([\d,]+\.?\d*)/gi,
     /\b([\d]{1,3}(?:,\d{3})*(?:\.\d{1,2})?)\b/g,
   ];
-  for (const p of patterns) {
-    let m: RegExpExecArray | null;
-    while ((m = p.exec(text)) !== null) {
-      const raw = m[1].replace(/,/g, '');
-      const n = parseFloat(raw);
-      if (!isNaN(n) && n > 0) amounts.push(n);
+  for (const pattern of patterns) {
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(text)) !== null) {
+      const amount = parseFloat(match[1].replace(/,/g, ''));
+      if (!Number.isNaN(amount) && amount > 0) amounts.push(amount);
     }
   }
   return amounts;
 }
 
-// Check if any extracted amount matches the payable within ₹1 tolerance
 function verifyAmount(ocrText: string, payable: number): boolean {
-  const amounts = extractAmounts(ocrText);
-  return amounts.some(a => Math.abs(a - payable) <= 1);
+  return extractAmounts(ocrText).some(value => Math.abs(value - payable) <= 1);
 }
+
+const methodDetails: Record<PaymentMethod, { label: string; detail: string; icon: ReactNode }> = {
+  upi: { label: 'UPI / QR', detail: 'Recommended', icon: <QrCode size={18} /> },
+  paytm: { label: 'Paytm', detail: 'Pay with Paytm', icon: <span className="text-[13px] font-black tracking-tight">paytm</span> },
+  gpay: { label: 'Google Pay', detail: 'Pay with GPay', icon: <span className="text-[15px] font-bold">G</span> },
+  whatsapp: { label: 'WhatsApp Pay', detail: 'Pay in WhatsApp', icon: <MessageCircle size={18} /> },
+};
 
 export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsappUrl }: UpiQrModalProps) {
   const [txnRef, setTxnRef] = useState('');
@@ -54,106 +80,106 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
   const [mounted, setMounted] = useState(false);
   const [ocrStatus, setOcrStatus] = useState<OcrStatus>('idle');
   const [ocrProgress, setOcrProgress] = useState(0);
-  const [fraudWarning, setFraudWarning] = useState<string>('');
+  const [fraudWarning, setFraudWarning] = useState('');
+  const [method, setMethod] = useState<PaymentMethod>('upi');
+  const [tab, setTab] = useState<PaymentTab>('qr');
+  const [toast, setToast] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const ocrAbortRef = useRef<AbortController | null>(null);
 
-  // Mount animation
   useEffect(() => {
     if (isOpen) {
       setMounted(true);
       setStage('idle');
       setSecondsLeft(COUNTDOWN_SECONDS);
+      setMethod('upi');
+      setTab('qr');
+      setTxnRef('');
+      setScreenshot(null);
+      setScreenshotUrl(null);
       setOcrStatus('idle');
       setFraudWarning('');
     } else {
       setMounted(false);
-      if (ocrAbortRef.current) ocrAbortRef.current.abort();
+      ocrAbortRef.current?.abort();
     }
   }, [isOpen]);
 
-  // Cleanup screenshot URL
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !confirming) onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, confirming, onClose]);
+
   useEffect(() => {
     return () => { if (screenshotUrl) URL.revokeObjectURL(screenshotUrl); };
   }, [screenshotUrl]);
 
-  // Countdown timer
   useEffect(() => {
     if (!isOpen || stage === 'success' || stage === 'expired') return;
     if (secondsLeft <= 0) {
       setStage('expired');
       return;
     }
-    const t = setTimeout(() => setSecondsLeft(s => s - 1), 1000);
-    return () => clearTimeout(t);
+    const timer = window.setTimeout(() => setSecondsLeft(value => value - 1), 1000);
+    return () => window.clearTimeout(timer);
   }, [isOpen, secondsLeft, stage]);
 
-  // OCR verification when screenshot changes
+  const showToast = (message: string) => {
+    setToast(message);
+    window.setTimeout(() => setToast(''), 2200);
+  };
+
   const runOcrCheck = useCallback(async (file: File) => {
-    if (ocrAbortRef.current) ocrAbortRef.current.abort();
+    ocrAbortRef.current?.abort();
     const controller = new AbortController();
     ocrAbortRef.current = controller;
-
     setOcrStatus('scanning');
     setOcrProgress(0);
     setFraudWarning('');
-
-    let worker: { recognize: (img: File) => Promise<{ data: { text: string } }>; terminate: () => void } | null = null;
+    let worker: { recognize: (image: File) => Promise<{ data: { text: string } }>; terminate: () => void } | null = null;
 
     try {
       const Tesseract = await import('tesseract.js');
       if (controller.signal.aborted) return;
-
       worker = await Tesseract.createWorker('eng', 1, {
         workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@7.0.0/dist/worker.min.js',
         langPath: 'https://tessdata.projectnaptha.com/4.0.0',
         corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@7.0.0',
-        logger: (m: { status: string; progress: number }) => {
-          if (m.status === 'recognizing text' && !controller.signal.aborted) {
-            setOcrProgress(Math.round(m.progress * 100));
-          }
+        logger: (message: { status: string; progress: number }) => {
+          if (message.status === 'recognizing text' && !controller.signal.aborted) setOcrProgress(Math.round(message.progress * 100));
         },
       });
-
-      if (controller.signal.aborted) {
-        worker.terminate();
-        return;
-      }
-
-      const { data } = await worker.recognize(file);
-
       if (controller.signal.aborted) return;
-
-      const text = data.text;
-      const matched = verifyAmount(text, amount);
-
-      if (matched) {
+      const { data } = await worker.recognize(file);
+      if (controller.signal.aborted) return;
+      if (verifyAmount(data.text, amount)) {
         setOcrStatus('matched');
       } else {
         setOcrStatus('mismatch');
-        setFraudWarning(
-          `We couldn't automatically verify the amount in your screenshot. Please make sure you paid ₹${amount.toLocaleString('en-IN')} and tap Confirm — your order will be manually reviewed.`
-        );
+        setFraudWarning(`We couldn't automatically verify the amount. Please confirm you paid ₹${amount.toLocaleString('en-IN')}; your order will be manually reviewed.`);
       }
     } catch {
-      if (controller.signal.aborted) return;
-      setOcrStatus('error');
-      setFraudWarning('');
+      if (!controller.signal.aborted) {
+        setOcrStatus('error');
+        setFraudWarning('');
+      }
     } finally {
       if (worker) {
-        try { worker.terminate(); } catch { /* ignore */ }
+        try { worker.terminate(); } catch { /* worker cleanup */ }
       }
     }
   }, [amount]);
 
   const handleFileChange = (file: File | null) => {
     if (!file) return;
-    // Validate it's an image
     if (!file.type.startsWith('image/')) {
-      setFraudWarning('Please upload an image file (PNG, JPG, etc.).');
+      setFraudWarning('Please upload a PNG or JPG payment screenshot.');
       return;
     }
-    // Max 10MB
     if (file.size > 10 * 1024 * 1024) {
       setFraudWarning('Screenshot is too large. Please use an image under 10MB.');
       return;
@@ -162,14 +188,11 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
     setScreenshot(file);
     setScreenshotUrl(URL.createObjectURL(file));
     setFraudWarning('');
-    runOcrCheck(file);
+    void runOcrCheck(file);
   };
 
   const handleConfirm = useCallback(async () => {
-    if (!txnRef.trim() || confirming || stage === 'expired') return;
-    // Screenshot is mandatory
-    if (!screenshot) return;
-    // Allow proceeding even on mismatch — order will be manually reviewed
+    if (!txnRef.trim() || confirming || stage === 'expired' || !screenshot) return;
     setConfirming(true);
     setStage('verifying');
     try {
@@ -180,550 +203,137 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
     } finally {
       setConfirming(false);
     }
-  }, [txnRef, confirming, stage, onConfirm, screenshot, ocrStatus]);
+  }, [txnRef, confirming, stage, onConfirm, screenshot]);
 
-  const copyUpiId = () => {
-    navigator.clipboard.writeText(UPI_ID);
+  const copyUpiId = async () => {
+    await navigator.clipboard.writeText(UPI_ID);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    showToast('UPI ID copied');
+    window.setTimeout(() => setCopied(false), 2000);
+  };
+
+  const openPaymentApp = (selectedMethod: PaymentMethod) => {
+    setMethod(selectedMethod);
+    window.location.href = `upi://pay?pa=${UPI_ID}&pn=${MERCHANT_NAME}&am=${amount}&tn=RetraLabs%20Order`;
   };
 
   const mm = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
   const ss = String(secondsLeft % 60).padStart(2, '0');
   const progress = ((COUNTDOWN_SECONDS - secondsLeft) / COUNTDOWN_SECONDS) * 100;
   const isLow = secondsLeft <= 30;
-
-  // Confirm button is enabled only when: UTR provided, screenshot uploaded, OCR matched (or error = manual review), not expired
-  const canConfirm = txnRef.trim() && !confirming && screenshot && (ocrStatus === 'matched' || ocrStatus === 'mismatch' || ocrStatus === 'error') && stage !== 'expired';
+  const canConfirm = Boolean(txnRef.trim() && !confirming && screenshot && stage !== 'expired');
 
   if (!isOpen) return null;
 
   return (
-    <div
-      style={{
-        position: 'fixed', inset: 0, zIndex: 9999,
-        display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-        padding: 16, overflow: 'auto',
-        opacity: mounted ? 1 : 0,
-        transition: 'opacity 0.3s ease',
-      }}
-    >
-      {/* Backdrop */}
-      <div
-        onClick={onClose}
-        style={{
-          position: 'absolute', inset: 0,
-          background: 'rgba(2,6,23,0.85)',
-          backdropFilter: 'blur(8px)',
-          WebkitBackdropFilter: 'blur(8px)',
-        }}
-      />
-
-      {/* Modal */}
-      <div
-        style={{
-          position: 'relative', zIndex: 1, width: '100%', maxWidth: 440,
-          marginTop: 'max(20px, 8vh)',
-          background: 'linear-gradient(180deg, #0B1226 0%, #060B1A 100%)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: 24, overflow: 'hidden',
-          boxShadow: '0 32px 120px rgba(0,0,0,0.7), 0 0 0 1px rgba(0,200,150,0.06)',
-          marginBottom: 20,
-          transform: mounted ? 'translateY(0) scale(1)' : 'translateY(24px) scale(0.97)',
-          opacity: mounted ? 1 : 0,
-          transition: 'transform 0.4s cubic-bezier(0.16,1,0.3,1), opacity 0.4s ease',
-        }}
-      >
-        {/* Top accent bar */}
-        <div style={{
-          height: 3, width: '100%',
-          background: 'linear-gradient(90deg, #00C896 0%, #00A3FF 50%, #00C896 100%)',
-          backgroundSize: '200% 100%',
-          animation: 'rl-shimmer 3s linear infinite',
-        }} />
-
-        {/* ── Header / Merchant ── */}
-        <div style={{ padding: '20px 20px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-              <div style={{
-                background: 'linear-gradient(135deg,#00C896,#00A3FF)',
-                borderRadius: 10, width: 34, height: 34,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: '0 4px 14px rgba(0,200,150,0.35)',
-              }}>
-                <span style={{ color: '#fff', fontWeight: 900, fontSize: 13, letterSpacing: '-0.02em' }}>RL</span>
-              </div>
+    <div className="fixed inset-0 z-[9999] flex items-start justify-center overflow-auto bg-[#081426]/85 p-3 sm:p-6 backdrop-blur-md" role="dialog" aria-modal="true" aria-label="RetraLabs secure checkout">
+      <button aria-label="Close payment checkout" onClick={onClose} className="absolute inset-0 cursor-default" />
+      <div className={`relative z-10 my-3 w-full max-w-[880px] overflow-hidden rounded-[24px] bg-[#f7f9fc] shadow-[0_32px_100px_rgba(0,0,0,0.45)] transition-all duration-300 sm:my-8 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-5 opacity-0'}`}>
+        <header className="bg-[#081426] px-5 py-5 text-white sm:px-8 sm:py-6">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <img src="/favicon.png" alt="RetraLabs" className="h-11 w-11 rounded-[14px]" />
               <div>
-                <span style={{ color: '#fff', fontWeight: 800, fontSize: 16, display: 'block', lineHeight: 1.1 }}>{MERCHANT_NAME}</span>
-                <span style={{ color: '#64748b', fontSize: 10, fontWeight: 600 }}>Secure Checkout</span>
+                <p className="text-[17px] font-bold tracking-[-0.02em]">RetraLabs</p>
+                <p className="mt-0.5 text-[11px] font-medium text-slate-400">Secure Checkout</p>
               </div>
             </div>
+            <div className="flex items-center gap-4">
+              <div className="hidden items-center gap-1.5 text-xs font-semibold text-slate-300 sm:flex"><LockKeyhole size={14} className="text-[#20c9b5]" /> Secure payment</div>
+              <button onClick={onClose} aria-label="Close" className="rounded-xl border border-white/10 bg-white/[0.06] p-2.5 text-slate-300 transition hover:bg-white/10 hover:text-white"><X size={17} /></button>
+            </div>
           </div>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            style={{
-              background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: 10,
-              width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', color: '#94a3b8', transition: 'all 0.2s',
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.12)'; (e.currentTarget as HTMLButtonElement).style.color = '#fff'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.06)'; (e.currentTarget as HTMLButtonElement).style.color = '#94a3b8'; }}
-          >
-            <X size={16} />
-          </button>
-        </div>
-
-        {/* ── Amount + countdown ── */}
-        <div style={{ padding: '16px 20px 0' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+          <div className="mt-7 grid gap-6 border-t border-white/10 pt-6 sm:grid-cols-[1fr_260px] sm:items-end">
             <div>
-              <p style={{ color: '#94a3b8', fontSize: 11, margin: '0 0 6px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Amount Payable</p>
-              <p style={{
-                color: '#fff', fontSize: 38, fontWeight: 900, margin: 0, letterSpacing: '-0.03em',
-                lineHeight: 1,
-              }}>
-                <span style={{ fontSize: 22, fontWeight: 700, color: '#94a3b8', marginRight: 2 }}>₹</span>
-                {amount.toLocaleString('en-IN')}
-              </p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Payable amount</p>
+              <p className="mt-1 text-[36px] font-bold tracking-[-0.04em] sm:text-[42px]">₹{amount.toLocaleString('en-IN')}</p>
+              <div className="mt-3 flex items-center gap-2 text-xs text-slate-400"><Clock3 size={14} className={isLow ? 'text-amber-400' : 'text-[#20c9b5]'} /> Order will expire in <span className={`rounded-full px-2 py-1 font-bold ${isLow ? 'bg-amber-400/15 text-amber-300' : 'bg-[#20c9b5]/15 text-[#5eead4]'}`}>{mm}:{ss}</span></div>
+              <div className="mt-4 h-1 overflow-hidden rounded-full bg-white/10"><div className={`h-full rounded-full transition-all duration-1000 ${isLow ? 'bg-amber-400' : 'bg-[#20c9b5]'}`} style={{ width: `${progress}%` }} /></div>
             </div>
-            {/* Countdown chip */}
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '6px 12px', borderRadius: 99,
-              background: stage === 'expired'
-                ? 'rgba(239,68,68,0.12)'
-                : isLow ? 'rgba(251,191,36,0.12)' : 'rgba(0,200,150,0.1)',
-              border: `1px solid ${stage === 'expired' ? 'rgba(239,68,68,0.3)' : isLow ? 'rgba(251,191,36,0.3)' : 'rgba(0,200,150,0.25)'}`,
-              transition: 'all 0.3s ease',
-            }}>
-              <div style={{
-                width: 6, height: 6, borderRadius: '50%',
-                background: stage === 'expired' ? '#ef4444' : isLow ? '#fbbf24' : '#00C896',
-                boxShadow: `0 0 8px ${stage === 'expired' ? '#ef4444' : isLow ? '#fbbf24' : '#00C896'}`,
-                animation: stage === 'expired' ? 'none' : 'rl-pulse 1.2s ease-in-out infinite',
-              }} />
-              <span style={{
-                fontFamily: 'monospace', fontWeight: 700, fontSize: 13,
-                color: stage === 'expired' ? '#fca5a5' : isLow ? '#fcd34d' : '#00C896',
-                fontVariantNumeric: 'tabular-nums',
-              }}>
-                {stage === 'expired' ? 'Expired' : `${mm}:${ss}`}
-              </span>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Order summary</p>
+              <div className="mt-3 flex items-start justify-between gap-3 text-sm"><span className="font-semibold text-white">Research order</span><span className="font-bold text-white">₹{amount.toLocaleString('en-IN')}</span></div>
+              <p className="mt-1 text-xs text-slate-400">Quantity and product details confirmed at checkout</p>
+              <div className="my-3 h-px bg-white/10" />
+              <div className="flex justify-between text-sm font-bold"><span className="text-slate-300">Total amount</span><span className="text-[#5eead4]">₹{amount.toLocaleString('en-IN')}</span></div>
             </div>
           </div>
-          {/* Progress bar */}
-          <div style={{ marginTop: 12, height: 3, borderRadius: 99, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-            <div style={{
-              height: '100%',
-              width: `${progress}%`,
-              borderRadius: 99,
-              background: stage === 'expired'
-                ? 'linear-gradient(90deg,#ef4444,#dc2626)'
-                : isLow ? 'linear-gradient(90deg,#fbbf24,#f59e0b)' : 'linear-gradient(90deg,#00C896,#00A3FF)',
-              transition: 'width 1s linear, background 0.3s ease',
-            }} />
-          </div>
-        </div>
+        </header>
 
-        {/* ── Success state ── */}
         {stage === 'success' ? (
-          <div style={{ padding: '40px 20px 32px', textAlign: 'center' }}>
-            <div style={{
-              width: 72, height: 72, borderRadius: '50%',
-              background: 'rgba(0,200,150,0.12)', border: '2px solid rgba(0,200,150,0.4)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              margin: '0 auto 16px',
-              animation: 'rl-pop 0.5s cubic-bezier(0.16,1,0.3,1)',
-            }}>
-              <CheckCircle size={36} style={{ color: '#00C896' }} />
-            </div>
-            <h3 style={{ color: '#fff', fontSize: 20, fontWeight: 800, margin: '0 0 6px' }}>Payment Received</h3>
-            <p style={{ color: '#94a3b8', fontSize: 13, margin: '0 0 20px' }}>Your order is confirmed. We'll dispatch it shortly.</p>
-            <button
-              onClick={onClose}
-              style={{
-                padding: '12px 28px', borderRadius: 12, border: 'none', cursor: 'pointer',
-                background: 'linear-gradient(135deg,#00C896,#00A3FF)',
-                color: '#fff', fontWeight: 800, fontSize: 14,
-                boxShadow: '0 8px 24px rgba(0,200,150,0.3)',
-              }}
-            >
-              Done
-            </button>
-          </div>
+          <SuccessState amount={amount} onClose={onClose} />
         ) : stage === 'expired' ? (
-          /* ── Expired state ── */
-          <div style={{ padding: '40px 20px 32px', textAlign: 'center' }}>
-            <div style={{
-              width: 72, height: 72, borderRadius: '50%',
-              background: 'rgba(239,68,68,0.12)', border: '2px solid rgba(239,68,68,0.3)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              margin: '0 auto 16px',
-            }}>
-              <AlertCircle size={36} style={{ color: '#ef4444' }} />
-            </div>
-            <h3 style={{ color: '#fff', fontSize: 20, fontWeight: 800, margin: '0 0 6px' }}>Session Expired</h3>
-            <p style={{ color: '#94a3b8', fontSize: 13, margin: '0 0 20px' }}>The payment window closed. Please restart to get a fresh QR.</p>
-            <button
-              onClick={() => { setStage('idle'); setSecondsLeft(COUNTDOWN_SECONDS); setTxnRef(''); setScreenshot(null); setScreenshotUrl(null); setOcrStatus('idle'); setFraudWarning(''); }}
-              style={{
-                padding: '12px 28px', borderRadius: 12, border: 'none', cursor: 'pointer',
-                background: 'linear-gradient(135deg,#00C896,#00A3FF)',
-                color: '#fff', fontWeight: 800, fontSize: 14,
-              }}
-            >
-              Restart Payment
-            </button>
-          </div>
+          <ExpiredState onRestart={() => { setStage('idle'); setSecondsLeft(COUNTDOWN_SECONDS); }} />
         ) : (
-          <>
-            {/* ── QR Code ── */}
-            <div style={{ padding: '18px 20px 0' }}>
-              <div style={{
-                position: 'relative',
-                background: '#fff', borderRadius: 18, padding: 14, textAlign: 'center',
-                boxShadow: '0 8px 30px rgba(0,0,0,0.3)',
-              }}>
-                <img
-                  src="/retralabs-payment-qr.png"
-                  alt="RetraLabs UPI QR"
-                  style={{ width: '100%', maxWidth: 220, height: 'auto', display: 'block', margin: '0 auto', borderRadius: 10 }}
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                />
-                {/* Scanning overlay */}
-                <div style={{
-                  position: 'absolute', left: 14, right: 14, top: 14, bottom: 14,
-                  borderRadius: 10, overflow: 'hidden', pointerEvents: 'none',
-                }}>
-                  <div style={{
-                    position: 'absolute', left: 0, right: 0, height: 2,
-                    background: 'linear-gradient(90deg, transparent, #00C896, transparent)',
-                    boxShadow: '0 0 12px #00C896',
-                    animation: 'rl-scan 2.5s ease-in-out infinite',
-                  }} />
-                </div>
+          <main className="grid gap-0 lg:grid-cols-[220px_1fr]">
+            <aside className="border-b border-[#e5e7eb] bg-white p-4 lg:border-b-0 lg:border-r sm:p-5">
+              <p className="mb-3 px-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#9ca3af]">Choose a payment method</p>
+              <div className="flex gap-2 overflow-x-auto lg:block lg:space-y-2">
+                {(Object.keys(methodDetails) as PaymentMethod[]).map(option => {
+                  const detail = methodDetails[option];
+                  const selected = method === option;
+                  return <button key={option} onClick={() => setMethod(option)} className={`flex min-w-[142px] items-center gap-3 rounded-xl border p-3 text-left transition lg:w-full ${selected ? 'border-[#20c9b5] bg-[#e9fbf8] text-[#081426] shadow-[0_0_0_3px_rgba(32,201,181,0.08)]' : 'border-[#e5e7eb] bg-white text-[#172033] hover:border-[#b8c5d3]'}`}>
+                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${selected ? 'bg-[#081426] text-[#5eead4]' : 'bg-[#eef2f6] text-[#4b6174]'}`}>{detail.icon}</span>
+                    <span className="min-w-0"><span className="block whitespace-nowrap text-xs font-bold">{detail.label}</span><span className={`mt-0.5 block whitespace-nowrap text-[10px] ${selected ? 'text-[#167c73]' : 'text-[#9ca3af]'}`}>{detail.detail}</span></span>
+                  </button>;
+                })}
               </div>
-              <p style={{ textAlign: 'center', color: '#64748b', fontSize: 11, fontWeight: 600, margin: '10px 0 0', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                Scan with any UPI app to pay
-              </p>
-            </div>
+              <div className="mt-5 hidden rounded-xl bg-[#f7f9fc] p-3 text-[11px] leading-relaxed text-[#6b7280] lg:block"><ShieldCheck size={15} className="mb-2 text-[#20c9b5]" /><b className="text-[#172033]">Safe and private</b><br />Your payment details are never stored on this device.</div>
+            </aside>
 
-            {/* ── UPI ID ── */}
-            <div style={{ padding: '14px 20px 0' }}>
-              <div style={{
-                background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-                borderRadius: 14, padding: '12px 16px',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                transition: 'border-color 0.2s',
-              }}>
-                <div>
-                  <p style={{ color: '#64748b', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', margin: '0 0 3px' }}>UPI ID</p>
-                  <p style={{ color: '#00C896', fontSize: 15, fontWeight: 700, margin: 0, fontFamily: 'monospace', letterSpacing: '-0.01em' }}>{UPI_ID}</p>
-                </div>
-                <button
-                  onClick={copyUpiId}
-                  style={{
-                    background: copied ? 'rgba(0,200,150,0.18)' : 'rgba(0,200,150,0.08)',
-                    border: '1px solid rgba(0,200,150,0.3)', borderRadius: 9,
-                    padding: '7px 14px', cursor: 'pointer', color: '#00C896',
-                    fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5,
-                    transition: 'all 0.2s',
-                  }}
-                >
-                  {copied ? <CheckCircle size={13} /> : <Copy size={13} />}
-                  {copied ? 'Copied' : 'Copy'}
-                </button>
-              </div>
-            </div>
+            <section className="bg-[#f7f9fc] p-5 sm:p-7">
+              {method === 'upi' ? <UpiPaymentContent tab={tab} setTab={setTab} copied={copied} copyUpiId={() => void copyUpiId()} amount={amount} openPaymentApp={openPaymentApp} /> : <AppPaymentContent method={method} amount={amount} onOpen={() => openPaymentApp(method)} />}
 
-            {/* ── Status stepper ── */}
-            <div style={{ padding: '16px 20px 0' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
-                <StepCircle icon={<QrCode size={13} />} label="Scan" active done={stage === 'verifying'} />
-                <StepLine done={stage === 'verifying'} />
-                <StepCircle
-                  icon={stage === 'verifying' ? <Loader2 size={13} className="animate-spin" /> : <Lock size={13} />}
-                  label="Verify"
-                  active={stage === 'verifying'}
-                  done={stage === 'verifying'}
-                />
-                <StepLine done={false} />
-                <StepCircle icon={<CheckCircle size={13} />} label="Done" active={false} done={false} />
-              </div>
-            </div>
-
-            {/* ── Form ── */}
-            <div style={{ padding: '14px 20px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div>
-                <label style={{ color: '#94a3b8', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'block', marginBottom: 6 }}>
-                  UPI Reference / UTR Number *
-                </label>
-                <input
-                  type="text"
-                  value={txnRef}
-                  onChange={e => setTxnRef(e.target.value)}
-                  placeholder="Paste your 12-digit UTR here"
-                  style={{
-                    width: '100%', padding: '13px 15px', borderRadius: 11, boxSizing: 'border-box',
-                    background: 'rgba(255,255,255,0.04)',
-                    border: `1.5px solid ${txnRef ? 'rgba(0,200,150,0.5)' : 'rgba(255,255,255,0.1)'}`,
-                    color: '#fff', fontSize: 14, outline: 'none', fontFamily: 'monospace',
-                    transition: 'border-color 0.2s, background 0.2s',
-                  }}
-                  onFocus={e => { e.currentTarget.style.borderColor = 'rgba(0,200,150,0.6)'; e.currentTarget.style.background = 'rgba(0,200,150,0.04)'; }}
-                  onBlur={e => { e.currentTarget.style.borderColor = txnRef ? 'rgba(0,200,150,0.5)' : 'rgba(255,255,255,0.1)'; e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
-                />
-              </div>
-
-              {/* ── Screenshot upload (MANDATORY) ── */}
-              <div>
-                <label style={{ color: '#94a3b8', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
-                  Payment Screenshot <span style={{ color: '#ef4444' }}>*</span>
-                  <span style={{ color: '#475569', fontWeight: 500, textTransform: 'none', letterSpacing: '0', fontSize: 9 }}>(required — amount auto-verified)</span>
-                </label>
-
-                {/* Upload button / preview */}
-                {!screenshot ? (
-                  <button
-                    type="button"
-                    onClick={() => fileRef.current?.click()}
-                    style={{
-                      width: '100%', padding: '18px 14px', borderRadius: 11, boxSizing: 'border-box',
-                      background: 'rgba(255,255,255,0.03)', border: '1.5px dashed rgba(255,255,255,0.14)',
-                      color: '#64748b', fontSize: 13, cursor: 'pointer',
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
-                      transition: 'all 0.2s',
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(0,200,150,0.3)'; e.currentTarget.style.background = 'rgba(0,200,150,0.03)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.14)'; e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
-                  >
-                    <ImageIcon size={20} />
-                    <span>Tap to upload payment screenshot</span>
-                  </button>
-                ) : (
-                  <div style={{
-                    borderRadius: 11, overflow: 'hidden', border: '1.5px solid rgba(255,255,255,0.1)',
-                    background: 'rgba(0,0,0,0.2)',
-                  }}>
-                    {/* Preview image */}
-                    <div style={{ position: 'relative', maxHeight: 160, overflow: 'hidden', display: 'flex', justifyContent: 'center', background: '#000' }}>
-                      {screenshotUrl && (
-                        <img src={screenshotUrl} alt="Payment screenshot" style={{ maxHeight: 160, width: 'auto', display: 'block' }} />
-                      )}
-                      {/* Remove button */}
-                      <button
-                        onClick={() => { setScreenshot(null); setScreenshotUrl(null); setOcrStatus('idle'); setFraudWarning(''); }}
-                        style={{
-                          position: 'absolute', top: 8, right: 8,
-                          background: 'rgba(0,0,0,0.7)', border: 'none', borderRadius: 8,
-                          width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          cursor: 'pointer', color: '#fff',
-                        }}
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                    {/* Filename + OCR status */}
-                    <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                      <span style={{ color: '#94a3b8', fontSize: 11, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {screenshot.name}
-                      </span>
-                      {/* OCR status badge */}
-                      {ocrStatus === 'scanning' && (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#00A3FF', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
-                          <Loader2 size={11} className="animate-spin" />
-                          Verifying... {ocrProgress}%
-                        </span>
-                      )}
-                      {ocrStatus === 'matched' && (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#00C896', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
-                          <ShieldCheck size={12} />
-                          Amount Verified
-                        </span>
-                      )}
-                      {ocrStatus === 'mismatch' && (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#fbbf24', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
-                          <ShieldAlert size={12} />
-                          Manual Review
-                        </span>
-                      )}
-                      {ocrStatus === 'error' && (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#fbbf24', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
-                          <ShieldAlert size={12} />
-                          Manual Review
-                        </span>
-                      )}
-                    </div>
+              <div className="mt-7 border-t border-[#e5e7eb] pt-5">
+                <div className="flex items-center gap-2"><div className="h-px flex-1 bg-[#dfe5eb]" /><span className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#9ca3af]">Confirm payment</span><div className="h-px flex-1 bg-[#dfe5eb]" /></div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-bold text-[#172033]">UPI reference / UTR number</label>
+                    <input value={txnRef} onChange={event => setTxnRef(event.target.value)} placeholder="Enter the reference from your payment app" className="w-full rounded-xl border border-[#d7e0e8] bg-white px-3.5 py-3 text-sm text-[#172033] outline-none transition placeholder:text-[#aab4c0] focus:border-[#20c9b5] focus:ring-4 focus:ring-[#20c9b5]/10" />
                   </div>
-                )}
-                <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleFileChange(e.target.files?.[0] || null)} />
+                  <div className="sm:self-end"><button onClick={() => fileRef.current?.click()} className={`flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-xs font-bold transition sm:w-auto ${screenshot ? 'border-[#20c9b5] bg-[#e9fbf8] text-[#167c73]' : 'border-dashed border-[#b9c7d3] bg-white text-[#526579] hover:border-[#20c9b5]'}`}><Upload size={15} />{screenshot ? 'Screenshot added' : 'Upload screenshot'}</button><input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={event => handleFileChange(event.target.files?.[0] || null)} /></div>
+                </div>
+                {screenshot && <div className="mt-3 flex items-center gap-2 text-[11px] text-[#6b7280]"><FileImage size={14} className="text-[#20c9b5]" />{screenshot.name}{ocrStatus === 'scanning' && <span className="text-[#167c73]">Checking screenshot {ocrProgress}%</span>}{ocrStatus === 'matched' && <span className="font-bold text-[#16a34a]">Amount detected</span>}{ocrStatus === 'error' && <span className="text-amber-600">Manual review</span>}</div>}
+                {fraudWarning && <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-800"><AlertCircle size={15} className="mt-0.5 shrink-0" />{fraudWarning}</div>}
+                <button onClick={() => void handleConfirm()} disabled={!canConfirm} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#081426] px-4 py-3.5 text-sm font-bold text-white transition hover:bg-[#10233c] disabled:cursor-not-allowed disabled:opacity-40">{confirming ? <><Loader2 size={17} className="animate-spin" />Waiting for payment confirmation</> : <>I’ve paid — verify payment <ChevronRight size={17} /></>}</button>
+                <div className="mt-3 flex items-center justify-center gap-4 text-[11px] text-[#8a98a8]"><button onClick={() => { setTxnRef(''); setScreenshot(null); setScreenshotUrl(null); setOcrStatus('idle'); }} className="transition hover:text-[#172033]">Cancel payment</button><a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="transition hover:text-[#172033]">Need help?</a></div>
               </div>
-
-              {/* ── OCR scanning progress bar ── */}
-              {ocrStatus === 'scanning' && (
-                <div style={{ height: 3, borderRadius: 99, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-                  <div style={{
-                    height: '100%', width: `${ocrProgress}%`, borderRadius: 99,
-                    background: 'linear-gradient(90deg,#00A3FF,#00C896)',
-                    transition: 'width 0.3s ease',
-                  }} />
-                </div>
-              )}
-
-              {/* ── Fraud warning ── */}
-              {fraudWarning && (
-                <div style={{
-                  display: 'flex', alignItems: 'flex-start', gap: 8,
-                  padding: '10px 12px', borderRadius: 10,
-                  background: 'rgba(251,191,36,0.08)',
-                  border: '1px solid rgba(251,191,36,0.2)',
-                  animation: 'rl-shake 0.4s ease',
-                }}>
-                  {ocrStatus === 'mismatch' ? (
-                    <AlertCircle size={16} style={{ color: '#fbbf24', flexShrink: 0, marginTop: 1 }} />
-                  ) : (
-                    <AlertCircle size={16} style={{ color: '#fbbf24', flexShrink: 0, marginTop: 1 }} />
-                  )}
-                  <p style={{ color: '#fcd34d', fontSize: 11, fontWeight: 600, margin: 0, lineHeight: 1.5 }}>
-                    {fraudWarning}
-                  </p>
-                </div>
-              )}
-
-              {/* ── Confirm button ── */}
-              <button
-                onClick={handleConfirm}
-                disabled={!canConfirm}
-                className="active:scale-[0.97]"
-                style={{
-                  width: '100%', padding: '15px', borderRadius: 13, border: 'none',
-                  background: canConfirm
-                    ? 'linear-gradient(135deg,#00C896,#00A3FF)'
-                    : 'rgba(255,255,255,0.06)',
-                  color: canConfirm ? '#fff' : '#475569',
-                  fontWeight: 800, fontSize: 15,
-                  cursor: canConfirm ? 'pointer' : 'not-allowed',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  transition: 'all 0.25s ease',
-                  boxShadow: canConfirm ? '0 10px 30px rgba(0,200,150,0.25)' : 'none',
-                }}
-              >
-                {confirming ? (
-                  <>
-                    <Loader2 size={18} className="animate-spin" />
-                    Verifying Payment...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle size={18} />
-                    I've Paid — Verify Now
-                    <ChevronRight size={16} />
-                  </>
-                )}
-              </button>
-
-              {/* Helper text when not ready */}
-              {!screenshot && txnRef.trim() && (
-                <p style={{ textAlign: 'center', color: '#475569', fontSize: 11, fontWeight: 500, margin: 0 }}>
-                  Upload a screenshot to enable verification
-                </p>
-              )}
-              {screenshot && ocrStatus === 'mismatch' && (
-                <p style={{ textAlign: 'center', color: '#475569', fontSize: 11, fontWeight: 500, margin: 0 }}>
-                  We couldn't auto-verify the amount. Tap Confirm — your order will be manually reviewed.
-                </p>
-              )}
-
-              <button
-                onClick={() => { window.open(whatsappUrl, '_blank'); onClose(); }}
-                style={{
-                  background: 'none', border: 'none', color: '#475569', fontSize: 12,
-                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  gap: 6, padding: '4px 0', transition: 'color 0.2s',
-                }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#94a3b8'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#475569'; }}
-              >
-                <MessageCircle size={13} />
-                Having trouble? Order via WhatsApp instead
-              </button>
-            </div>
-          </>
+            </section>
+          </main>
         )}
 
-        {/* ── Security footer ── */}
-        <div style={{
-          padding: '14px 20px 18px',
-          borderTop: '1px solid rgba(255,255,255,0.06)',
-          background: 'rgba(0,0,0,0.2)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-        }}>
-          <Shield size={12} style={{ color: '#475569' }} />
-          <span style={{ color: '#475569', fontSize: 10, fontWeight: 600, letterSpacing: '0.04em' }}>
-            256-bit encrypted · RetraLabs Secure Checkout
-          </span>
-        </div>
+        <footer className="grid gap-3 border-t border-[#e5e7eb] bg-white px-5 py-5 text-[#6b7280] sm:grid-cols-4 sm:px-8">
+          <TrustItem icon={<ShieldCheck size={16} />} title="100% Secure" detail="Payments are protected" />
+          <TrustItem icon={<CheckCircle2 size={16} />} title="Instant payment" detail="Fast confirmation" />
+          <TrustItem icon={<WalletCards size={16} />} title="No extra charges" detail="Pay the product price" />
+          <TrustItem icon={<HelpCircle size={16} />} title="24/7 support" detail="We are here to help" />
+        </footer>
+        <div className="flex items-center justify-between gap-4 bg-[#081426] px-5 py-4 text-[11px] text-slate-400 sm:px-8"><div className="flex items-center gap-2"><img src="/favicon.png" alt="RetraLabs" className="h-6 w-6 rounded-lg" /><span>Research. Restore. Redefine.</span></div><a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 transition hover:text-white"><MessageCircle size={13} /> Need help?</a></div>
+        {toast && <div className="fixed bottom-5 left-1/2 z-[10001] -translate-x-1/2 rounded-full bg-[#081426] px-4 py-2.5 text-xs font-bold text-white shadow-xl">{toast}</div>}
       </div>
-
-      {/* Keyframes */}
-      <style>{`
-        @keyframes rl-shimmer {
-          0% { background-position: 200% 0; }
-          100% { background-position: -200% 0; }
-        }
-        @keyframes rl-pulse {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.5; transform: scale(1.3); }
-        }
-        @keyframes rl-scan {
-          0% { top: 0%; opacity: 0; }
-          10% { opacity: 1; }
-          90% { opacity: 1; }
-          100% { top: 100%; opacity: 0; }
-        }
-        @keyframes rl-pop {
-          0% { transform: scale(0.5); opacity: 0; }
-          60% { transform: scale(1.1); }
-          100% { transform: scale(1); opacity: 1; }
-        }
-        @keyframes rl-shake {
-          0%, 100% { transform: translateX(0); }
-          25% { transform: translateX(-4px); }
-          75% { transform: translateX(4px); }
-        }
-      `}</style>
     </div>
   );
 }
 
-function StepCircle({ icon, label, active, done }: { icon: React.ReactNode; label: string; active: boolean; done: boolean }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-      <div style={{
-        width: 28, height: 28, borderRadius: '50%',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: done ? 'rgba(0,200,150,0.15)' : active ? 'rgba(0,163,255,0.12)' : 'rgba(255,255,255,0.04)',
-        border: `1.5px solid ${done ? 'rgba(0,200,150,0.5)' : active ? 'rgba(0,163,255,0.5)' : 'rgba(255,255,255,0.1)'}`,
-        color: done ? '#00C896' : active ? '#00A3FF' : '#64748b',
-        transition: 'all 0.3s ease',
-      }}>
-        {icon}
-      </div>
-      <span style={{ fontSize: 9, fontWeight: 700, color: done ? '#00C896' : active ? '#00A3FF' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-        {label}
-      </span>
-    </div>
-  );
+function UpiPaymentContent({ tab, setTab, copied, copyUpiId, amount, openPaymentApp }: { tab: PaymentTab; setTab: (tab: PaymentTab) => void; copied: boolean; copyUpiId: () => void; amount: number; openPaymentApp: (method: PaymentMethod) => void }) {
+  return <>
+    <div className="mb-6"><p className="text-[11px] font-bold uppercase tracking-[0.13em] text-[#20a995]">UPI payments</p><h2 className="mt-1 text-2xl font-bold tracking-[-0.03em] text-[#172033]">Choose a payment method</h2><p className="mt-1 text-sm text-[#6b7280]">All payments are secure and encrypted.</p></div>
+    <div className="mb-5 flex rounded-xl bg-[#e9eef3] p-1"><button onClick={() => setTab('qr')} className={`flex-1 rounded-lg px-3 py-2.5 text-xs font-bold transition ${tab === 'qr' ? 'bg-white text-[#172033] shadow-sm' : 'text-[#6b7280]'}`}>Scan QR code</button><button onClick={() => setTab('upi')} className={`flex-1 rounded-lg px-3 py-2.5 text-xs font-bold transition ${tab === 'upi' ? 'bg-white text-[#172033] shadow-sm' : 'text-[#6b7280]'}`}>Enter UPI ID</button></div>
+    {tab === 'qr' ? <>
+      <div className="text-center"><p className="text-sm font-semibold text-[#172033]">Scan this QR code with any UPI app</p><div className="relative mx-auto mt-4 w-fit rounded-2xl border border-[#e0e6ec] bg-white p-4 shadow-[0_12px_30px_rgba(8,20,38,0.08)]"><img src="/retralabs-payment-qr.png" alt="RetraLabs UPI payment QR code" className="h-48 w-48 rounded-lg object-contain sm:h-56 sm:w-56" /><span className="pointer-events-none absolute inset-2 rounded-xl border-2 border-[#20c9b5]/40" /></div><p className="mt-3 text-xs text-[#6b7280]">Or pay using any UPI app</p></div>
+      <div className="mt-5 grid grid-cols-3 gap-2"><AppShortcut label="Paytm" onClick={() => openPaymentApp('paytm')} /><AppShortcut label="Google Pay" onClick={() => openPaymentApp('gpay')} /><AppShortcut label="WhatsApp Pay" onClick={() => openPaymentApp('whatsapp')} /></div>
+      <div className="mt-5 flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.12em] text-[#9ca3af]"><div className="h-px flex-1 bg-[#e1e7ec]" />Or use UPI ID<div className="h-px flex-1 bg-[#e1e7ec]" /></div>
+      <div className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-[#d7e0e8] bg-white p-3"><div><p className="text-[10px] text-[#9ca3af]">UPI ID</p><p className="mt-0.5 text-sm font-bold text-[#172033]">{UPI_ID}</p></div><button onClick={copyUpiId} className="flex items-center gap-1.5 rounded-lg bg-[#e9fbf8] px-3 py-2 text-xs font-bold text-[#167c73]">{copied ? <Check size={14} /> : <Copy size={14} />}{copied ? 'Copied' : 'Copy'}</button></div>
+    </> : <div className="rounded-2xl border border-[#dfe6ed] bg-white p-5"><div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-[#e9fbf8] text-[#167c73]"><Smartphone size={22} /></div><h3 className="text-base font-bold text-[#172033]">Pay using your UPI ID</h3><p className="mt-1 text-sm text-[#6b7280]">Enter your UPI ID and continue in your payment app.</p><input placeholder="example@upi" className="mt-5 w-full rounded-xl border border-[#d7e0e8] px-3.5 py-3 text-sm outline-none focus:border-[#20c9b5]" /><button onClick={() => openPaymentApp('upi')} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#081426] py-3.5 text-sm font-bold text-white">Pay ₹{amount.toLocaleString('en-IN')} <ChevronRight size={16} /></button></div>}
+  </>;
 }
 
-function StepLine({ done }: { done: boolean }) {
-  return (
-    <div style={{
-      flex: 1, height: 1.5, borderRadius: 99, margin: '0 4px', marginBottom: 16,
-      background: done ? 'rgba(0,200,150,0.4)' : 'rgba(255,255,255,0.08)',
-      transition: 'background 0.3s ease',
-    }} />
-  );
+function AppPaymentContent({ method, amount, onOpen }: { method: PaymentMethod; amount: number; onOpen: () => void }) {
+  const detail = methodDetails[method];
+  return <div><p className="text-[11px] font-bold uppercase tracking-[0.13em] text-[#20a995]">{detail.label}</p><h2 className="mt-1 text-2xl font-bold tracking-[-0.03em] text-[#172033]">Pay securely with {detail.label}</h2><p className="mt-1 text-sm text-[#6b7280]">You will be redirected to your payment app to complete ₹{amount.toLocaleString('en-IN')}.</p><div className="mt-6 rounded-2xl border border-[#dfe6ed] bg-white p-6 text-center"><div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#e9fbf8] text-[#167c73]">{detail.icon}</div><p className="mt-4 text-base font-bold text-[#172033]">{detail.label} payment</p><p className="mt-1 text-sm text-[#6b7280]">Complete the payment in the app, then return here to enter your reference number.</p><button onClick={onOpen} className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-[#081426] px-6 py-3.5 text-sm font-bold text-white transition hover:bg-[#10233c]">Open {detail.label} <ExternalLink size={15} /></button></div></div>;
 }
+
+function AppShortcut({ label, onClick }: { label: string; onClick: () => void }) { return <button onClick={onClick} className="rounded-xl border border-[#dfe6ed] bg-white px-2 py-3 text-center text-[11px] font-bold text-[#172033] transition hover:border-[#20c9b5] hover:bg-[#f4fffd]"><span className="mx-auto mb-1 flex h-7 w-7 items-center justify-center rounded-lg bg-[#eef2f6] text-xs font-black text-[#167c73]">{label === 'Google Pay' ? 'G' : label === 'Paytm' ? 'P' : <MessageCircle size={14} />}</span>{label}</button>; }
+function TrustItem({ icon, title, detail }: { icon: ReactNode; title: string; detail: string }) { return <div className="flex items-start gap-2"><span className="mt-0.5 text-[#20a995]">{icon}</span><span><b className="block text-[11px] text-[#172033]">{title}</b><small className="text-[10px] text-[#9ca3af]">{detail}</small></span></div>; }
+function SuccessState({ amount, onClose }: { amount: number; onClose: () => void }) { return <div className="bg-white px-6 py-16 text-center sm:px-12"><div className="mx-auto flex h-20 w-20 animate-[pop_0.45s_ease-out] items-center justify-center rounded-full bg-[#e9fbf8] text-[#16a34a]"><CheckCircle2 size={42} /></div><h2 className="mt-6 text-2xl font-bold text-[#172033]">Payment submitted</h2><p className="mt-2 text-sm text-[#6b7280]">Your payment of ₹{amount.toLocaleString('en-IN')} was received. We are reviewing the transaction and will confirm your order shortly.</p><button onClick={onClose} className="mt-7 rounded-xl bg-[#081426] px-7 py-3 text-sm font-bold text-white">Continue</button></div>; }
+function ExpiredState({ onRestart }: { onRestart: () => void }) { return <div className="bg-white px-6 py-16 text-center sm:px-12"><div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-amber-50 text-amber-600"><AlertCircle size={34} /></div><h2 className="mt-5 text-2xl font-bold text-[#172033]">Payment window expired</h2><p className="mt-2 text-sm text-[#6b7280]">Restart the checkout to create a fresh payment session.</p><button onClick={onRestart} className="mt-6 rounded-xl bg-[#081426] px-7 py-3 text-sm font-bold text-white">Restart payment</button></div>; }
