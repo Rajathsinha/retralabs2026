@@ -3,6 +3,13 @@ import { handler as trackOrder } from '../../netlify/functions/track-order';
 import { handler as listOrders } from '../../netlify/functions/list-orders';
 import { handler as brevoOrderEmail } from '../../netlify/functions/brevo-order-email';
 
+// Polyfill globalThis.process for Node-style env access in Cloudflare edge runtime
+if (typeof globalThis.process === 'undefined') {
+  (globalThis as any).process = { env: {} };
+} else if (!globalThis.process.env) {
+  (globalThis as any).process.env = {};
+}
+
 const HANDLERS: Record<string, (event: any, context?: any) => Promise<any>> = {
   'create-order': createOrder,
   'track-order': trackOrder,
@@ -14,10 +21,10 @@ export const onRequest: PagesFunction<Record<string, string>> = async (context) 
   const { request, env, params } = context;
 
   // Safely inject env vars into process.env
-  if (typeof process !== 'undefined' && process.env && env) {
+  if (env) {
     for (const [k, v] of Object.entries(env)) {
       if (typeof v === 'string') {
-        process.env[k] = v;
+        globalThis.process.env[k] = v;
       }
     }
   }
@@ -65,7 +72,8 @@ export const onRequest: PagesFunction<Record<string, string>> = async (context) 
 
   try {
     const res = await handlerFn(event, context);
-    return new Response(res?.body, {
+    const responseBody = typeof res?.body === 'string' ? res.body : JSON.stringify(res?.body ?? {});
+    return new Response(responseBody, {
       status: res?.statusCode || 200,
       headers: {
         'Content-Type': 'application/json',
