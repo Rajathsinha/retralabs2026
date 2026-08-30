@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useSEO } from '../hooks/useSEO';
-import { Search, Package, Truck, MapPin, CheckCircle2, Clock, XCircle, AlertCircle, ArrowRight } from 'lucide-react';
+import { Search, Package, Truck, CheckCircle2, Clock, XCircle, AlertCircle, ArrowRight, ShieldCheck } from 'lucide-react';
 
 interface OrderData {
   orderId: string;
@@ -15,51 +15,54 @@ interface OrderData {
   awbNumber: string | null;
   courierName: string | null;
   innofulfillOrderId: string | null;
+  shipmentStatus: string | null;
   trackingStatus: string | null;
-  trackingTimeline: any[] | null;
+  trackingTimeline: Record<string, unknown>[] | null;
   trackingUrl: string | null;
 }
 
 const STATUS_FLOW = [
   'Order Placed',
   'Confirmed',
-  'AWB Generated',
+  'AWB Assigned',
   'Picked Up',
   'In Transit',
   'Out for Delivery',
   'Delivered',
 ];
 
-function getStatusIndex(status: string): number {
-  const normalized = status.toLowerCase();
+function getStatusIndex(status: string, shipmentStatus?: string | null): number {
+  const normalized = (status || '').toLowerCase();
+  const shipNorm = (shipmentStatus || '').toLowerCase();
+
   if (normalized.includes('delivered')) return 6;
   if (normalized.includes('out for delivery')) return 5;
   if (normalized.includes('transit')) return 4;
   if (normalized.includes('picked') || normalized.includes('pickup')) return 3;
-  if (normalized.includes('awb') || normalized.includes('created in innofulfill')) return 2;
-  if (normalized.includes('confirm')) return 1;
+  if (shipNorm === 'awb_assigned' || normalized.includes('awb') || normalized.includes('shipped')) return 2;
+  if (normalized.includes('confirm') || normalized.includes('paid') || normalized.includes('created in innofulfill')) return 1;
   return 0;
 }
 
 function isTerminalStatus(status: string): boolean {
-  const normalized = status.toLowerCase();
+  const normalized = (status || '').toLowerCase();
   return normalized.includes('cancelled') || normalized.includes('failed') || normalized.includes('rto') || normalized.includes('returned');
 }
 
 export default function TrackOrderPage() {
-  useSEO({ title: 'Track Your Order | RetraLabs', description: 'Track your RetraLabs order status and shipment.', noindex: true });
+  useSEO({ title: 'Track Your Order | RetraLabs', description: 'Track your RetraLabs order status and courier shipment.', noindex: true });
 
   const [searchParams] = useSearchParams();
   const [orderId, setOrderId] = useState(searchParams.get('orderId') || '');
-  const [phone, setPhone] = useState('');
+  const [phoneOrEmail, setPhoneOrEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [order, setOrder] = useState<OrderData | null>(null);
 
   const handleTrack = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!orderId.trim() || !phone.trim()) {
-      setError('Please enter both your Order ID and phone number.');
+    if (!orderId.trim() || !phoneOrEmail.trim()) {
+      setError('Please enter both your Order ID and phone number or email address.');
       return;
     }
     setLoading(true);
@@ -70,7 +73,10 @@ export default function TrackOrderPage() {
       const res = await fetch('/.netlify/functions/track-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId: orderId.trim(), phone: phone.trim() }),
+        body: JSON.stringify({
+          orderId: orderId.trim(),
+          phoneOrEmail: phoneOrEmail.trim(),
+        }),
       });
       const json = await res.json().catch(() => null);
       if (!res.ok || !json?.success) {
@@ -85,16 +91,16 @@ export default function TrackOrderPage() {
     }
   };
 
-  // Auto-submit if orderId came from URL (e.g., from checkout confirmation page)
+  // Auto-fill orderId from URL parameter
   useEffect(() => {
     const urlOrderId = searchParams.get('orderId');
     if (urlOrderId && !order && !loading) {
       setOrderId(urlOrderId);
     }
-  }, [searchParams]);
+  }, [searchParams, order, loading]);
 
   const terminalStatus = order ? isTerminalStatus(order.status) : false;
-  const currentStep = order ? getStatusIndex(order.status) : 0;
+  const currentStep = order ? getStatusIndex(order.status, order.shipmentStatus) : 0;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -102,15 +108,15 @@ export default function TrackOrderPage() {
 
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
             <Truck className="w-8 h-8 text-blue-600" />
           </div>
           <h1 className="text-3xl font-bold text-slate-900 mb-2">Track Your Order</h1>
-          <p className="text-slate-500 text-sm">Enter your Order ID and phone number to see your shipment status</p>
+          <p className="text-slate-500 text-sm">Enter your RetraLabs Order ID and verification contact to view real-time shipment status</p>
         </div>
 
         {/* Search form */}
-        <form onSubmit={handleTrack} className="bg-white rounded-2xl border border-slate-200 p-6 mb-6">
+        <form onSubmit={handleTrack} className="bg-white rounded-2xl border border-slate-200 p-6 mb-6 shadow-sm">
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1.5">Order ID</label>
@@ -118,28 +124,28 @@ export default function TrackOrderPage() {
                 type="text"
                 value={orderId}
                 onChange={(e) => setOrderId(e.target.value)}
-                placeholder="e.g. RETR-1001"
+                placeholder="e.g. RL-20260830-1001"
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all text-slate-900 font-medium"
                 autoCapitalize="characters"
                 autoComplete="off"
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Phone Number</label>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Phone Number or Email Address</label>
               <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="e.g. +91XXXXXXXXXX"
+                type="text"
+                value={phoneOrEmail}
+                onChange={(e) => setPhoneOrEmail(e.target.value)}
+                placeholder="e.g. +91 9876543210 or yourname@example.com"
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all text-slate-900 font-medium"
-                autoComplete="tel"
+                autoComplete="email tel"
               />
-              <p className="text-xs text-slate-400 mt-1.5">Enter the phone number you used when placing the order</p>
+              <p className="text-xs text-slate-400 mt-1.5">Enter the phone number or email address you used at checkout</p>
             </div>
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-700 disabled:opacity-60 text-white font-bold py-3.5 rounded-xl transition-colors"
+              className="w-full flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-60 text-white font-bold py-3.5 rounded-xl transition-colors cursor-pointer"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -167,11 +173,11 @@ export default function TrackOrderPage() {
         {order && (
           <div className="space-y-4">
             {/* Order header */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-5">
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1">Order ID</p>
-                  <p className="text-xl font-black text-slate-900">{order.orderId}</p>
+                  <p className="text-xl font-black text-slate-900 tracking-tight">{order.orderId}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1">Order Date</p>
@@ -186,7 +192,7 @@ export default function TrackOrderPage() {
                 </div>
                 <div>
                   <p className="text-xs text-slate-400 mb-0.5">Delivery</p>
-                  <p className="text-sm font-semibold text-slate-700">{order.delivery || 'N/A'}</p>
+                  <p className="text-sm font-semibold text-slate-700">{order.delivery || 'Standard'}</p>
                 </div>
                 <div>
                   <p className="text-xs text-slate-400 mb-0.5">Total</p>
@@ -194,29 +200,34 @@ export default function TrackOrderPage() {
                 </div>
                 <div>
                   <p className="text-xs text-slate-400 mb-0.5">Status</p>
-                  <p className={`text-sm font-semibold ${terminalStatus ? 'text-red-600' : 'text-emerald-600'}`}>{order.status}</p>
+                  <p className={`text-sm font-semibold ${terminalStatus ? 'text-red-600' : 'text-emerald-600'}`}>
+                    {order.status}
+                  </p>
                 </div>
               </div>
             </div>
 
             {/* Shipment / AWB info */}
             {order.awbNumber ? (
-              <div className="bg-white rounded-2xl border border-slate-200 p-5">
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
                     <Package className="w-5 h-5 text-blue-600" />
                   </div>
-                  <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Shipment Details</h3>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Shipment Details</h3>
+                    <p className="text-xs text-slate-400">Verified Courier Tracking</p>
+                  </div>
                 </div>
 
                 <div className="space-y-2.5">
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-500">AWB Number</span>
-                    <span className="font-bold text-slate-900">{order.awbNumber}</span>
+                    <span className="font-mono font-bold text-slate-900">{order.awbNumber}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-500">Courier</span>
-                    <span className="font-semibold text-slate-700">{order.courierName || 'Innofulfill'}</span>
+                    <span className="font-semibold text-slate-700">{order.courierName || 'Shreemaruti'}</span>
                   </div>
                   {order.trackingStatus && (
                     <div className="flex justify-between text-sm">
@@ -240,22 +251,29 @@ export default function TrackOrderPage() {
                 )}
               </div>
             ) : (
-              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-amber-400 rounded-full flex items-center justify-center">
-                    <Clock className="w-5 h-5 text-white" />
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 shadow-sm">
+                <div className="flex items-start gap-3.5">
+                  <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-sm mt-0.5">
+                    <Clock className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-amber-900">AWB not yet generated</p>
-                    <p className="text-xs text-amber-700">Your tracking details are being generated. Please check back in a few hours.</p>
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="text-sm font-bold text-amber-900">Shipment Handover in Progress</p>
+                      <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-amber-200 text-amber-900 rounded-full">
+                        {order.courierName || 'Shreemaruti'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-amber-800 leading-relaxed">
+                      Tracking number will be available once the shipment is handed over to the courier.
+                    </p>
                   </div>
                 </div>
               </div>
             )}
 
             {/* Status timeline */}
-            {!terminalStatus && order.awbNumber && (
-              <div className="bg-white rounded-2xl border border-slate-200 p-5">
+            {!terminalStatus && (
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
                 <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4">Order Timeline</h3>
                 <div className="space-y-1">
                   {STATUS_FLOW.map((step, idx) => {
@@ -285,7 +303,7 @@ export default function TrackOrderPage() {
                             <div className={`w-0.5 h-6 ${idx < currentStep ? 'bg-emerald-400' : 'bg-slate-200'}`} />
                           )}
                         </div>
-                        <span className={`text-sm font-medium ${isComplete ? (isCurrent ? 'text-blue-600' : 'text-slate-700') : 'text-slate-400'}`}>
+                        <span className={`text-sm font-medium ${isComplete ? (isCurrent ? 'text-blue-600 font-bold' : 'text-slate-700') : 'text-slate-400'}`}>
                           {step}
                         </span>
                       </div>
@@ -312,21 +330,24 @@ export default function TrackOrderPage() {
 
             {/* Items */}
             {order.items && (
-              <div className="bg-white rounded-2xl border border-slate-200 p-5">
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
                 <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-3">Items</h3>
-                <p className="text-sm text-slate-600 whitespace-pre-line">{order.items}</p>
+                <p className="text-sm text-slate-600 whitespace-pre-line leading-relaxed">{order.items}</p>
               </div>
             )}
           </div>
         )}
 
-        {/* Help text */}
+        {/* Security badge & Help text */}
         {!order && !error && !loading && (
           <div className="bg-slate-100 rounded-2xl p-5 text-center">
-            <MapPin className="w-6 h-6 text-slate-400 mx-auto mb-2" />
-            <p className="text-sm text-slate-500">
-              Your Order ID was shown on the confirmation page and sent in your order confirmation email.
-              Use the phone number you entered at checkout to verify your identity.
+            <div className="flex items-center justify-center gap-2 text-slate-600 font-semibold text-sm mb-1.5">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              <span>Verified Order Lookup</span>
+            </div>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Your RetraLabs Order ID was displayed on your checkout confirmation and sent to your email.
+              Enter the phone number or email address used during purchase to verify and view your tracking information.
             </p>
           </div>
         )}

@@ -49,6 +49,10 @@ function cleanPhone(phone: string): string {
   return (phone || '').replace(/\D/g, '').replace(/^91/, '').slice(-10).padStart(10, '0');
 }
 
+function cleanEmail(email: string): string {
+  return (email || '').trim().toLowerCase();
+}
+
 export const handler: Handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers: corsHeaders, body: '' };
@@ -75,19 +79,26 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    const body = JSON.parse(event.body || '{}') as { orderId?: string; phone?: string };
-    if (!body.orderId || !body.phone) {
+    const body = JSON.parse(event.body || '{}') as {
+      orderId?: string;
+      phone?: string;
+      email?: string;
+      phoneOrEmail?: string;
+    };
+
+    const targetOrderId = (body.orderId || '').trim();
+    const verificationInput = (body.phoneOrEmail || body.phone || body.email || '').trim();
+
+    if (!targetOrderId || !verificationInput) {
       return {
         statusCode: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'Order ID and phone number are required' }),
+        body: JSON.stringify({ error: 'Order ID and either phone number or email are required' }),
       };
     }
 
-    const cleanInputPhone = cleanPhone(body.phone);
-
-    // Search Airtable for the order by orderID
-    const filterFormula = encodeURIComponent(`{orderID} = "${body.orderId}"`);
+    // Search Airtable for the order by orderID (supporting exact match or case-insensitive)
+    const filterFormula = encodeURIComponent(`{orderID} = "${targetOrderId}"`);
     const searchUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}?filterByFormula=${filterFormula}&maxRecords=1`;
 
     const searchRes = await fetch(searchUrl, {
@@ -104,7 +115,26 @@ export const handler: Handler = async (event) => {
     }
 
     const searchJson: any = await searchRes.json();
-    const records = searchJson?.records || [];
+    let records = searchJson?.records || [];
+
+    // Fallback: If not found by exact formula (e.g. historical orders where orderID had different case), search recent records
+    if (!records.length) {
+      const allRecentRes = await fetch(
+        `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}?pageSize=100&sort%5B0%5D%5Bfield%5D=Created&sort%5B0%5D%5Bdirection%5D=desc`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (allRecentRes.ok) {
+        const recentJson: any = await allRecentRes.json();
+        const found = (recentJson?.records || []).find((r: any) => {
+          const id = String(r?.fields?.orderID ?? '').trim();
+          return id.toLowerCase() === targetOrderId.toLowerCase();
+        });
+        if (found) {
+          records = [found];
+        }
+      }
+    }
+
     if (!records.length) {
       return {
         statusCode: 404,
@@ -114,23 +144,78 @@ export const handler: Handler = async (event) => {
     }
 
     const record = records[0];
+    const recordId = record.id;
     const f = record.fields || {};
 
-    // Verify phone matches — security check to prevent looking up other customers' orders
+    // Verify identity against Phone OR Email
     const storedPhone = cleanPhone(String(f['Phone'] || ''));
-    if (storedPhone !== cleanInputPhone) {
+    const storedEmail = cleanEmail(String(f['Email'] || ''));
+
+    const inputCleanPhone = cleanPhone(verificationInput);
+    const inputCleanEmail = cleanEmail(verificationInput);
+
+    const isPhoneMatch = inputCleanPhone.length === 10 && storedPhone === inputCleanPhone;
+    const isEmailMatch = inputCleanEmail.length > 3 && storedEmail === inputCleanEmail;
+
+    if (!isPhoneMatch && !isEmailMatch) {
       return {
         statusCode: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'The phone number does not match this order. Please verify and try again.' }),
+        body: JSON.stringify({ error: 'The provided phone number or email does not match this order. Please verify and try again.' }),
       };
     }
 
-    const awbNumber = f['AWB Number'] ? String(f['AWB Number']) : null;
-    const innofulfillOrderId = f['Innofulfill Order ID'] ? String(f['Innofulfill Order ID']) : null;
-    const courierName = f['Courier'] ? String(f['Courier']) : (innofulfillOrderId ? 'Innofulfill' : null);
+    let awbNumber = f['AWB Number'] ? String(f['AWB Number']).trim() : null;
+    const innofulfillOrderId = f['Innofulfill Order ID'] ? String(f['Innofulfill Order ID']).trim() : null;
+    const courierName = f['Carrier Display Name'] ? String(f['Carrier Display Name']) : (f['Courier'] ? String(f['Courier']) : 'Shreemaruti');
+    let shipmentStatus = f['Shipment Status'] ? String(f['Shipment Status']) : (awbNumber ? 'AWB_ASSIGNED' : innofulfillOrderId ? 'AWB_PENDING' : 'NOT_CREATED');
 
-    // Try to fetch tracking status from Innofulfill if we have an AWB
+    // If AWB is pending/missing but we have an Innofulfill Order ID, poll Innofulfill to see if courier has assigned the AWB
+    if ((!awbNumber || shipmentStatus === 'AWB_PENDING') && innofulfillOrderId) {
+      try {
+        const innoToken = await getInnofulfillToken();
+        if (innoToken) {
+          // Attempt to retrieve order details by Innofulfill Order ID
+          const orderCheckRes = await fetch(
+            `${INNOFULFILL_BASE}/gateway/booking-service/orders?orderId=${encodeURIComponent(innofulfillOrderId)}`,
+            { headers: innofulfillHeaders(innoToken) },
+          );
+          if (orderCheckRes.ok) {
+            const orderCheckJson: any = await orderCheckRes.json();
+            const orderData = orderCheckJson?.data?.[0] || orderCheckJson?.data || orderCheckJson;
+            const assignedAwb =
+              orderData?.shipments?.[0]?.awbNumber ||
+              orderData?.awbNumber ||
+              orderData?.shipments?.[0]?.trackingNumber;
+
+            if (assignedAwb && String(assignedAwb).trim() !== '') {
+              awbNumber = String(assignedAwb).trim();
+              shipmentStatus = 'AWB_ASSIGNED';
+              console.log(`[Innofulfill] AWB retrieved and saved: ${awbNumber}`);
+
+              // Update Airtable with real assigned AWB
+              const updatePayload = {
+                'AWB Number': awbNumber,
+                'Tracking ID': awbNumber,
+                'Shipment Status': 'AWB_ASSIGNED',
+              };
+              await fetch(
+                `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}/${recordId}`,
+                {
+                  method: 'PATCH',
+                  headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ fields: updatePayload, typecast: true }),
+                },
+              ).catch(() => null);
+            }
+          }
+        }
+      } catch (pollErr) {
+        console.warn('[Innofulfill] AWB poll attempt non-critical error:', pollErr);
+      }
+    }
+
+    // Try to fetch live tracking timeline from Innofulfill if we have an assigned AWB
     let trackingStatus: string | null = null;
     let trackingTimeline: any[] | null = null;
     let trackingUrl: string | null = null;
@@ -152,7 +237,7 @@ export const handler: Handler = async (event) => {
           }
         }
       } catch {
-        // Tracking fetch is non-critical — return what we have from Airtable
+        // Tracking history fetch is non-critical
       }
     }
 
@@ -162,7 +247,7 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify({
         success: true,
         order: {
-          orderId: String(f['orderID'] || body.orderId),
+          orderId: String(f['orderID'] || targetOrderId),
           orderDate: f['Created'] ? String(f['Created']) : null,
           status: f['Status'] ? String(f['Status']) : 'Processing',
           items: f['Items'] ? String(f['Items']) : null,
@@ -173,6 +258,7 @@ export const handler: Handler = async (event) => {
           awbNumber,
           courierName,
           innofulfillOrderId,
+          shipmentStatus,
           trackingStatus,
           trackingTimeline,
           trackingUrl,

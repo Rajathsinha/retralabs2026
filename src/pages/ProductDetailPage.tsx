@@ -6,15 +6,14 @@ import { useCart } from '../context/CartContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { useSEO } from '../hooks/useSEO';
 import { getBreadcrumbSchema } from '../utils/localSeoSchemas';
-import { WHATSAPP_NUMBER } from '../constants/config';
 import { PRODUCTS } from '../data/products';
 import { PRODUCT_CONTENT } from '../data/productContent';
 import { productDisplayName, productDisplayText, productDisplayHeading } from '../utils/productDisplayName';
 import {
   ChevronRight, Star, Check, Package, Truck, Shield,
-  ShieldCheck, FlaskConical, FileCheck, MessageCircle,
-  Clock, ShoppingCart, Minus, Plus, X, Microscope,
-  Lock, ChevronLeft,
+  ShieldCheck, FlaskConical, FileCheck,
+  Clock, ShoppingCart, Minus, Plus, Microscope,
+  Lock,
 } from 'lucide-react';
 
 const DEMO_BAC_WATER = PRODUCTS.find(p => p.name.includes('Bacteriostatic'))!;
@@ -239,24 +238,6 @@ export default function ProductDetailPage() {
 
   const [cartAdded, setCartAdded] = useState(false);
 
-  // Referral popup state
-  const [referralOpen, setReferralOpen] = useState(false);
-  const [referralSource, setReferralSource] = useState('');
-  const [friendName, setFriendName] = useState('');
-  const [disclaimerTyped, setDisclaimerTyped] = useState('');
-  const DISCLAIMER_PHRASE = 'I will not ask for dosage guidance';
-  const [pendingWhatsAppUrl, setPendingWhatsAppUrl] = useState('');
-  const REFERRAL_OPTIONS = ['Reddit', 'Google', 'Friend', 'Instagram', 'YouTube', 'IndiaMART', 'Other'];
-
-  const openWithReferral = (baseUrl: string) => {
-    setPendingWhatsAppUrl(baseUrl); setReferralSource(''); setFriendName(''); setDisclaimerTyped(''); setReferralOpen(true);
-  };
-  const submitReferral = () => {
-    if (!referralSource) return;
-    const ref = referralSource === 'Friend' && friendName ? `%0A%0AFound you via: Friend (referred by ${encodeURIComponent(friendName)})` : `%0A%0AFound you via: ${encodeURIComponent(referralSource)}`;
-    window.open(pendingWhatsAppUrl + ref, '_blank', 'noopener,noreferrer'); setReferralOpen(false);
-  };
-
   const isBacWater = product?.name?.includes('Bacteriostatic') ?? false;
   const bacWaterPrice = bacWater?.variants.find(v => v.dosage_mg === 10)?.price_inr || 400;
   const basePrice = selectedVariant ? selectedVariant.price_inr * quantity : 0;
@@ -322,7 +303,7 @@ export default function ProductDetailPage() {
   const relatedIds = RELATED_MAP[product.name] ?? [];
   const semanticRelated = relatedIds
     .map(id => PRODUCTS.find(p => p.id === id))
-    .filter((p): p is NonNullable<typeof p> => Boolean(p) && p.id !== product.id)
+    .filter((p): p is ProductWithVariants => Boolean(p) && Boolean(product) && p?.id !== product.id)
     .slice(0, 4);
   const finalRelated = semanticRelated.length >= 2 ? semanticRelated : relatedProducts;
 
@@ -762,7 +743,6 @@ export default function ProductDetailPage() {
           <h2 className="text-[#111111] text-[22px] font-bold tracking-[-0.02em] mb-8">You May Also Like</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
             {finalRelated.map(rp => {
-              const rpAccent = ACCENT_MAP[rp.name] ?? '#2563EB';
               const rpReviews = REVIEWS_MAP[rp.name] ?? { count: 10, avg: 4.7 };
               const rpPrice = Math.min(...rp.variants.map(v => v.price_inr));
               return (
@@ -866,38 +846,6 @@ export default function ProductDetailPage() {
       </div>
 
     </div>
-
-    {/* ─── Referral Popup ──────────────────────────────────────────────────── */}
-    {referralOpen && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={e => { if (e.target === e.currentTarget) setReferralOpen(false); }}>
-        <div className="bg-white rounded-[20px] shadow-2xl w-full max-w-sm p-6">
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <p className="text-[10px] font-bold text-[#9CA3AF] uppercase tracking-[0.1em] mb-1">Before we chat</p>
-              <h3 className="text-[16px] font-bold text-[#111111]">How did you find us?</h3>
-            </div>
-            <button onClick={() => setReferralOpen(false)} className="text-[#9CA3AF] hover:text-[#374151] transition-colors"><X className="w-5 h-5" /></button>
-          </div>
-          <div className="grid grid-cols-3 gap-2 mb-4">
-            {REFERRAL_OPTIONS.map(src => (
-              <button key={src} onClick={() => setReferralSource(src)} className={`px-3 py-2.5 rounded-[10px] text-[12px] font-semibold border-2 transition-all ${referralSource === src ? 'border-[#111111] bg-[#111111] text-white' : 'border-[#E5E7EB] text-[#374151] hover:border-[#9CA3AF]'}`}>{src}</button>
-            ))}
-          </div>
-          {referralSource === 'Friend' && (
-            <input type="text" placeholder="Friend's name (optional)" value={friendName} onChange={e => setFriendName(e.target.value)} className="w-full border-2 border-[#E5E7EB] rounded-[10px] px-4 py-2.5 text-[13px] mb-4 focus:outline-none focus:border-[#111111]" />
-          )}
-          <div className="mb-4 p-3 rounded-[12px] bg-[#FEF9C3] border border-[#FDE68A]">
-            <p className="text-[11px] font-bold text-[#92400E] mb-1">Confirm before continuing:</p>
-            <button type="button" onClick={() => setDisclaimerTyped(DISCLAIMER_PHRASE)} className="w-full text-left text-[11px] text-[#92400E] font-mono bg-[#FEF3C7] hover:bg-[#FDE68A] rounded px-2 py-1.5 mb-2 transition-colors cursor-pointer">{DISCLAIMER_PHRASE}</button>
-            <input type="text" placeholder="Tap above or type here..." value={disclaimerTyped} onChange={e => setDisclaimerTyped(e.target.value)} className={`w-full border-2 rounded-[8px] px-3 py-2 text-[12px] focus:outline-none transition-colors ${disclaimerTyped === DISCLAIMER_PHRASE ? 'border-[#16a34a] bg-[#F0FDF4] text-[#16a34a]' : 'border-[#E5E7EB] focus:border-[#F59E0B]'}`} />
-            {disclaimerTyped === DISCLAIMER_PHRASE && <p className="text-[11px] text-[#16a34a] font-semibold mt-1">Confirmed</p>}
-          </div>
-          <button onClick={submitReferral} disabled={!referralSource || disclaimerTyped !== DISCLAIMER_PHRASE} className="w-full bg-[#16a34a] hover:bg-[#15803d] disabled:opacity-40 text-white font-bold py-3.5 rounded-[12px] transition-colors flex items-center justify-center gap-2 text-[14px]">
-            <MessageCircle className="w-4 h-4" /> Continue to WhatsApp
-          </button>
-        </div>
-      </div>
-    )}
     </>
   );
 }

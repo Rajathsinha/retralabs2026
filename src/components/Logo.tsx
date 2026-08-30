@@ -22,7 +22,7 @@ export default function Logo({ size = 'md', variant = 'dark' }: LogoProps) {
   return (
     <div className="flex items-center gap-2.5">
       <div className={`${container} ${boxBg} rounded-xl flex items-center justify-center flex-shrink-0`}>
-        <Box className={`w-4 h-4 ${iconColor}`} strokeWidth={2.5} />
+        <Box className={`${icon} ${iconColor}`} strokeWidth={2.5} />
       </div>
       <div className="flex items-baseline gap-1">
         <span className={`${text} font-bold tracking-tight ${textColor}`}>RetraLabs</span>

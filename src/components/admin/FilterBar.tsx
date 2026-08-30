@@ -1,4 +1,4 @@
-import { X, RotateCcw, Download, Search } from 'lucide-react';
+import { X, RotateCcw, Download } from 'lucide-react';
 import { STATUS_OPTIONS, PAYMENT_OPTIONS, DELIVERY_OPTIONS } from './types';
 import type { AdminFilters } from './types';
 

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  FlaskConical, ShieldCheck, Globe, BadgeCheck, ArrowRight,
+  FlaskConical, ShieldCheck, Globe, ArrowRight,
   CheckCircle2, Users, TrendingUp, Clock, Truck,
   Microscope, Award, Heart, Lightbulb, Target,
 } from 'lucide-react';
@@ -116,7 +116,7 @@ export default function AboutPage() {
       <section className="py-16 bg-white border-b border-slate-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {STATS.map((stat, i) => (
+            {STATS.map((stat) => (
               <div key={stat.label}>
                 <div className="rounded-2xl border border-slate-100 bg-slate-50 hover:shadow-sm transition-shadow text-center">
                   <div className="p-6 flex flex-col items-center">
@@ -228,7 +228,7 @@ export default function AboutPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {TEAM.map((member, i) => (
+            {TEAM.map((member) => (
               <div key={member.role}>
                 <div className="rounded-2xl border border-slate-200 bg-white hover:shadow-md transition-all duration-300">
                   <div className="p-8">
@@ -269,7 +269,7 @@ export default function AboutPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {VALUES.map((value, i) => (
+            {VALUES.map((value) => (
               <div key={value.title}>
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 hover:shadow-sm transition-shadow">
                   <div className="p-7">
@@ -306,7 +306,7 @@ export default function AboutPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {QUALITY_STEPS.map((step, i) => (
+            {QUALITY_STEPS.map((step) => (
               <div key={step.step}>
                 <div className="rounded-2xl border border-slate-200 bg-white hover:shadow-md hover:border-slate-300 transition-all duration-300">
                   <div className="p-7">

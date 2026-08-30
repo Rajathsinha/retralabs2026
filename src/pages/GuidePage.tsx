@@ -2,11 +2,11 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useState } from 'react';
 import { useSEO } from '../hooks/useSEO';
 import { getGuideBySlug, CATEGORIES } from '../data/seoData';
-import { getArticleSchema, getItemListSchema } from '../utils/seoSchemas';
+import { getArticleSchema } from '../utils/seoSchemas';
 import { getBreadcrumbSchema } from '../utils/localSeoSchemas';
 import { PRODUCTS } from '../data/products';
 import { useCurrency } from '../context/CurrencyContext';
-import { ChevronRight, ArrowRight, Star, FlaskConical } from 'lucide-react';
+import { ChevronRight, ArrowRight, FlaskConical } from 'lucide-react';
 import { productDisplayName } from '../utils/productDisplayName';
 
 export default function GuidePage() {

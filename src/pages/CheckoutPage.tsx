@@ -22,7 +22,7 @@ async function saveOrder(fields: Record<string, unknown>, screenshot?: { content
   total?: number;
   deliveryCharge?: number;
   codCharge?: number;
-}): Promise<{ recordId: string | null; orderId: string | null; innofulfillOrderId: string | null; awbNumber: string | null; innofulfillWarning: string | null }> {
+}): Promise<{ recordId: string | null; orderId: string | null; innofulfillOrderId: string | null; awbNumber: string | null; innofulfillWarning: string | null; carrierDisplayName?: string | null }> {
   const res = await fetch('/.netlify/functions/create-order', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -34,7 +34,14 @@ async function saveOrder(fields: Record<string, unknown>, screenshot?: { content
     throw new Error(detail);
   }
   if (json.screenshotWarning) console.warn(json.screenshotWarning);
-  return { recordId: json.recordId || null, orderId: json.orderId || null, innofulfillOrderId: json.innofulfillOrderId || null, awbNumber: json.awbNumber || null, innofulfillWarning: json.innofulfillWarning || null };
+  return {
+    recordId: json.recordId || null,
+    orderId: json.orderId || null,
+    innofulfillOrderId: json.innofulfillOrderId || null,
+    awbNumber: json.awbNumber || null,
+    innofulfillWarning: json.innofulfillWarning || null,
+    carrierDisplayName: json.carrierDisplayName || 'Shreemaruti',
+  };
 }
 
 async function fileToBase64(file: File): Promise<string> {
@@ -565,11 +572,11 @@ export default function CheckoutPage() {
               <div className="space-y-2 text-sm bg-[#f8fafc] rounded-xl p-3.5 border border-[#E5E7EB]">
                 <div className="flex justify-between">
                   <span className="text-[#9CA3AF]">AWB Number</span>
-                  <span className="font-bold text-[#111111]">{snap.awbNumber}</span>
+                  <span className="font-mono font-bold text-[#111111]">{snap.awbNumber}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[#9CA3AF]">Courier</span>
-                  <span className="font-semibold text-[#374151]">Innofulfill</span>
+                  <span className="font-semibold text-[#374151]">Shreemaruti</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[#9CA3AF]">Order Status</span>
@@ -591,8 +598,8 @@ export default function CheckoutPage() {
                   <Truck className="w-5 h-5 text-[#D97706]" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-[#111111]">Tracking details being generated</p>
-                  <p className="text-xs text-[#9CA3AF]">Your order has been placed successfully. Your tracking details are being generated.</p>
+                  <p className="text-sm font-bold text-[#111111]">Shipment Handover in Progress</p>
+                  <p className="text-xs text-[#9CA3AF]">Tracking number will be available once the shipment is handed over to the courier.</p>
                 </div>
               </div>
               {snap?.orderId && (

@@ -13,7 +13,7 @@ import { productDisplayName } from '../utils/productDisplayName';
 import {
   Star, ShoppingCart, ChevronRight, Shield, Microscope,
   FlaskConical, Package, CheckCircle, Search, SlidersHorizontal,
-  ArrowRight, Check,
+  Check,
 } from 'lucide-react';
 
 // ─── Per-product config ───────────────────────────────────────────────────────
@@ -71,13 +71,12 @@ type SortKey = typeof SORT_OPTIONS[number]['key'];
 
 type CardProps = {
   product: ProductWithVariants;
-  onOpen: (p: ProductWithVariants) => void;
   onAddToCart: (p: ProductWithVariants, v: ProductVariant) => void;
   addedVariantId: string | null;
   onNavigate: (id: string) => void;
 };
 
-function ProductCard({ product, onOpen, onAddToCart, addedVariantId, onNavigate }: CardProps) {
+function ProductCard({ product, onAddToCart, addedVariantId, onNavigate }: CardProps) {
   const { format } = useCurrency();
   const cfg = PRODUCT_CFG[product.name];
   const lowestVariant = [...product.variants].sort((a, b) => a.price_inr - b.price_inr)[0];
@@ -435,7 +434,6 @@ export default function CataloguePage() {
                   <ProductCard
                     key={product.id}
                     product={product}
-                    onOpen={setSelectedProduct}
                     onAddToCart={handleAddToCart}
                     addedVariantId={addedVariantId}
                     onNavigate={(id) => navigate(`/product/${id}`)}

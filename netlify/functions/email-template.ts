@@ -267,6 +267,15 @@ export function generateOrderConfirmationEmail(order: OrderData): string {
             </td>
           </tr>
 
+          <!-- Track Order CTA -->
+          <tr>
+            <td style="padding:16px 24px 8px;" align="center">
+              <a href="https://retralabs.in/track?orderId=${encodeURIComponent(order.orderId)}" style="display:inline-block;background:#1e3a8a;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:10px;">
+                Track Your Order
+              </a>
+            </td>
+          </tr>
+
           <!-- What's Next section -->
           <tr>
             <td style="padding:24px 24px 8px;">

@@ -173,7 +173,6 @@ export default function HomePage() {
   const [syringeType,   setSyringeType]   = useState<'u100' | 'u40'>('u100');
 
   useEffect(() => {
-    let timeoutId: ReturnType<typeof setTimeout>;
     const interval = setInterval(() => {
       setSlideIndex(i => (i + 1) % HERO_SLIDES.length);
     }, 4000);

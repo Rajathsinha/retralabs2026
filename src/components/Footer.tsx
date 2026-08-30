@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link as RouterLink } from 'react-router-dom';
-import { Mail, ArrowUpRight, MessageCircle, ShieldCheck, Globe, FileCheck, FlaskConical, X, CheckCircle2, MapPin, Phone, Clock } from 'lucide-react';
+import { Mail, ArrowUpRight, MessageCircle, ShieldCheck, Globe, FileCheck, X, MapPin, Phone, Clock } from 'lucide-react';
 import Logo from './Logo';
 import TrustpilotWidget from './TrustpilotWidget';
 import { WHATSAPP_NUMBER, BUSINESS_NAP } from '../constants/config';

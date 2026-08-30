@@ -31,7 +31,7 @@ async function fetchOrders(): Promise<AirtableRecord[]> {
 }
 
 function exportCsv(records: AirtableRecord[]) {
-  const cols = ['Created', 'Name', 'Phone', 'Email', 'Items', 'Total (₹)', 'Payment', 'Transaction', 'Status', 'Innofulfill Order ID', 'AWB Number', 'Tracking ID', 'Innofulfill Error', 'Address', 'Delivery'];
+  const cols = ['orderID', 'Created', 'Name', 'Phone', 'Email', 'Items', 'Total (₹)', 'Payment', 'Transaction', 'Status', 'Shipment Status', 'Courier', 'Innofulfill Order ID', 'Innofulfill Internal ID', 'AWB Number', 'Tracking ID', 'Innofulfill Error', 'Address', 'Delivery'];
   const header = cols.join(',');
   const rows = records.map(r => cols.map(c => `"${String(r.fields[c] ?? '').replace(/"/g, '""')}"`).join(','));
   const blob = new Blob([header + '\n' + rows.join('\n')], { type: 'text/csv' });
@@ -145,7 +145,22 @@ export default function AdminPage() {
       if (filters.dateTo && String(f['Created'] ?? '') > filters.dateTo) return false;
       if (filters.search) {
         const q = filters.search.toLowerCase();
-        const hay = [f['orderID'], f['Name'], f['Phone'], f['Email'], f['Items'], f['Status'], f['Innofulfill Order ID'], f['Tracking ID'], f['Transaction']].map((v) => String(v ?? '').toLowerCase()).join(' ');
+        const hay = [
+          f['orderID'],
+          f['Name'],
+          f['Phone'],
+          f['Email'],
+          f['Items'],
+          f['Status'],
+          f['Shipment Status'],
+          f['Courier'],
+          f['Carrier Display Name'],
+          f['Innofulfill Order ID'],
+          f['Innofulfill Internal ID'],
+          f['AWB Number'],
+          f['Tracking ID'],
+          f['Transaction'],
+        ].map((v) => String(v ?? '').toLowerCase()).join(' ');
         if (!hay.includes(q)) return false;
       }
       return true;

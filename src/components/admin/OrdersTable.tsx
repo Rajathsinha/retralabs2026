@@ -100,7 +100,7 @@ export function OrdersTable({
                   <td className="px-3 py-3"><PaymentBadge payment={String(f['Payment'] ?? '')} /></td>
                   <td className="px-3 py-3"><DeliveryBadge delivery={String(f['Delivery'] ?? '')} /></td>
                   <td className="px-3 py-3"><StatusBadge status={String(f['Status'] ?? 'New')} /></td>
-                  <td className="px-3 py-3 text-slate-600 whitespace-nowrap">{String(f['Tracking ID'] ?? '—')}</td>
+                  <td className="px-3 py-3 text-slate-600 whitespace-nowrap font-mono text-xs">{String(f['AWB Number'] ?? f['Tracking ID'] ?? '—')}</td>
                   <td className="px-3 py-3 text-slate-500 whitespace-nowrap">{String(f['Created'] ?? '—')}</td>
                 </tr>
               );

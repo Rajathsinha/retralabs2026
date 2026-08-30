@@ -1,7 +1,7 @@
 import type { Handler } from '@netlify/functions';
 
 interface OrderFields {
-  orderID: string;
+  orderID?: string;
   Name: string;
   Email: string;
   Phone: string;
@@ -15,8 +15,14 @@ interface OrderFields {
   Created: string;
   Transaction?: string;
   'Innofulfill Order ID'?: string;
+  'Innofulfill Internal ID'?: string;
   'AWB Number'?: string;
   'Tracking ID'?: string;
+  'Carrier Name'?: string;
+  'Carrier Display Name'?: string;
+  'Courier'?: string;
+  'Shipment Status'?: string;
+  'Shipment Created At'?: string;
   'Innofulfill Error'?: string;
 }
 
@@ -47,28 +53,59 @@ interface CreateOrderBody {
   codCharge: number;
 }
 
+/** Get current date in Indian Standard Time (IST, UTC+5:30) as YYYYMMDD */
+function getIstDateString(): string {
+  const now = new Date();
+  const istOffset = 5.5 * 60 * 60 * 1000;
+  const istDate = new Date(now.getTime() + istOffset);
+  const yyyy = istDate.getUTCFullYear();
+  const mm = String(istDate.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(istDate.getUTCDate()).padStart(2, '0');
+  return `${yyyy}${mm}${dd}`;
+}
+
+/**
+ * Generate unique, customer-friendly Order ID format: RL-YYYYMMDD-XXXX
+ * Safely inspects Airtable for existing orders on the same day and increments.
+ * Falls back to 1001 for the day's first order.
+ */
 async function generateOrderId(baseId: string, table: string, token: string): Promise<string> {
-  const res = await fetch(
-    `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}?pageSize=100&sort%5B0%5D%5Bfield%5D=orderID&sort%5B0%5D%5Bdirection%5D=desc`,
-    { headers: { Authorization: `Bearer ${token}` } },
-  );
-  if (!res.ok) {
-    const detail = await res.text().catch(() => '');
-    throw new Error(`Failed to fetch existing orders from Airtable (HTTP ${res.status}): ${detail}`);
-  }
-  const json: any = await res.json();
-  const records: any[] = json?.records || [];
-  let maxNum = 1000;
-  for (const rec of records) {
-    const id: string | undefined = rec?.fields?.orderID;
-    if (!id) continue;
-    const match = id.match(/RETR-(\d+)/);
-    if (match) {
-      const num = parseInt(match[1], 10);
-      if (num > maxNum) maxNum = num;
+  const dateStr = getIstDateString();
+  const prefix = `RL-${dateStr}-`;
+
+  try {
+    const res = await fetch(
+      `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}?pageSize=100&sort%5B0%5D%5Bfield%5D=Created&sort%5B0%5D%5Bdirection%5D=desc`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      console.warn(`[Order ID] Airtable query failed (HTTP ${res.status}): ${detail}. Using initial sequence.`);
+      return `${prefix}1001`;
     }
+    const json: any = await res.json();
+    const records: any[] = json?.records || [];
+
+    let maxNum = 1000;
+    const regex = new RegExp(`^RL-${dateStr}-(\\d+)`);
+
+    for (const rec of records) {
+      const id: string | undefined = rec?.fields?.orderID;
+      if (!id) continue;
+      const match = id.match(regex);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (!isNaN(num) && num > maxNum) {
+          maxNum = num;
+        }
+      }
+    }
+
+    return `${prefix}${maxNum + 1}`;
+  } catch (err) {
+    console.error('[Order ID] Error determining sequence:', err);
+    return `${prefix}1001`;
   }
-  return `RETR-${maxNum + 1}`;
 }
 
 const corsHeaders = {
@@ -102,7 +139,6 @@ async function getInnofulfillToken(): Promise<string | null> {
   }
 
   if (cachedToken && Date.now() < cachedToken.expiresAt) {
-    console.log('[Innofulfill] Using cached token');
     return cachedToken.token;
   }
 
@@ -133,7 +169,10 @@ function cleanPhone(phone: string): string {
 }
 
 async function updateInnofulfillError(baseId: string, table: string, token: string, recordId: string, errorMsg: string): Promise<void> {
-  let fields: Record<string, unknown> = { 'Innofulfill Error': errorMsg };
+  const fields: Record<string, unknown> = {
+    'Innofulfill Error': errorMsg,
+    'Shipment Status': 'FAILED',
+  };
   for (let attempt = 0; attempt < 5; attempt++) {
     const res = await fetch(
       `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}/${recordId}`,
@@ -158,6 +197,16 @@ async function updateInnofulfillError(baseId: string, table: string, token: stri
   }
 }
 
+export interface InnofulfillResult {
+  innofulfillOrderId?: string;
+  innofulfillInternalId?: string;
+  carrierName?: string;
+  carrierDisplayName?: string;
+  awbNumber?: string;
+  shipmentStatus: 'CREATED' | 'AWB_PENDING' | 'AWB_ASSIGNED' | 'FAILED';
+  shipmentCreatedAt: string;
+}
+
 async function createInnofulfillOrder(
   token: string,
   orderId: string,
@@ -168,7 +217,7 @@ async function createInnofulfillOrder(
   codCharge: number,
   paymentMethod: 'prepay' | 'cod',
   deliveryOption?: 'normal' | 'fast',
-): Promise<{ innofulfillOrderId?: string; awbNumber?: string }> {
+): Promise<InnofulfillResult> {
   const phone = cleanPhone(customer.phone);
   const pickupName = process.env.INNOFULFILL_PICKUP_NAME || 'RetraLabs';
   const pickupPhone = process.env.INNOFULFILL_PICKUP_PHONE || '9000000000';
@@ -177,7 +226,7 @@ async function createInnofulfillOrder(
   const pickupState = process.env.INNOFULFILL_PICKUP_STATE || 'Karnataka';
   const pickupAddress = process.env.INNOFULFILL_PICKUP_ADDRESS || 'RetraLabs Warehouse, Bengaluru, Karnataka 560001';
   const carrierId = process.env.INNOFULFILL_CARRIER_ID || '';
-  const carrierName = process.env.INNOFULFILL_CARRIER_NAME || 'innofulfill_ecomm';
+  const carrierNameEnv = process.env.INNOFULFILL_CARRIER_NAME || 'innofulfill_ecomm';
 
   const isCod = paymentMethod === 'cod';
   const items = cartItems.map((item) => ({
@@ -253,7 +302,7 @@ async function createInnofulfillOrder(
       },
     ],
     carrierId,
-    carrierName,
+    carrierName: carrierNameEnv,
     payment: {
       type: isCod ? 'COD' : 'PREPAID',
       currency: 'INR',
@@ -261,8 +310,7 @@ async function createInnofulfillOrder(
     },
   };
 
-  console.log(`[Innofulfill] Creating order ${orderId} at ${INNOFULFILL_BASE}/gateway/booking-service/orders`);
-  console.log(`[Innofulfill] Payload:`, JSON.stringify(payload).slice(0, 1000));
+  console.log(`[Innofulfill] Creating shipment for ${orderId}`);
   const res = await fetch(`${INNOFULFILL_BASE}/gateway/booking-service/orders`, {
     method: 'POST',
     headers: innofulfillHeaders(token),
@@ -280,10 +328,41 @@ async function createInnofulfillOrder(
   }
 
   const data = json?.data || json;
-  console.log(`[Innofulfill] Order created successfully:`, JSON.stringify(data).slice(0, 500));
+  console.log('[Innofulfill] Shipment created successfully');
+
+  const innofulfillOrderId = String(data?.orderId ?? data?.id ?? '');
+  const innofulfillInternalId = data?.id ? String(data.id) : undefined;
+  const carrierName = data?.carrierName ? String(data.carrierName) : carrierNameEnv;
+  const carrierDisplayName = data?.carrierDisplayName ? String(data.carrierDisplayName) : 'Shreemaruti';
+
+  // Inspect API response for actual courier AWB
+  let awbNumber: string | undefined = undefined;
+  if (data?.shipments?.[0]?.awbNumber && String(data.shipments[0].awbNumber).trim() !== '') {
+    awbNumber = String(data.shipments[0].awbNumber).trim();
+  } else if (data?.awbNumber && String(data.awbNumber).trim() !== '') {
+    awbNumber = String(data.awbNumber).trim();
+  } else if (data?.shipments?.[0]?.trackingNumber && String(data.shipments[0].trackingNumber).trim() !== '') {
+    awbNumber = String(data.shipments[0].trackingNumber).trim();
+  }
+
+  if (innofulfillOrderId) {
+    console.log(`[Innofulfill] Innofulfill Order ID: ${innofulfillOrderId}`);
+  }
+
+  if (awbNumber) {
+    console.log(`[Innofulfill] AWB retrieved and saved: ${awbNumber}`);
+  } else {
+    console.log('[Innofulfill] AWB pending assignment');
+  }
+
   return {
-    innofulfillOrderId: String(data?.orderId ?? data?.id ?? ''),
-    awbNumber: data?.shipments?.[0]?.awbNumber ? String(data.shipments[0].awbNumber) : undefined,
+    innofulfillOrderId,
+    innofulfillInternalId,
+    carrierName,
+    carrierDisplayName,
+    awbNumber,
+    shipmentStatus: awbNumber ? 'AWB_ASSIGNED' : 'AWB_PENDING',
+    shipmentCreatedAt: new Date().toISOString(),
   };
 }
 
@@ -324,27 +403,30 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    // Don't set orderID — it's an Airtable Auto Number field that assigns its own value
-    const fieldsWithId: Record<string, unknown> = { ...body.fields };
-    delete fieldsWithId.orderID;
+    // Generate safe sequential Order ID: RL-YYYYMMDD-XXXX
+    const orderId = await generateOrderId(baseId, table, token);
 
-    // 1. Create the Airtable record (retry dropping unknown fields)
+    const fieldsToSave: Record<string, unknown> = {
+      ...body.fields,
+      orderID: orderId,
+      'Shipment Status': 'NOT_CREATED',
+    };
+
+    // 1. Create the Airtable record (retry dropping unknown fields if Airtable schema differs)
     let recordId: string | null = null;
-    let airtableOrderId: string | null = null;
     for (let attempt = 0; attempt < 5; attempt++) {
       const createRes = await fetch(
         `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}`,
         {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fields: fieldsWithId, typecast: true }),
+          body: JSON.stringify({ fields: fieldsToSave, typecast: true }),
         },
       );
 
       const createJson: any = await createRes.json().catch(() => null);
       if (createRes.ok) {
         recordId = createJson?.id || null;
-        airtableOrderId = createJson?.fields?.orderID || null;
         break;
       }
 
@@ -355,7 +437,7 @@ export const handler: Handler = async (event) => {
 
       const unknownMatch = detail.match(/Unknown field name: ["']?([^"')]+)["']?/i);
       if (unknownMatch) {
-        delete fieldsWithId[unknownMatch[1]];
+        delete fieldsToSave[unknownMatch[1]];
         continue;
       }
 
@@ -372,14 +454,6 @@ export const handler: Handler = async (event) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         body: JSON.stringify({ error: 'Airtable: failed to create record after retries' }),
       };
-    }
-
-    // Use the orderID Airtable auto-assigned; fall back to a generated one if missing
-    let orderId: string;
-    if (airtableOrderId) {
-      orderId = airtableOrderId;
-    } else {
-      orderId = await generateOrderId(baseId, table, token);
     }
 
     // 2. Upload screenshot attachment if provided (UPI prepay only)
@@ -408,20 +482,24 @@ export const handler: Handler = async (event) => {
       }
     }
 
-    // 3. Create order in Innofulfill (all orders — COD and prepaid)
+    // 3. Create order in Innofulfill (all orders — COD and prepaid) with strict idempotency
     let innofulfillWarning: string | null = null;
     let innofulfillOrderId: string | undefined;
+    let innofulfillInternalId: string | undefined;
+    let carrierName: string | undefined;
+    let carrierDisplayName: string | undefined = 'Shreemaruti';
     let awbNumber: string | undefined;
+    let shipmentStatus: string = 'NOT_CREATED';
 
     if (!body.cartItems?.length) {
       innofulfillWarning = 'Skipped: no cartItems received by the function';
       console.warn('[Innofulfill] Skipped: no cartItems in request body');
     } else {
       try {
-        console.log('[Innofulfill] Starting order creation for', body.cartItems?.length, 'items');
+        console.log('[Innofulfill] Processing shipment creation for', body.cartItems?.length, 'items');
         const innoToken = await getInnofulfillToken();
         if (innoToken) {
-          // Idempotency: check if this Airtable record already has an Innofulfill Order ID
+          // Idempotency: verify if this Airtable record already has an Innofulfill Order ID
           const existingRes = await fetch(
             `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}/${recordId}`,
             { headers: { Authorization: `Bearer ${token}` } },
@@ -429,35 +507,50 @@ export const handler: Handler = async (event) => {
           const existingJson: any = await existingRes.json().catch(() => null);
           const existingInnoId = existingJson?.fields?.['Innofulfill Order ID'];
           const existingAwb = existingJson?.fields?.['AWB Number'];
+
           if (existingInnoId) {
+            console.log(`[Innofulfill] Idempotent hit: Order ${orderId} already has Innofulfill ID ${existingInnoId}`);
             innofulfillOrderId = String(existingInnoId);
             awbNumber = existingAwb ? String(existingAwb) : undefined;
+            shipmentStatus = awbNumber ? 'AWB_ASSIGNED' : 'AWB_PENDING';
           } else {
             const inno = await createInnofulfillOrder(
-            innoToken,
-            orderId,
-            body.customer,
-            body.cartItems,
-            body.total,
-            body.deliveryCharge,
-            body.codCharge,
-            body.paymentMethod,
-            body.deliveryOption,
-          );
+              innoToken,
+              orderId,
+              body.customer,
+              body.cartItems,
+              body.total,
+              body.deliveryCharge,
+              body.codCharge,
+              body.paymentMethod,
+              body.deliveryOption,
+            );
             innofulfillOrderId = inno.innofulfillOrderId;
+            innofulfillInternalId = inno.innofulfillInternalId;
+            carrierName = inno.carrierName;
+            carrierDisplayName = inno.carrierDisplayName;
             awbNumber = inno.awbNumber;
+            shipmentStatus = inno.shipmentStatus;
           }
 
-          // 4. Update Airtable with Innofulfill IDs and status (retry dropping unknown fields)
-          let updateFields: Record<string, unknown> = {
+          // 4. Update Airtable with Innofulfill IDs, real AWB (if assigned), carrier, and status
+          const updateFields: Record<string, unknown> = {
             Status: 'Created in Innofulfill',
+            'Shipment Status': shipmentStatus,
+            'Innofulfill Error': '',
           };
           if (innofulfillOrderId) updateFields['Innofulfill Order ID'] = innofulfillOrderId;
+          if (innofulfillInternalId) updateFields['Innofulfill Internal ID'] = innofulfillInternalId;
+          if (carrierName) updateFields['Carrier Name'] = carrierName;
+          if (carrierDisplayName) {
+            updateFields['Carrier Display Name'] = carrierDisplayName;
+            updateFields['Courier'] = carrierDisplayName;
+          }
           if (awbNumber) {
             updateFields['AWB Number'] = awbNumber;
             updateFields['Tracking ID'] = awbNumber;
           }
-          updateFields['Innofulfill Error'] = '';
+          updateFields['Shipment Created At'] = new Date().toISOString();
 
           for (let attempt = 0; attempt < 5; attempt++) {
             const updateRes = await fetch(
@@ -501,7 +594,11 @@ export const handler: Handler = async (event) => {
         recordId,
         orderId,
         innofulfillOrderId: innofulfillOrderId || null,
+        innofulfillInternalId: innofulfillInternalId || null,
+        carrierName: carrierName || null,
+        carrierDisplayName: carrierDisplayName || 'Shreemaruti',
         awbNumber: awbNumber || null,
+        shipmentStatus,
         innofulfillWarning,
         screenshotWarning: screenshotWarning || null,
       }),

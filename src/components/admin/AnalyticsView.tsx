@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { TrendingUp, TrendingDown, IndianRupee, ShoppingBag, Repeat, Clock } from 'lucide-react';
+import { TrendingUp, IndianRupee, ShoppingBag, Repeat, Clock } from 'lucide-react';
 import type { AirtableRecord } from './types';
 import { Sparkline } from './Sparkline';
 

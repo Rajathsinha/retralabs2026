@@ -74,7 +74,7 @@ export function getCategorySchema(slug: string) {
       { name: cat.label, url },
     ]),
     getItemListSchema(
-      cat.productIds.map((id, i) => ({
+      cat.productIds.map((id) => ({
         name: `Product ${id}`,
         url: `https://retralabs.in/product/${id}`,
       }))
@@ -82,6 +82,6 @@ export function getCategorySchema(slug: string) {
   ];
 }
 
-export function getGuideSchema(slug: string) {
+export function getGuideSchema(_slug?: string) {
   return undefined;
 }

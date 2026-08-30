@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Printer, X, MapPin, Phone, Package } from 'lucide-react';
+import { Printer, X, MapPin, Phone } from 'lucide-react';
 import type { AirtableRecord } from './types';
 
 interface PrepaidLabelsModalProps {
@@ -59,7 +59,7 @@ function Label({ record }: { record: AirtableRecord }) {
           <span className="label-pincode-value">{pincode || '—'}</span>
         </div>
         <div className="label-barcode" aria-hidden="true">
-          {orderId.split('').map((ch, i) => (
+          {orderId.split('').map((_, i) => (
             <span key={i} className="label-bar" style={{ opacity: i % 2 ? 1 : 0.4 }} />
           ))}
         </div>
