@@ -20,11 +20,12 @@ const HANDLERS: Record<string, (event: any, context?: any) => Promise<any>> = {
 export const onRequest: PagesFunction<Record<string, string>> = async (context) => {
   const { request, env, params } = context;
 
-  // Safely inject env vars into process.env
+  // Safely inject env vars into process.env with case-insensitivity
   if (env) {
     for (const [k, v] of Object.entries(env)) {
       if (typeof v === 'string') {
         globalThis.process.env[k] = v;
+        globalThis.process.env[k.toUpperCase()] = v;
       }
     }
   }

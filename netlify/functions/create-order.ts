@@ -394,15 +394,16 @@ export const handler: Handler = async (event) => {
   }
 
   try {
-    const token = process.env.VITE_AIRTABLE_TOKEN || process.env.AIRTABLE_TOKEN;
-    const baseId = process.env.VITE_AIRTABLE_BASE_ID || process.env.AIRTABLE_BASE_ID;
-    const table = process.env.VITE_AIRTABLE_TABLE || process.env.AIRTABLE_TABLE || 'Orders';
+    const token = (process.env.VITE_AIRTABLE_TOKEN || process.env.AIRTABLE_TOKEN || '').trim();
+    const baseId = (process.env.VITE_AIRTABLE_BASE_ID || process.env.AIRTABLE_BASE_ID || '').trim();
+    const table = (process.env.VITE_AIRTABLE_TABLE || process.env.AIRTABLE_TABLE || 'Orders').trim();
 
     if (!token || !baseId) {
+      console.error('[Airtable Error] Missing environment variables. Present env keys:', Object.keys(process.env).filter(k => !k.includes('PASS') && !k.includes('KEY') && !k.includes('TOKEN')));
       return {
         statusCode: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'Airtable is not configured (missing VITE_AIRTABLE_TOKEN or VITE_AIRTABLE_BASE_ID env vars in Netlify)' }),
+        body: JSON.stringify({ error: 'Airtable is not configured (missing VITE_AIRTABLE_TOKEN or VITE_AIRTABLE_BASE_ID in Cloudflare Pages environment variables)' }),
       };
     }
 
