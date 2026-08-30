@@ -399,11 +399,14 @@ export const handler: Handler = async (event) => {
     const table = (process.env.VITE_AIRTABLE_TABLE || process.env.AIRTABLE_TABLE || 'Orders').trim();
 
     if (!token || !baseId) {
-      console.error('[Airtable Error] Missing environment variables. Present env keys:', Object.keys(process.env).filter(k => !k.includes('PASS') && !k.includes('KEY') && !k.includes('TOKEN')));
+      const presentKeys = Object.keys(process.env).filter(k => !k.startsWith('CF_') && !k.startsWith('__'));
+      console.error('[Airtable Error] Missing environment variables. Present env keys:', presentKeys);
       return {
         statusCode: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'Airtable is not configured (missing VITE_AIRTABLE_TOKEN or VITE_AIRTABLE_BASE_ID in Cloudflare Pages environment variables)' }),
+        body: JSON.stringify({
+          error: `Airtable missing VITE_AIRTABLE_TOKEN or VITE_AIRTABLE_BASE_ID. Environment keys detected in Cloudflare: [${presentKeys.join(', ')}]`
+        }),
       };
     }
 
