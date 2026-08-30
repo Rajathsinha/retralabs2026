@@ -96,12 +96,17 @@ function innofulfillHeaders(token?: string): Record<string, string> {
 async function getInnofulfillToken(): Promise<string | null> {
   const username = process.env.INNOFULFILL_USERNAME;
   const password = process.env.INNOFULFILL_PASSWORD;
-  if (!username || !password) return null;
+  if (!username || !password) {
+    console.log('[Innofulfill] Skipped: INNOFULFILL_USERNAME or INNOFULFILL_PASSWORD not set');
+    return null;
+  }
 
   if (cachedToken && Date.now() < cachedToken.expiresAt) {
+    console.log('[Innofulfill] Using cached token');
     return cachedToken.token;
   }
 
+  console.log(`[Innofulfill] Authenticating against ${INNOFULFILL_BASE}/auth/login as ${username}`);
   const res = await fetch(`${INNOFULFILL_BASE}/auth/login`, {
     method: 'POST',
     headers: innofulfillHeaders(),
@@ -109,11 +114,16 @@ async function getInnofulfillToken(): Promise<string | null> {
   });
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
+    console.error(`[Innofulfill] Auth failed: HTTP ${res.status} — ${detail}`);
     throw new Error(`Innofulfill auth failed (HTTP ${res.status}): ${detail}`);
   }
   const json: any = await res.json();
   const token = json?.id_token as string | undefined;
-  if (!token) throw new Error('Innofulfill auth: no id_token in response');
+  if (!token) {
+    console.error('[Innofulfill] Auth succeeded but no id_token in response:', JSON.stringify(json).slice(0, 500));
+    throw new Error('Innofulfill auth: no id_token in response');
+  }
+  console.log('[Innofulfill] Auth successful, token acquired');
   cachedToken = { token, expiresAt: Date.now() + 23 * 60 * 60 * 1000 };
   return token;
 }
@@ -251,6 +261,8 @@ async function createInnofulfillOrder(
     },
   };
 
+  console.log(`[Innofulfill] Creating order ${orderId} at ${INNOFULFILL_BASE}/gateway/booking-service/orders`);
+  console.log(`[Innofulfill] Payload:`, JSON.stringify(payload).slice(0, 1000));
   const res = await fetch(`${INNOFULFILL_BASE}/gateway/booking-service/orders`, {
     method: 'POST',
     headers: innofulfillHeaders(token),
@@ -263,10 +275,12 @@ async function createInnofulfillOrder(
       typeof json?.error === 'string'
         ? json.error
         : json?.error?.message || json?.message || `HTTP ${res.status}`;
+    console.error(`[Innofulfill] Order creation failed: HTTP ${res.status} — ${JSON.stringify(json).slice(0, 800)}`);
     throw new Error(`Innofulfill: ${detail}`);
   }
 
   const data = json?.data || json;
+  console.log(`[Innofulfill] Order created successfully:`, JSON.stringify(data).slice(0, 500));
   return {
     innofulfillOrderId: String(data?.orderId ?? data?.id ?? ''),
     awbNumber: data?.shipments?.[0]?.awbNumber ? String(data.shipments[0].awbNumber) : undefined,
@@ -401,8 +415,10 @@ export const handler: Handler = async (event) => {
 
     if (!body.cartItems?.length) {
       innofulfillWarning = 'Skipped: no cartItems received by the function';
+      console.warn('[Innofulfill] Skipped: no cartItems in request body');
     } else {
       try {
+        console.log('[Innofulfill] Starting order creation for', body.cartItems?.length, 'items');
         const innoToken = await getInnofulfillToken();
         if (innoToken) {
           // Idempotency: check if this Airtable record already has an Innofulfill Order ID

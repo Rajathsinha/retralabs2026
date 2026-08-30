@@ -153,6 +153,7 @@ export default function CheckoutPage() {
     orderId: string | null;
     awbNumber: string | null;
     innofulfillOrderId: string | null;
+    innofulfillWarning: string | null;
     cartItems: Array<{ name: string; config: string; qty: number; price: number }>;
     deliveryOption: string;
     paymentMethod: 'prepay' | 'cod';
@@ -347,6 +348,7 @@ export default function CheckoutPage() {
         orderId: finalOrderId,
         awbNumber: awbNumber || null,
         innofulfillOrderId: innofulfillOrderId || null,
+        innofulfillWarning: innofulfillWarning || null,
         cartItems: cartSnapshot.map(i => ({ name: i.product.name, config: i.variant.vial_configuration || `${i.variant.dosage_mg}mg`, qty: i.quantity, price: i.variant.price_inr })),
         deliveryOption: snapFormData.delivery_option,
         paymentMethod: snapPaymentMethod,
@@ -469,6 +471,7 @@ export default function CheckoutPage() {
         orderId: finalOrderId,
         awbNumber: awbNumber || null,
         innofulfillOrderId: innofulfillOrderId || null,
+        innofulfillWarning: innofulfillWarning || null,
         cartItems: cartSnapshot.map(i => ({ name: i.product.name, config: i.variant.vial_configuration || `${i.variant.dosage_mg}mg`, qty: i.quantity, price: i.variant.price_inr })),
         deliveryOption: snapFormData.delivery_option,
         paymentMethod: 'prepay',
@@ -601,6 +604,14 @@ export default function CheckoutPage() {
                   Track Order
                 </button>
               )}
+            </div>
+          )}
+
+          {/* Innofulfill warning (debug) */}
+          {snap?.innofulfillWarning && (
+            <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-4">
+              <p className="text-sm font-bold text-red-900 mb-1">Innofulfill Error</p>
+              <p className="text-xs text-red-700 leading-relaxed break-words">{snap.innofulfillWarning}</p>
             </div>
           )}
 
