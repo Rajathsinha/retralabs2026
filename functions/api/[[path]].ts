@@ -1,3 +1,3 @@
-import { onRequest as netlifyHandler } from '../.netlify/functions/[[path]]';
+import { onRequest as netlifyHandler } from '../_handlers/netlify';
 
 export const onRequest = netlifyHandler;
