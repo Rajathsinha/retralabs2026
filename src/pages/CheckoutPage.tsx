@@ -494,23 +494,25 @@ export default function CheckoutPage() {
     const snapCodCharge = snap?.codCharge ?? 0;
     const snapTotal = snap?.total ?? 0;
     return (
-      <div className="min-h-screen bg-slate-50 px-4 py-12">
+      <div className="min-h-screen bg-[#f8fafc] px-4 py-12">
         <div className="max-w-lg mx-auto">
 
+          {/* Success header */}
           <div className="text-center mb-8">
-            <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-5">
-              <Check className="w-10 h-10 text-emerald-600" />
+            <div className="w-16 h-16 bg-[#16a34a]/10 rounded-2xl flex items-center justify-center mx-auto mb-5 border border-[#16a34a]/20">
+              <Check className="w-8 h-8 text-[#16a34a]" />
             </div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-1">Order Placed!</h2>
-            <p className="text-slate-500 text-sm">
+            <h2 className="text-[26px] font-bold text-[#111111] mb-1.5 tracking-[-0.02em]">Order Placed</h2>
+            <p className="text-[#9CA3AF] text-sm">
               {isCod
                 ? 'Your COD order has been received. We will confirm shortly.'
                 : 'Your order has been received. Payment details sent separately.'}
             </p>
           </div>
 
+          {/* Notification status */}
           {notifyWarning ? (
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-5 flex items-start gap-3">
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-4 flex items-start gap-3">
               <div className="w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
                 <Check className="w-4 h-4 text-white" />
               </div>
@@ -522,13 +524,13 @@ export default function CheckoutPage() {
               </div>
             </div>
           ) : (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-5 flex items-start gap-3">
-              <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+            <div className="bg-[#16a34a]/5 border border-[#16a34a]/20 rounded-2xl p-4 mb-4 flex items-start gap-3">
+              <div className="w-8 h-8 bg-[#16a34a] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
                 <Check className="w-4 h-4 text-white" />
               </div>
               <div>
-                <p className="text-sm font-bold text-emerald-900 mb-0.5">Confirmation sent</p>
-                <p className="text-xs text-emerald-700 leading-relaxed">
+                <p className="text-sm font-bold text-[#15803d] mb-0.5">Confirmation sent</p>
+                <p className="text-xs text-[#16a34a] leading-relaxed">
                   A confirmation email has been sent to
                   <span className="font-semibold"> ({formData.customer_email})</span>.
                 </p>
@@ -536,63 +538,64 @@ export default function CheckoutPage() {
             </div>
           )}
 
+          {/* Order ID */}
           {snap?.orderId && (
-            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-5 text-center">
-              <p className="text-xs text-blue-500 font-semibold uppercase tracking-wider mb-1">Your Order ID</p>
-              <p className="text-2xl font-black text-blue-900 tracking-wide">{snap.orderId}</p>
-              <p className="text-xs text-blue-600 mt-1">Save this ID for tracking and support</p>
+            <div className="bg-white border border-[#E5E7EB] rounded-2xl p-5 mb-4 text-center shadow-sm">
+              <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-[0.12em] mb-1.5">Your Order ID</p>
+              <p className="text-2xl font-bold text-[#111111] tracking-wide">{snap.orderId}</p>
+              <p className="text-xs text-[#9CA3AF] mt-1">Save this ID for tracking and support</p>
             </div>
           )}
 
           {/* AWB / Shipment info */}
           {snap?.awbNumber ? (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-5">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center flex-shrink-0">
-                  <Package className="w-5 h-5 text-white" />
+            <div className="bg-white border border-[#E5E7EB] rounded-2xl p-5 mb-4 shadow-sm">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-[#16a34a]/10 rounded-xl flex items-center justify-center flex-shrink-0 border border-[#16a34a]/20">
+                  <Package className="w-5 h-5 text-[#16a34a]" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-emerald-900">Shipment Created</p>
-                  <p className="text-xs text-emerald-700">Your order has been dispatched for fulfillment</p>
+                  <p className="text-sm font-bold text-[#111111]">Shipment Created</p>
+                  <p className="text-xs text-[#9CA3AF]">Your order has been dispatched for fulfillment</p>
                 </div>
               </div>
-              <div className="space-y-1.5 text-sm bg-white rounded-xl p-3 border border-emerald-100">
+              <div className="space-y-2 text-sm bg-[#f8fafc] rounded-xl p-3.5 border border-[#E5E7EB]">
                 <div className="flex justify-between">
-                  <span className="text-slate-500">AWB Number</span>
-                  <span className="font-bold text-slate-900">{snap.awbNumber}</span>
+                  <span className="text-[#9CA3AF]">AWB Number</span>
+                  <span className="font-bold text-[#111111]">{snap.awbNumber}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Courier</span>
-                  <span className="font-semibold text-slate-700">Innofulfill</span>
+                  <span className="text-[#9CA3AF]">Courier</span>
+                  <span className="font-semibold text-[#374151]">Innofulfill</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Order Status</span>
-                  <span className="font-semibold text-emerald-600">Confirmed</span>
+                  <span className="text-[#9CA3AF]">Order Status</span>
+                  <span className="font-semibold text-[#16a34a]">Confirmed</span>
                 </div>
               </div>
               <button
                 onClick={() => navigate(`/track?orderId=${encodeURIComponent(snap.orderId || '')}`)}
-                className="w-full mt-3 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-colors"
+                className="w-full mt-3 flex items-center justify-center gap-2 bg-[#111111] hover:bg-[#1a1a1a] text-white font-bold py-3 rounded-xl transition-colors"
               >
                 <Truck className="w-4 h-4" />
                 Track Shipment
               </button>
             </div>
           ) : (
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-5">
+            <div className="bg-white border border-[#E5E7EB] rounded-2xl p-5 mb-4 shadow-sm">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-amber-400 rounded-full flex items-center justify-center flex-shrink-0">
-                  <Truck className="w-5 h-5 text-white" />
+                <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center flex-shrink-0 border border-amber-200">
+                  <Truck className="w-5 h-5 text-[#D97706]" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-amber-900">Tracking details being generated</p>
-                  <p className="text-xs text-amber-700">Your order has been placed successfully. Your tracking details are being generated.</p>
+                  <p className="text-sm font-bold text-[#111111]">Tracking details being generated</p>
+                  <p className="text-xs text-[#9CA3AF]">Your order has been placed successfully. Your tracking details are being generated.</p>
                 </div>
               </div>
               {snap?.orderId && (
                 <button
                   onClick={() => navigate(`/track?orderId=${encodeURIComponent(snap.orderId || '')}`)}
-                  className="w-full mt-3 flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 rounded-xl transition-colors"
+                  className="w-full mt-3 flex items-center justify-center gap-2 bg-[#111111] hover:bg-[#1a1a1a] text-white font-bold py-3 rounded-xl transition-colors"
                 >
                   <Truck className="w-4 h-4" />
                   Track Order
@@ -601,49 +604,50 @@ export default function CheckoutPage() {
             </div>
           )}
 
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-5">
-            <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Your Order Details</p>
+          {/* Order details */}
+          <div className="bg-white rounded-2xl border border-[#E5E7EB] p-5 mb-4 shadow-sm">
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#9CA3AF] mb-4">Your Order Details</p>
 
-            <div className="space-y-2 mb-4 pb-4 border-b border-slate-100">
+            <div className="space-y-2 mb-4 pb-4 border-b border-[#E5E7EB]">
               <div className="flex justify-between text-sm">
-                <span className="text-slate-500">Name</span>
-                <span className="font-semibold text-slate-900">{formData.customer_name}</span>
+                <span className="text-[#9CA3AF]">Name</span>
+                <span className="font-semibold text-[#111111]">{formData.customer_name}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-slate-500">Phone</span>
-                <span className="font-semibold text-slate-900">{formData.customer_phone}</span>
+                <span className="text-[#9CA3AF]">Phone</span>
+                <span className="font-semibold text-[#111111]">{formData.customer_phone}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-500">Email</span>
-                <span className="font-semibold text-slate-900 text-right max-w-[60%] break-all">{formData.customer_email}</span>
+              <div className="flex justify-between text-sm gap-3">
+                <span className="text-[#9CA3AF] flex-shrink-0">Email</span>
+                <span className="font-semibold text-[#111111] text-right break-all">{formData.customer_email}</span>
               </div>
             </div>
 
-            <div className="mb-4 pb-4 border-b border-slate-100">
-              <p className="text-xs text-slate-500 mb-1">Delivery Address</p>
-              <p className="text-sm font-semibold text-slate-900">{formData.shipping_address}, {formData.city}, {formData.state}, PIN: {formData.pincode}</p>
+            <div className="mb-4 pb-4 border-b border-[#E5E7EB]">
+              <p className="text-xs text-[#9CA3AF] mb-1">Delivery Address</p>
+              <p className="text-sm font-semibold text-[#111111] leading-relaxed">{formData.shipping_address}, {formData.city}, {formData.state}, PIN: {formData.pincode}</p>
             </div>
 
-            <div className="mb-4 pb-4 border-b border-slate-100 space-y-2">
-              <p className="text-xs text-slate-500 mb-2">Items Ordered</p>
+            <div className="mb-4 pb-4 border-b border-[#E5E7EB] space-y-2">
+              <p className="text-xs text-[#9CA3AF] mb-2">Items Ordered</p>
               {snap?.cartItems.map((item, idx) => (
                 <div key={idx} className="flex justify-between text-sm">
-                  <span className="text-slate-700">{item.name} {item.config} ×{item.qty}</span>
-                  <span className="font-semibold text-slate-900">₹{(item.price * item.qty).toLocaleString('en-IN')}</span>
+                  <span className="text-[#374151]">{item.name} {item.config} ×{item.qty}</span>
+                  <span className="font-semibold text-[#111111]">₹{(item.price * item.qty).toLocaleString('en-IN')}</span>
                 </div>
               ))}
             </div>
 
             <div className="space-y-1.5">
               <div className="flex justify-between text-sm">
-                <span className="text-slate-500">Delivery</span>
-                <span className="text-slate-900">{snapDeliveryCharge > 0 ? `₹${snapDeliveryCharge.toLocaleString('en-IN')}` : 'Free'}</span>
+                <span className="text-[#9CA3AF]">Delivery</span>
+                <span className="text-[#111111]">{snapDeliveryCharge > 0 ? `₹${snapDeliveryCharge.toLocaleString('en-IN')}` : 'Free'}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-slate-500">Payment</span>
-                <span className="text-slate-900">{isCod ? `COD (+₹${snapCodCharge.toLocaleString('en-IN')})` : 'UPI / Online'}</span>
+                <span className="text-[#9CA3AF]">Payment</span>
+                <span className="text-[#111111]">{isCod ? `COD (+₹${snapCodCharge.toLocaleString('en-IN')})` : 'UPI / Online'}</span>
               </div>
-              <div className="flex justify-between text-base font-bold text-slate-900 pt-2 border-t border-slate-100 mt-2">
+              <div className="flex justify-between text-base font-bold text-[#111111] pt-2 border-t border-[#E5E7EB] mt-2">
                 <span>Total</span>
                 <span>₹{snapTotal.toLocaleString('en-IN')}</span>
               </div>
@@ -663,15 +667,15 @@ export default function CheckoutPage() {
             )}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full flex items-center justify-center gap-2.5 bg-green-500 hover:bg-green-400 text-white font-bold py-4 rounded-2xl transition-colors mb-2"
+            className="w-full flex items-center justify-center gap-2.5 bg-[#16a34a] hover:bg-[#15803d] text-white font-bold py-4 rounded-2xl transition-colors mb-2"
             style={{ textDecoration: 'none' }}
           >
             <MessageCircle className="w-5 h-5" />
             Contact WhatsApp Support
           </a>
-          <p className="text-center text-xs text-slate-400 mb-4">We respond within minutes for priority order queries.</p>
+          <p className="text-center text-xs text-[#9CA3AF] mb-4">We respond within minutes for priority order queries.</p>
 
-          <button onClick={() => navigate('/')} className="w-full text-center text-sm text-slate-400 hover:text-slate-600 transition-colors py-2">
+          <button onClick={() => navigate('/')} className="w-full text-center text-sm text-[#9CA3AF] hover:text-[#374151] transition-colors py-2 font-medium">
             ← Back to Home
           </button>
         </div>
@@ -683,77 +687,89 @@ export default function CheckoutPage() {
   if (orderReady) {
     const isCodReview = paymentMethod === 'cod';
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 px-4 py-8">
+      <div className="min-h-screen bg-[#f8fafc] px-4 py-10 sm:py-14">
         <div className="w-full max-w-2xl mx-auto">
 
           {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-black text-white mb-2">Review & Pay</h1>
-            <p className="text-slate-300 text-sm">Confirm your order details and complete payment</p>
+          <div className="mb-8">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-[#2563EB]/20 bg-white/80 backdrop-blur-sm mb-4">
+              <div className="w-1.5 h-1.5 rounded-full bg-[#2563EB] animate-pulse" />
+              <span className="text-[#2563EB] text-[10px] font-bold tracking-[0.1em] uppercase">Step 2 of 2</span>
+            </div>
+            <h1 className="text-[28px] sm:text-[32px] font-bold text-[#111111] tracking-[-0.03em] leading-tight mb-1.5">Review & Pay</h1>
+            <p className="text-[#9CA3AF] text-sm">Confirm your order details and complete payment</p>
           </div>
 
           {/* Order summary card */}
-          <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl p-6 mb-6">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">Order Summary</h3>
-            <div className="space-y-2 mb-4 pb-4 border-b border-slate-700">
+          <div className="bg-white rounded-2xl border border-[#E5E7EB] p-6 mb-5 shadow-sm">
+            <div className="flex items-center gap-2 mb-5">
+              <ShoppingBag className="w-4 h-4 text-[#2563EB]" />
+              <h3 className="text-sm font-bold uppercase tracking-wider text-[#374151]">Order Summary</h3>
+            </div>
+            <div className="space-y-3 mb-4 pb-4 border-b border-[#E5E7EB]">
               {cart.map((item) => (
-                <div key={item.variant.id} className="flex justify-between items-start">
-                  <div>
-                    <p className="text-sm font-semibold text-white">{productDisplayName(item.product)}</p>
-                    <p className="text-xs text-slate-400">{item.variant.vial_configuration || `${item.variant.dosage_mg}mg`} · qty ×{item.quantity}</p>
+                <div key={item.variant.id} className="flex justify-between items-start gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-[#111111]">{productDisplayName(item.product)}</p>
+                    <p className="text-xs text-[#9CA3AF] mt-0.5">{item.variant.vial_configuration || `${item.variant.dosage_mg}mg`} · qty ×{item.quantity}</p>
                   </div>
-                  <p className="text-sm font-bold text-emerald-400">{format(item.variant.price_inr * item.quantity)}</p>
+                  <p className="text-sm font-bold text-[#111111] flex-shrink-0">{format(item.variant.price_inr * item.quantity)}</p>
                 </div>
               ))}
             </div>
 
             {/* Price breakdown */}
-            <div className="space-y-2 text-sm mb-4 pb-4 border-b border-slate-700">
-              {getDiscount() > 0 && <div className="flex justify-between text-emerald-400"><span>5% Discount 🎉</span><span>−{format(getDiscountAmount())}</span></div>}
-              {couponCode && getCouponAmount() > 0 && <div className="flex justify-between text-emerald-400"><span>Coupon ({couponCode})</span><span>−{format(getCouponAmount())}</span></div>}
-              {deliveryCharge > 0 && <div className="flex justify-between text-amber-400"><span className="flex items-center gap-1"><Zap className="w-3.5 h-3.5" />Express Delivery</span><span>+{format(deliveryCharge)}</span></div>}
-              {isCodReview && <div className="flex justify-between text-orange-400"><span className="flex items-center gap-1"><Banknote className="w-3.5 h-3.5" />COD Fee</span><span>+{format(codCharge)}</span></div>}
+            <div className="space-y-2 text-sm mb-4 pb-4 border-b border-[#E5E7EB]">
+              {getDiscount() > 0 && <div className="flex justify-between text-[#16a34a]"><span className="flex items-center gap-1.5"><Tag className="w-3.5 h-3.5" />5% Discount</span><span className="font-semibold">−{format(getDiscountAmount())}</span></div>}
+              {couponCode && getCouponAmount() > 0 && <div className="flex justify-between text-[#16a34a]"><span className="flex items-center gap-1.5"><Tag className="w-3.5 h-3.5" />Coupon ({couponCode})</span><span className="font-semibold">−{format(getCouponAmount())}</span></div>}
+              {deliveryCharge > 0 && <div className="flex justify-between text-[#D97706]"><span className="flex items-center gap-1.5"><Zap className="w-3.5 h-3.5" />Express Delivery</span><span className="font-semibold">+{format(deliveryCharge)}</span></div>}
+              {isCodReview && <div className="flex justify-between text-[#D97706]"><span className="flex items-center gap-1.5"><Banknote className="w-3.5 h-3.5" />COD Fee</span><span className="font-semibold">+{format(codCharge)}</span></div>}
             </div>
 
             {/* Total */}
-            <div className="flex justify-between items-center">
-              <span className="text-slate-300 font-semibold">Total Amount</span>
-              <span className="text-3xl font-black text-emerald-400">{format(grandTotal)}</span>
+            <div className="flex justify-between items-baseline">
+              <span className="text-[#374151] font-semibold">Total Amount</span>
+              <span className="text-[28px] font-bold text-[#111111] tracking-[-0.02em]">{format(grandTotal)}</span>
             </div>
           </div>
 
           {/* Customer details card */}
-          <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl p-6 mb-6">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">Delivery Details</h3>
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between"><span className="text-slate-400">Name</span><span className="font-semibold text-white">{formData.customer_name}</span></div>
-              <div className="flex justify-between"><span className="text-slate-400">Phone</span><span className="font-semibold text-white">{formData.customer_phone}</span></div>
-              <div className="flex justify-between"><span className="text-slate-400">Email</span><span className="font-semibold text-white text-right max-w-[60%] break-all">{formData.customer_email}</span></div>
-              <div className="pt-2 border-t border-slate-700"><span className="text-slate-400 block mb-1">Address</span><span className="font-semibold text-white text-sm">{formData.shipping_address}, {formData.city}, {formData.state}, PIN: {formData.pincode}</span></div>
+          <div className="bg-white rounded-2xl border border-[#E5E7EB] p-6 mb-5 shadow-sm">
+            <div className="flex items-center gap-2 mb-5">
+              <Package className="w-4 h-4 text-[#2563EB]" />
+              <h3 className="text-sm font-bold uppercase tracking-wider text-[#374151]">Delivery Details</h3>
+            </div>
+            <div className="space-y-2.5 text-sm">
+              <div className="flex justify-between"><span className="text-[#9CA3AF]">Name</span><span className="font-semibold text-[#111111]">{formData.customer_name}</span></div>
+              <div className="flex justify-between"><span className="text-[#9CA3AF]">Phone</span><span className="font-semibold text-[#111111]">{formData.customer_phone}</span></div>
+              <div className="flex justify-between gap-3"><span className="text-[#9CA3AF] flex-shrink-0">Email</span><span className="font-semibold text-[#111111] text-right break-all">{formData.customer_email}</span></div>
+              <div className="pt-2.5 border-t border-[#E5E7EB] mt-2.5">
+                <span className="text-[#9CA3AF] block mb-1">Address</span>
+                <span className="font-semibold text-[#111111] text-sm leading-relaxed">{formData.shipping_address}, {formData.city}, {formData.state}, PIN: {formData.pincode}</span>
+              </div>
             </div>
           </div>
 
           {/* Error banner */}
           {submitError && (
-            <div className="bg-red-500/20 border border-red-500/50 rounded-2xl p-4 mb-6 flex items-start gap-3">
+            <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-5 flex items-start gap-3">
               <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
                 <X className="w-4 h-4 text-white" />
               </div>
               <div>
-                <p className="text-sm font-bold text-red-300 mb-0.5">Order not placed</p>
-                <p className="text-xs text-red-300 leading-relaxed break-words">{submitError}</p>
+                <p className="text-sm font-bold text-red-900 mb-0.5">Order not placed</p>
+                <p className="text-xs text-red-700 leading-relaxed break-words">{submitError}</p>
               </div>
             </div>
           )}
 
           {/* Payment options */}
           {isCodReview ? (
-            /* COD: single confirm button */
             <div className="space-y-3 mb-6">
               <button
                 onClick={handleConfirmOrder}
                 disabled={confirming}
-                className="w-full flex items-center justify-center gap-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-bold text-base py-4 rounded-xl transition-all duration-200 shadow-lg"
+                className="w-full flex items-center justify-center gap-3 bg-[#111111] hover:bg-[#1a1a1a] disabled:opacity-50 text-white font-bold text-base py-4 rounded-xl transition-all duration-200 hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.3)]"
               >
                 {confirming ? (
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -763,21 +779,20 @@ export default function CheckoutPage() {
               </button>
             </div>
           ) : (
-            /* Prepay: RetraLabs Secure Checkout */
             <div className="space-y-4 mb-6">
               <div className="flex items-center justify-center gap-2 mb-1">
-                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
-                <span className="text-xs text-slate-400 uppercase tracking-wider font-semibold px-2">RetraLabs Secure Checkout</span>
-                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent" />
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#E5E7EB] to-transparent" />
+                <span className="text-xs text-[#9CA3AF] uppercase tracking-wider font-semibold px-2">Secure Checkout</span>
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#E5E7EB] to-transparent" />
               </div>
 
               {/* Primary CTA — opens premium QR modal */}
               <button
                 onClick={() => setShowQrModal(true)}
-                className="group w-full relative overflow-hidden flex items-center justify-between gap-4 p-5 bg-gradient-to-br from-slate-800/80 to-slate-900/80 hover:from-slate-700/80 hover:to-slate-800/80 border border-slate-700 hover:border-emerald-500/50 rounded-2xl transition-all duration-300 shadow-lg"
+                className="group w-full relative overflow-hidden flex items-center justify-between gap-4 p-5 bg-white hover:bg-[#f8fafc] border border-[#E5E7EB] hover:border-[#2563EB]/40 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md"
               >
                 <div className="flex items-center gap-4">
-                  <div className="relative w-14 h-14 bg-white rounded-xl p-1.5 flex-shrink-0 shadow-md">
+                  <div className="relative w-14 h-14 bg-[#f8fafc] rounded-xl p-1.5 flex-shrink-0 border border-[#E5E7EB]">
                     <img
                       src="/retralabs-payment-qr.png"
                       alt="UPI QR"
@@ -785,15 +800,15 @@ export default function CheckoutPage() {
                       onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                     />
                     <div className="absolute inset-1.5 rounded-lg overflow-hidden pointer-events-none">
-                      <div className="absolute left-0 right-0 h-0.5 bg-emerald-400 shadow-[0_0_8px_#34d399] animate-[rl-scan-inline_2.5s_ease-in-out_infinite]" />
+                      <div className="absolute left-0 right-0 h-0.5 bg-[#2563EB] shadow-[0_0_8px_#2563EB] animate-[rl-scan-inline_2.5s_ease-in-out_infinite]" />
                     </div>
                   </div>
                   <div className="text-left">
-                    <p className="text-sm font-bold text-white">Pay via UPI QR</p>
-                    <p className="text-xs text-slate-400 mt-0.5">Scan & pay · 3-min window</p>
+                    <p className="text-sm font-bold text-[#111111]">Pay via UPI QR</p>
+                    <p className="text-xs text-[#9CA3AF] mt-0.5">Scan & pay · 3-min window</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 text-emerald-400 group-hover:translate-x-1 transition-transform">
+                <div className="flex items-center gap-2 text-[#2563EB] group-hover:translate-x-1 transition-transform">
                   <span className="text-xs font-bold uppercase tracking-wider">Open</span>
                   <ArrowRight className="w-4 h-4" />
                 </div>
@@ -803,17 +818,17 @@ export default function CheckoutPage() {
               <div className="grid grid-cols-2 gap-3">
                 <a
                   href={`upi://pay?pa=retralabs@ptaxis&pn=RetraLabs&am=${grandTotal}&tn=RetraLabs%20Order`}
-                  className="flex items-center justify-center gap-2 p-3.5 bg-slate-800/40 hover:bg-slate-700/60 border border-slate-700 hover:border-emerald-500/40 rounded-xl transition-all duration-200"
+                  className="flex items-center justify-center gap-2 p-3.5 bg-white hover:bg-[#f8fafc] border border-[#E5E7EB] hover:border-[#2563EB]/40 rounded-xl transition-all duration-200"
                 >
-                  <span className="text-sm font-bold text-emerald-400">₹</span>
-                  <span className="text-xs font-semibold text-slate-200">Open in UPI App</span>
+                  <span className="text-sm font-bold text-[#2563EB]">₹</span>
+                  <span className="text-xs font-semibold text-[#374151]">Open in UPI App</span>
                 </a>
                 <a
                   href={`upi://pay?pa=retralabs@ptaxis&pn=RetraLabs&am=${grandTotal}&tn=RetraLabs%20Order`}
-                  className="flex items-center justify-center gap-2 p-3.5 bg-slate-800/40 hover:bg-slate-700/60 border border-slate-700 hover:border-emerald-500/40 rounded-xl transition-all duration-200"
+                  className="flex items-center justify-center gap-2 p-3.5 bg-white hover:bg-[#f8fafc] border border-[#E5E7EB] hover:border-[#2563EB]/40 rounded-xl transition-all duration-200"
                 >
-                  <MessageCircle className="w-4 h-4 text-emerald-400" />
-                  <span className="text-xs font-semibold text-slate-200">Pay via WhatsApp</span>
+                  <MessageCircle className="w-4 h-4 text-[#16a34a]" />
+                  <span className="text-xs font-semibold text-[#374151]">Pay via WhatsApp</span>
                 </a>
               </div>
 
@@ -838,7 +853,7 @@ export default function CheckoutPage() {
 
           <button
             onClick={() => { setOrderReady(false); window.scrollTo({ top: 0, behavior: 'instant' }); }}
-            className="w-full text-center text-sm text-slate-400 hover:text-slate-300 transition-colors py-3"
+            className="w-full text-center text-sm text-[#9CA3AF] hover:text-[#374151] transition-colors py-3 font-medium"
           >
             ← Go back and edit
           </button>

@@ -132,13 +132,13 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
       } else {
         setOcrStatus('mismatch');
         setFraudWarning(
-          `The amount in your screenshot doesn't match ₹${amount.toLocaleString('en-IN')}. Please upload a screenshot showing the correct payment amount, or contact support if you believe this is an error.`
+          `We couldn't automatically verify the amount in your screenshot. Please make sure you paid ₹${amount.toLocaleString('en-IN')} and tap Confirm — your order will be manually reviewed.`
         );
       }
     } catch {
       if (controller.signal.aborted) return;
       setOcrStatus('error');
-      setFraudWarning('Could not verify the screenshot automatically. Your order will be manually reviewed.');
+      setFraudWarning('');
     } finally {
       if (worker) {
         try { worker.terminate(); } catch { /* ignore */ }
@@ -169,8 +169,7 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
     if (!txnRef.trim() || confirming || stage === 'expired') return;
     // Screenshot is mandatory
     if (!screenshot) return;
-    // Block if OCR found a mismatch
-    if (ocrStatus === 'mismatch') return;
+    // Allow proceeding even on mismatch — order will be manually reviewed
     setConfirming(true);
     setStage('verifying');
     try {
@@ -195,7 +194,7 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
   const isLow = secondsLeft <= 30;
 
   // Confirm button is enabled only when: UTR provided, screenshot uploaded, OCR matched (or error = manual review), not expired
-  const canConfirm = txnRef.trim() && !confirming && screenshot && (ocrStatus === 'matched' || ocrStatus === 'error') && stage !== 'expired';
+  const canConfirm = txnRef.trim() && !confirming && screenshot && (ocrStatus === 'matched' || ocrStatus === 'mismatch' || ocrStatus === 'error') && stage !== 'expired';
 
   if (!isOpen) return null;
 
@@ -545,9 +544,9 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
                         </span>
                       )}
                       {ocrStatus === 'mismatch' && (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#ef4444', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#fbbf24', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
                           <ShieldAlert size={12} />
-                          Amount Mismatch
+                          Manual Review
                         </span>
                       )}
                       {ocrStatus === 'error' && (
@@ -578,16 +577,16 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
                 <div style={{
                   display: 'flex', alignItems: 'flex-start', gap: 8,
                   padding: '10px 12px', borderRadius: 10,
-                  background: ocrStatus === 'mismatch' ? 'rgba(239,68,68,0.08)' : 'rgba(251,191,36,0.08)',
-                  border: `1px solid ${ocrStatus === 'mismatch' ? 'rgba(239,68,68,0.2)' : 'rgba(251,191,36,0.2)'}`,
+                  background: 'rgba(251,191,36,0.08)',
+                  border: '1px solid rgba(251,191,36,0.2)',
                   animation: 'rl-shake 0.4s ease',
                 }}>
                   {ocrStatus === 'mismatch' ? (
-                    <ShieldAlert size={16} style={{ color: '#ef4444', flexShrink: 0, marginTop: 1 }} />
+                    <AlertCircle size={16} style={{ color: '#fbbf24', flexShrink: 0, marginTop: 1 }} />
                   ) : (
                     <AlertCircle size={16} style={{ color: '#fbbf24', flexShrink: 0, marginTop: 1 }} />
                   )}
-                  <p style={{ color: ocrStatus === 'mismatch' ? '#fca5a5' : '#fcd34d', fontSize: 11, fontWeight: 600, margin: 0, lineHeight: 1.5 }}>
+                  <p style={{ color: '#fcd34d', fontSize: 11, fontWeight: 600, margin: 0, lineHeight: 1.5 }}>
                     {fraudWarning}
                   </p>
                 </div>
@@ -633,7 +632,7 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
               )}
               {screenshot && ocrStatus === 'mismatch' && (
                 <p style={{ textAlign: 'center', color: '#475569', fontSize: 11, fontWeight: 500, margin: 0 }}>
-                  Fix the screenshot to continue, or use WhatsApp for manual help
+                  We couldn't auto-verify the amount. Tap Confirm — your order will be manually reviewed.
                 </p>
               )}
 
