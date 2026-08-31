@@ -343,7 +343,9 @@ async function createShiprocketOrder(
   });
 
   const json: any = await res.json().catch(() => null);
-  const srOrderId = String(json?.order_id ?? json?.data?.order_id ?? json?.id ?? '');
+  const data = json?.data || json;
+  const srOrderId = String(data?.order_id ?? json?.order_id ?? json?.id ?? '');
+  const srShipmentId = String(data?.shipment_id ?? json?.shipment_id ?? '');
 
   if (!res.ok || json?.status_code === 0 || !srOrderId) {
     const detail = typeof json?.message === 'string'
@@ -355,10 +357,9 @@ async function createShiprocketOrder(
     throw new Error(`Shiprocket: ${detail}`);
   }
 
-  console.log('[Shiprocket] Order created successfully:', JSON.stringify(json).slice(0, 400));
-  const srShipmentId = String(json?.shipment_id ?? json?.data?.shipment_id ?? '');
-  const awbNumber = (json?.awb_code || json?.data?.awb_code) ? String(json?.awb_code || json?.data?.awb_code) : getRetraTrackingId();
-  const courierName = (json?.courier_name || json?.data?.courier_name) ? String(json?.courier_name || json?.data?.courier_name) : 'Shiprocket';
+  console.log('[Shiprocket] Order created successfully. Order ID:', srOrderId, 'Shipment ID:', srShipmentId);
+  const awbNumber = (json?.awb_code || data?.awb_code) ? String(json?.awb_code || data?.awb_code) : getRetraTrackingId();
+  const courierName = (json?.courier_name || data?.courier_name) ? String(json?.courier_name || data?.courier_name) : 'Shiprocket';
 
   return {
     provider: 'Shiprocket',
