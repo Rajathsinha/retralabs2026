@@ -284,7 +284,10 @@ async function createShiprocketOrder(
   paymentMethod: 'prepay' | 'cod',
 ): Promise<ShiprocketResult> {
   const phone = cleanPhone(customer.phone);
-  const pickupLocation = (process.env.SHIPROCKET_PICKUP_LOCATION || process.env.VITE_SHIPROCKET_PICKUP_LOCATION || 'Rajath').trim();
+  let pickupLocation = (process.env.SHIPROCKET_PICKUP_LOCATION || process.env.VITE_SHIPROCKET_PICKUP_LOCATION || 'Rajath').trim();
+  if (!pickupLocation || pickupLocation.toLowerCase() === 'primary') {
+    pickupLocation = 'Rajath';
+  }
   
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
