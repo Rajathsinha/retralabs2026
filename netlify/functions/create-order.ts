@@ -356,7 +356,6 @@ async function createShiprocketOrder(
   }
 
   console.log('[Shiprocket] Order created successfully:', JSON.stringify(json).slice(0, 400));
-  const srOrderId = String(json?.order_id ?? json?.data?.order_id ?? json?.id ?? '');
   const srShipmentId = String(json?.shipment_id ?? json?.data?.shipment_id ?? '');
   const awbNumber = (json?.awb_code || json?.data?.awb_code) ? String(json?.awb_code || json?.data?.awb_code) : getRetraTrackingId();
   const courierName = (json?.courier_name || json?.data?.courier_name) ? String(json?.courier_name || json?.data?.courier_name) : 'Shiprocket';
