@@ -785,29 +785,6 @@ export const handler: Handler = async (event) => {
       }
     }
 
-            const updateJson: any = await updateRes.json().catch(() => null);
-            const detail =
-              typeof updateJson?.error === 'string'
-                ? updateJson.error
-                : updateJson?.error?.message || `HTTP ${updateRes.status}`;
-            const unknownMatch = detail.match(/Unknown field name: ["']?([^"')]+)["']?/i);
-            if (unknownMatch) {
-              delete updateFields[unknownMatch[1]];
-              continue;
-            }
-            innofulfillWarning = `Airtable update for Innofulfill IDs failed: ${detail}`;
-            break;
-          }
-        } else {
-          innofulfillWarning = 'Innofulfill not configured (missing INNOFULFILL_USERNAME or INNOFULFILL_PASSWORD env vars on Netlify)';
-          await updateInnofulfillError(baseId!, table, token!, recordId, innofulfillWarning);
-        }
-      } catch (innoErr) {
-        innofulfillWarning = innoErr instanceof Error ? innoErr.message : String(innoErr);
-        await updateInnofulfillError(baseId!, table, token!, recordId, innofulfillWarning);
-      }
-    }
-
     return {
       statusCode: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
