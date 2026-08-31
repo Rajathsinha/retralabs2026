@@ -14,6 +14,8 @@ interface OrderData {
   name: string | null;
   awbNumber: string | null;
   courierName: string | null;
+  carrierDisplayName?: string | null;
+  logisticsProvider?: string | null;
   innofulfillOrderId: string | null;
   shipmentStatus: string | null;
   trackingStatus: string | null;
@@ -227,7 +229,7 @@ export default function TrackOrderPage() {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-500">Courier</span>
-                    <span className="font-semibold text-slate-700">{order.courierName || 'Shreemaruti'}</span>
+                    <span className="font-semibold text-slate-700">{order.carrierDisplayName || order.courierName || order.logisticsProvider || 'Shiprocket'}</span>
                   </div>
                   {order.trackingStatus && (
                     <div className="flex justify-between text-sm">
@@ -260,7 +262,7 @@ export default function TrackOrderPage() {
                     <div className="flex items-center gap-2 mb-1">
                       <p className="text-sm font-bold text-amber-900">Shipment Handover in Progress</p>
                       <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-amber-200 text-amber-900 rounded-full">
-                        {order.courierName || 'Shreemaruti'}
+                        {order.carrierDisplayName || order.courierName || order.logisticsProvider || 'Shiprocket'}
                       </span>
                     </div>
                     <p className="text-xs text-amber-800 leading-relaxed">

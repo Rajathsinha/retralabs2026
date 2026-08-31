@@ -40,7 +40,7 @@ async function saveOrder(fields: Record<string, unknown>, screenshot?: { content
     innofulfillOrderId: json.innofulfillOrderId || null,
     awbNumber: json.awbNumber || null,
     innofulfillWarning: json.innofulfillWarning || null,
-    carrierDisplayName: json.carrierDisplayName || 'Shreemaruti',
+    carrierDisplayName: json.carrierDisplayName || (json.logisticsProvider === 'Shiprocket' ? 'Shiprocket' : 'Innofulfill'),
   };
 }
 
@@ -161,6 +161,7 @@ export default function CheckoutPage() {
     awbNumber: string | null;
     innofulfillOrderId: string | null;
     innofulfillWarning: string | null;
+    carrierDisplayName?: string | null;
     cartItems: Array<{ name: string; config: string; qty: number; price: number }>;
     deliveryOption: string;
     paymentMethod: 'prepay' | 'cod';
@@ -576,7 +577,7 @@ export default function CheckoutPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[#9CA3AF]">Courier</span>
-                  <span className="font-semibold text-[#374151]">Shreemaruti</span>
+                  <span className="font-semibold text-[#374151]">{snap.carrierDisplayName || 'Shiprocket'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[#9CA3AF]">Order Status</span>
