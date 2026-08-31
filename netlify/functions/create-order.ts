@@ -349,11 +349,11 @@ async function createShiprocketOrder(
     throw new Error(`Shiprocket: ${detail}`);
   }
 
-  console.log('[Shiprocket] Order created successfully');
-  const srOrderId = String(json?.order_id ?? '');
-  const srShipmentId = String(json?.shipment_id ?? '');
-  const awbNumber = json?.awb_code ? String(json.awb_code) : getRetraTrackingId();
-  const courierName = json?.courier_name ? String(json.courier_name) : 'Shiprocket';
+  console.log('[Shiprocket] Order created successfully:', JSON.stringify(json).slice(0, 400));
+  const srOrderId = String(json?.order_id ?? json?.data?.order_id ?? json?.id ?? '');
+  const srShipmentId = String(json?.shipment_id ?? json?.data?.shipment_id ?? '');
+  const awbNumber = (json?.awb_code || json?.data?.awb_code) ? String(json?.awb_code || json?.data?.awb_code) : getRetraTrackingId();
+  const courierName = (json?.courier_name || json?.data?.courier_name) ? String(json?.courier_name || json?.data?.courier_name) : 'Shiprocket';
 
   return {
     provider: 'Shiprocket',
@@ -803,10 +803,13 @@ export const handler: Handler = async (event) => {
         success: true,
         recordId,
         orderId,
+        logisticsProvider: shipmentProvider,
         innofulfillOrderId: innofulfillOrderId || null,
         innofulfillInternalId: innofulfillInternalId || null,
+        shiprocketOrderId: shipmentProvider === 'Shiprocket' ? (innofulfillOrderId || null) : null,
+        shiprocketShipmentId: shipmentProvider === 'Shiprocket' ? (innofulfillInternalId || null) : null,
         carrierName: carrierName || null,
-        carrierDisplayName: carrierDisplayName || 'Shreemaruti',
+        carrierDisplayName: carrierDisplayName || (shipmentProvider === 'Shiprocket' ? 'Shiprocket' : 'Shreemaruti'),
         awbNumber: awbNumber || null,
         shipmentStatus,
         innofulfillWarning,
