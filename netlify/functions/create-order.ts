@@ -498,9 +498,18 @@ async function createInnofulfillOrder(
   }
 
   const data = json?.data || json;
-  console.log('[Innofulfill] Shipment created successfully');
+  const innofulfillOrderId = data?.orderId || data?.id ? String(data.orderId || data.id) : '';
 
-  const innofulfillOrderId = String(data?.orderId ?? data?.id ?? '');
+  if (!innofulfillOrderId || json?.error || (typeof json?.message === 'string' && json.message.toLowerCase().includes('no serviceable'))) {
+    const detail =
+      typeof json?.error === 'string'
+        ? json.error
+        : json?.error?.message || json?.message || 'No serviceable carrier found for pincode';
+    console.error(`[Innofulfill] Order creation unserviceable / failed: ${detail}`);
+    throw new Error(`Innofulfill: ${detail}`);
+  }
+
+  console.log('[Innofulfill] Shipment created successfully');
   const innofulfillInternalId = data?.id ? String(data.id) : undefined;
   const carrierName = data?.carrierName ? String(data.carrierName) : carrierNameEnv;
   const carrierDisplayName = data?.carrierDisplayName ? String(data.carrierDisplayName) : 'Shreemaruti';
