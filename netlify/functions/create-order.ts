@@ -244,8 +244,13 @@ async function getShiprocketToken(): Promise<string | null> {
 
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
-    console.error(`[Shiprocket] Auth failed: HTTP ${res.status} — ${detail}`);
-    return null;
+    let msg = `HTTP ${res.status}`;
+    try {
+      const parsed = JSON.parse(detail);
+      msg = parsed.message || parsed.error || msg;
+    } catch {}
+    console.error(`[Shiprocket] Auth failed: ${msg}`);
+    throw new Error(`Shiprocket Auth Failed: ${msg}`);
   }
 
   const json: any = await res.json().catch(() => null);
