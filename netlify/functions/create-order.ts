@@ -673,6 +673,7 @@ export const handler: Handler = async (event) => {
         if (existingProvider) shipmentProvider = String(existingProvider) as 'Innofulfill' | 'Shiprocket';
         bookingSuccess = true;
       } else {
+        let innofulfillErrorMessage = '';
         // Step A: Attempt primary booking via Innofulfill
         try {
           console.log('[Innofulfill] Attempting primary shipment creation for', body.cartItems?.length, 'items');
@@ -699,8 +700,9 @@ export const handler: Handler = async (event) => {
             bookingSuccess = true;
           }
         } catch (innoErr: any) {
-          console.warn(`[Logistics] Innofulfill booking failed for pincode ${body.customer?.pincode}: ${innoErr?.message}. Attempting Shiprocket fallback...`);
-          innofulfillWarning = `Innofulfill failed: ${innoErr?.message}`;
+          innofulfillErrorMessage = innoErr?.message || String(innoErr);
+          console.warn(`[Logistics] Innofulfill booking failed for pincode ${body.customer?.pincode}: ${innofulfillErrorMessage}. Attempting Shiprocket fallback...`);
+          innofulfillWarning = `Innofulfill failed: ${innofulfillErrorMessage}`;
         }
 
         // Step B: Fallback to Shiprocket if Innofulfill failed or is unserviceable
@@ -724,19 +726,22 @@ export const handler: Handler = async (event) => {
               shipmentStatus = sr.shipmentStatus;
               shipmentProvider = 'Shiprocket';
               bookingSuccess = true;
+              innofulfillWarning = null;
               console.log(`[Logistics] Shiprocket fallback successful for ${orderId}, AWB: ${awbNumber}`);
             } else {
               console.warn('[Logistics] Shiprocket skipped: SHIPROCKET_EMAIL or SHIPROCKET_PASSWORD not set in Cloudflare Pages');
-              innofulfillWarning = `Innofulfill failed (${innoErr?.message}) & Shiprocket fallback disabled (missing SHIPROCKET_EMAIL or SHIPROCKET_PASSWORD in Cloudflare Pages)`;
+              innofulfillWarning = `Innofulfill failed (${innofulfillErrorMessage}) & Shiprocket fallback disabled (missing SHIPROCKET_EMAIL or SHIPROCKET_PASSWORD in Cloudflare Pages)`;
             }
           } catch (srErr: any) {
-            console.error(`[Logistics] Shiprocket fallback also failed: ${srErr?.message}`);
+            const srErrorMessage = srErr?.message || String(srErr);
+            console.error(`[Logistics] Shiprocket fallback also failed: ${srErrorMessage}`);
+            innofulfillWarning = `Innofulfill failed: ${innofulfillErrorMessage} | Shiprocket failed: ${srErrorMessage}`;
             await updateInnofulfillError(
               baseId,
               table,
               token,
               recordId,
-              `Innofulfill: ${innofulfillWarning} | Shiprocket: ${srErr?.message}`,
+              innofulfillWarning,
             );
           }
         }
