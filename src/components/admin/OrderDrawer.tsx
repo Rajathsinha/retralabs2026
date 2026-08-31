@@ -118,12 +118,13 @@ export function OrderDrawer({ record, onClose }: OrderDrawerProps) {
           </Section>
 
           <Section icon={Truck} title="Tracking">
+            <Row label="Provider" value={String(f['Courier Provider'] ?? 'Innofulfill')} />
             <Row label="Courier" value={String(f['Carrier Display Name'] ?? f['Courier'] ?? 'Shreemaruti')} />
             <Row label="Shipment Status" value={String(f['Shipment Status'] ?? (f['AWB Number'] ? 'AWB_ASSIGNED' : f['Innofulfill Order ID'] ? 'AWB_PENDING' : 'NOT_CREATED'))} />
             <Row label="AWB Number" value={String(f['AWB Number'] ?? 'Pending')} />
-            <Row label="Innofulfill Order ID" value={String(f['Innofulfill Order ID'] ?? '—')} />
+            <Row label="Booking / Order ID" value={String(f['Innofulfill Order ID'] ?? '—')} />
             {f['Innofulfill Internal ID'] && (
-              <Row label="Innofulfill Internal ID" value={String(f['Innofulfill Internal ID'])} />
+              <Row label="Internal ID" value={String(f['Innofulfill Internal ID'])} />
             )}
             <Row label="Tracking ID" value={tracking || '—'} />
             {f['Innofulfill Error'] && String(f['Innofulfill Error']) !== '—' && (

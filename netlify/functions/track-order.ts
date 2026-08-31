@@ -221,29 +221,67 @@ export const handler: Handler = async (event) => {
       }
     }
 
-    // Try to fetch live tracking timeline from Innofulfill if we have an assigned AWB
+    const provider = f['Courier Provider'] ? String(f['Courier Provider']) : 'Innofulfill';
+
+    // Try to fetch live tracking timeline from Innofulfill or Shiprocket if we have an assigned AWB
     let trackingStatus: string | null = null;
     let trackingTimeline: any[] | null = null;
     let trackingUrl: string | null = null;
 
     if (awbNumber) {
-      try {
-        const innoToken = await getInnofulfillToken();
-        if (innoToken) {
-          const trackRes = await fetch(
-            `${getInnofulfillBase()}/gateway/booking-service/shipments/track?awb=${encodeURIComponent(awbNumber)}`,
-            { headers: innofulfillHeaders(innoToken) },
-          );
-          if (trackRes.ok) {
-            const trackJson: any = await trackRes.json();
-            const trackData = trackJson?.data || trackJson;
-            trackingStatus = trackData?.status || trackData?.shipmentStatus || null;
-            trackingTimeline = Array.isArray(trackData?.trackingHistory) ? trackData.trackingHistory : null;
-            if (trackData?.trackingUrl) trackingUrl = String(trackData.trackingUrl);
+      if (provider === 'Shiprocket') {
+        try {
+          const email = process.env.SHIPROCKET_EMAIL;
+          const password = process.env.SHIPROCKET_PASSWORD;
+          if (email && password) {
+            const srAuth = await fetch('https://apiv2.shiprocket.in/v1/external/auth/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email, password }),
+            }).then((r) => r.json()).catch(() => null);
+            
+            if (srAuth?.token) {
+              const trackRes = await fetch(
+                `https://apiv2.shiprocket.in/v1/external/courier/track/awb/${encodeURIComponent(awbNumber)}`,
+                { headers: { Authorization: `Bearer ${srAuth.token}` } },
+              );
+              if (trackRes.ok) {
+                const trackJson: any = await trackRes.json();
+                const trackData = trackJson?.tracking_data || trackJson;
+                trackingStatus = trackData?.current_status || trackData?.shipment_track?.[0]?.current_status || null;
+                trackingTimeline = Array.isArray(trackData?.shipment_track_activities)
+                  ? trackData.shipment_track_activities.map((act: any) => ({
+                      status: act.activity || act.status,
+                      date: act.date,
+                      location: act.location,
+                    }))
+                  : null;
+                if (trackData?.track_url) trackingUrl = String(trackData.track_url);
+              }
+            }
           }
+        } catch (srErr) {
+          console.warn('[Shiprocket] Tracking fetch non-critical error:', srErr);
         }
-      } catch {
-        // Tracking history fetch is non-critical
+      } else {
+        try {
+          const innoToken = await getInnofulfillToken();
+          if (innoToken) {
+            const trackRes = await fetch(
+              `${getInnofulfillBase()}/gateway/booking-service/shipments/track?awb=${encodeURIComponent(awbNumber)}`,
+              { headers: innofulfillHeaders(innoToken) },
+            );
+            if (trackRes.ok) {
+              const trackJson: any = await trackRes.json();
+              const trackData = trackJson?.data || trackJson;
+              trackingStatus = trackData?.status || trackData?.shipmentStatus || null;
+              trackingTimeline = Array.isArray(trackData?.trackingHistory) ? trackData.trackingHistory : null;
+              if (trackData?.trackingUrl) trackingUrl = String(trackData.trackingUrl);
+            }
+          }
+        } catch {
+          // Tracking history fetch is non-critical
+        }
       }
     }
 

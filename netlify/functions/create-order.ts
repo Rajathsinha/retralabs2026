@@ -219,6 +219,148 @@ async function updateInnofulfillError(baseId: string, table: string, token: stri
   }
 }
 
+// ── Shiprocket Fallback ────────────────────────────────────────────────────────
+
+let cachedShiprocketToken: { token: string; expiresAt: number } | null = null;
+
+async function getShiprocketToken(): Promise<string | null> {
+  const email = process.env.SHIPROCKET_EMAIL;
+  const password = process.env.SHIPROCKET_PASSWORD;
+  if (!email || !password) {
+    console.log('[Shiprocket] Skipped: SHIPROCKET_EMAIL or SHIPROCKET_PASSWORD not configured');
+    return null;
+  }
+
+  if (cachedShiprocketToken && Date.now() < cachedShiprocketToken.expiresAt) {
+    return cachedShiprocketToken.token;
+  }
+
+  console.log(`[Shiprocket] Authenticating as ${email}`);
+  const res = await fetch('https://apiv2.shiprocket.in/v1/external/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    console.error(`[Shiprocket] Auth failed: HTTP ${res.status} — ${detail}`);
+    return null;
+  }
+
+  const json: any = await res.json().catch(() => null);
+  const token = json?.token as string | undefined;
+  if (!token) {
+    console.error('[Shiprocket] Auth response missing token:', json);
+    return null;
+  }
+
+  console.log('[Shiprocket] Auth successful');
+  cachedShiprocketToken = { token, expiresAt: Date.now() + 9 * 24 * 60 * 60 * 1000 };
+  return token;
+}
+
+export interface ShiprocketResult {
+  provider: 'Shiprocket';
+  shiprocketOrderId?: string;
+  shiprocketShipmentId?: string;
+  courierName?: string;
+  awbNumber?: string;
+  shipmentStatus: 'CREATED' | 'AWB_PENDING' | 'AWB_ASSIGNED' | 'FAILED';
+  shipmentCreatedAt: string;
+}
+
+async function createShiprocketOrder(
+  token: string,
+  orderId: string,
+  customer: { name: string; email: string; phone: string; address: string; city: string; state: string; pincode: string },
+  cartItems: CartLineItem[],
+  total: number,
+  paymentMethod: 'prepay' | 'cod',
+): Promise<ShiprocketResult> {
+  const phone = cleanPhone(customer.phone);
+  const pickupLocation = process.env.SHIPROCKET_PICKUP_LOCATION || 'Primary';
+  
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const orderDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+  const nameParts = (customer.name || 'Valued Customer').trim().split(/\s+/);
+  const firstName = nameParts[0] || 'Valued';
+  const lastName = nameParts.slice(1).join(' ') || 'Customer';
+
+  const orderItems = cartItems.map((item) => ({
+    name: item.name,
+    sku: item.variant.replace(/\s+/g, '-').toUpperCase().slice(0, 40),
+    units: item.quantity,
+    selling_price: item.unitPrice,
+    discount: 0,
+    tax: 0,
+  }));
+
+  const payload = {
+    order_id: orderId,
+    order_date: orderDate,
+    pickup_location: pickupLocation,
+    channel_id: '',
+    comment: 'RetraLabs Order',
+    billing_customer_name: firstName,
+    billing_last_name: lastName,
+    billing_address: customer.address || 'Address Line 1',
+    billing_city: customer.city || 'Bengaluru',
+    billing_pincode: customer.pincode || '560001',
+    billing_state: customer.state || 'Karnataka',
+    billing_country: 'India',
+    billing_email: customer.email || 'orders@retralabs.in',
+    billing_phone: phone,
+    shipping_is_billing: true,
+    order_items: orderItems,
+    payment_method: paymentMethod === 'cod' ? 'COD' : 'Prepaid',
+    shipping_charges: 0,
+    giftwrap_charges: 0,
+    transaction_charges: 0,
+    total_discount: 0,
+    sub_total: total,
+    length: 10,
+    breadth: 10,
+    height: 5,
+    weight: 0.5,
+  };
+
+  console.log(`[Shiprocket] Creating fallback order for ${orderId}`);
+  const res = await fetch('https://apiv2.shiprocket.in/v1/external/orders/create/adhoc', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const json: any = await res.json().catch(() => null);
+  if (!res.ok) {
+    const detail = typeof json?.message === 'string' ? json.message : JSON.stringify(json);
+    console.error(`[Shiprocket] Order creation failed: HTTP ${res.status} — ${detail}`);
+    throw new Error(`Shiprocket: ${detail}`);
+  }
+
+  console.log('[Shiprocket] Order created successfully');
+  const srOrderId = String(json?.order_id ?? '');
+  const srShipmentId = String(json?.shipment_id ?? '');
+  const awbNumber = json?.awb_code ? String(json.awb_code) : getRetraTrackingId();
+  const courierName = json?.courier_name ? String(json.courier_name) : 'Shiprocket';
+
+  return {
+    provider: 'Shiprocket',
+    shiprocketOrderId: srOrderId,
+    shiprocketShipmentId: srShipmentId,
+    courierName,
+    awbNumber,
+    shipmentStatus: awbNumber ? 'AWB_ASSIGNED' : 'CREATED',
+    shipmentCreatedAt: new Date().toISOString(),
+  };
+}
+
 export interface InnofulfillResult {
   innofulfillOrderId?: string;
   innofulfillInternalId?: string;
@@ -498,7 +640,7 @@ export const handler: Handler = async (event) => {
       }
     }
 
-    // 3. Create order in Innofulfill (all orders — COD and prepaid) with strict idempotency
+    // 3. Create order in Innofulfill (or automatic fallback to Shiprocket) with strict idempotency
     let innofulfillWarning: string | null = null;
     let innofulfillOrderId: string | undefined;
     let innofulfillInternalId: string | undefined;
@@ -506,30 +648,36 @@ export const handler: Handler = async (event) => {
     let carrierDisplayName: string | undefined = 'Shreemaruti';
     let awbNumber: string | undefined;
     let shipmentStatus: string = 'NOT_CREATED';
+    let shipmentProvider: 'Innofulfill' | 'Shiprocket' = 'Innofulfill';
+    let bookingSuccess = false;
 
     if (!body.cartItems?.length) {
       innofulfillWarning = 'Skipped: no cartItems received by the function';
-      console.warn('[Innofulfill] Skipped: no cartItems in request body');
+      console.warn('[Logistics] Skipped: no cartItems in request body');
     } else {
-      try {
-        console.log('[Innofulfill] Processing shipment creation for', body.cartItems?.length, 'items');
-        const innoToken = await getInnofulfillToken();
-        if (innoToken) {
-          // Idempotency: verify if this Airtable record already has an Innofulfill Order ID
-          const existingRes = await fetch(
-            `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}/${recordId}`,
-            { headers: { Authorization: `Bearer ${token}` } },
-          );
-          const existingJson: any = await existingRes.json().catch(() => null);
-          const existingInnoId = existingJson?.fields?.['Innofulfill Order ID'];
-          const existingAwb = existingJson?.fields?.['AWB Number'];
+      // Idempotency: verify if this Airtable record already has an Innofulfill/Shiprocket Order ID
+      const existingRes = await fetch(
+        `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}/${recordId}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      const existingJson: any = await existingRes.json().catch(() => null);
+      const existingInnoId = existingJson?.fields?.['Innofulfill Order ID'];
+      const existingAwb = existingJson?.fields?.['AWB Number'];
+      const existingProvider = existingJson?.fields?.['Courier Provider'];
 
-          if (existingInnoId) {
-            console.log(`[Innofulfill] Idempotent hit: Order ${orderId} already has Innofulfill ID ${existingInnoId}`);
-            innofulfillOrderId = String(existingInnoId);
-            awbNumber = existingAwb ? String(existingAwb) : undefined;
-            shipmentStatus = awbNumber ? 'AWB_ASSIGNED' : 'AWB_PENDING';
-          } else {
+      if (existingInnoId) {
+        console.log(`[Logistics] Idempotent hit: Order ${orderId} already processed (${existingInnoId})`);
+        innofulfillOrderId = String(existingInnoId);
+        awbNumber = existingAwb ? String(existingAwb) : undefined;
+        shipmentStatus = awbNumber ? 'AWB_ASSIGNED' : 'AWB_PENDING';
+        if (existingProvider) shipmentProvider = String(existingProvider) as 'Innofulfill' | 'Shiprocket';
+        bookingSuccess = true;
+      } else {
+        // Step A: Attempt primary booking via Innofulfill
+        try {
+          console.log('[Innofulfill] Attempting primary shipment creation for', body.cartItems?.length, 'items');
+          const innoToken = await getInnofulfillToken();
+          if (innoToken) {
             const inno = await createInnofulfillOrder(
               innoToken,
               orderId,
@@ -547,37 +695,95 @@ export const handler: Handler = async (event) => {
             carrierDisplayName = inno.carrierDisplayName;
             awbNumber = inno.awbNumber;
             shipmentStatus = inno.shipmentStatus;
+            shipmentProvider = 'Innofulfill';
+            bookingSuccess = true;
           }
+        } catch (innoErr: any) {
+          console.warn(`[Logistics] Innofulfill booking failed for pincode ${body.customer?.pincode}: ${innoErr?.message}. Attempting Shiprocket fallback...`);
+          innofulfillWarning = `Innofulfill failed: ${innoErr?.message}`;
+        }
 
-          // 4. Update Airtable with Innofulfill IDs, real AWB (if assigned), carrier, and status
-          const updateFields: Record<string, unknown> = {
-            Status: 'Created in Innofulfill',
-            'Shipment Status': shipmentStatus,
-            'Innofulfill Error': '',
-          };
-          if (innofulfillOrderId) updateFields['Innofulfill Order ID'] = innofulfillOrderId;
-          if (innofulfillInternalId) updateFields['Innofulfill Internal ID'] = innofulfillInternalId;
-          if (carrierName) updateFields['Carrier Name'] = carrierName;
-          if (carrierDisplayName) {
-            updateFields['Carrier Display Name'] = carrierDisplayName;
-            updateFields['Courier'] = carrierDisplayName;
-          }
-          if (awbNumber) {
-            updateFields['AWB Number'] = awbNumber;
-            updateFields['Tracking ID'] = awbNumber;
-          }
-          updateFields['Shipment Created At'] = new Date().toISOString();
-
-          for (let attempt = 0; attempt < 5; attempt++) {
-            const updateRes = await fetch(
-              `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}/${recordId}`,
-              {
-                method: 'PATCH',
-                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fields: updateFields, typecast: true }),
-              },
+        // Step B: Fallback to Shiprocket if Innofulfill failed or is unserviceable
+        if (!bookingSuccess) {
+          try {
+            const srToken = await getShiprocketToken();
+            if (srToken) {
+              const sr = await createShiprocketOrder(
+                srToken,
+                orderId,
+                body.customer,
+                body.cartItems,
+                body.total,
+                body.paymentMethod,
+              );
+              innofulfillOrderId = sr.shiprocketOrderId;
+              innofulfillInternalId = sr.shiprocketShipmentId;
+              carrierName = sr.courierName;
+              carrierDisplayName = `Shiprocket (${sr.courierName || 'Partner'})`;
+              awbNumber = sr.awbNumber;
+              shipmentStatus = sr.shipmentStatus;
+              shipmentProvider = 'Shiprocket';
+              bookingSuccess = true;
+              console.log(`[Logistics] Shiprocket fallback successful for ${orderId}, AWB: ${awbNumber}`);
+            } else {
+              console.warn('[Logistics] Shiprocket skipped: SHIPROCKET_EMAIL or SHIPROCKET_PASSWORD not set');
+            }
+          } catch (srErr: any) {
+            console.error(`[Logistics] Shiprocket fallback also failed: ${srErr?.message}`);
+            await updateInnofulfillError(
+              baseId,
+              table,
+              token,
+              recordId,
+              `Innofulfill: ${innofulfillWarning} | Shiprocket: ${srErr?.message}`,
             );
-            if (updateRes.ok) break;
+          }
+        }
+      }
+
+      // 4. Update Airtable with booking details, AWB, provider, and status
+      const updateFields: Record<string, unknown> = {
+        Status: bookingSuccess ? `Created in ${shipmentProvider}` : 'Logistics Failed',
+        'Shipment Status': shipmentStatus,
+        'Courier Provider': shipmentProvider,
+        'Innofulfill Error': bookingSuccess ? '' : (innofulfillWarning || 'Logistics Failed'),
+      };
+      if (innofulfillOrderId) updateFields['Innofulfill Order ID'] = innofulfillOrderId;
+      if (innofulfillInternalId) updateFields['Innofulfill Internal ID'] = innofulfillInternalId;
+      if (carrierName) updateFields['Carrier Name'] = carrierName;
+      if (carrierDisplayName) {
+        updateFields['Carrier Display Name'] = carrierDisplayName;
+        updateFields['Courier'] = carrierDisplayName;
+      }
+      if (awbNumber) {
+        updateFields['AWB Number'] = awbNumber;
+        updateFields['Tracking ID'] = awbNumber;
+      }
+      updateFields['Shipment Created At'] = new Date().toISOString();
+
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const updateRes = await fetch(
+          `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}/${recordId}`,
+          {
+            method: 'PATCH',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fields: updateFields, typecast: true }),
+          },
+        );
+        if (updateRes.ok) break;
+        const json: any = await updateRes.json().catch(() => null);
+        const detail =
+          typeof json?.error === 'string'
+            ? json.error
+            : json?.error?.message || `HTTP ${updateRes.status}`;
+        const unknownMatch = detail.match(/Unknown field name: ["']?([^"')]+)["']?/i);
+        if (unknownMatch) {
+          delete updateFields[unknownMatch[1]];
+          continue;
+        }
+        break;
+      }
+    }
 
             const updateJson: any = await updateRes.json().catch(() => null);
             const detail =
