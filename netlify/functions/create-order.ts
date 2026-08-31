@@ -726,7 +726,8 @@ export const handler: Handler = async (event) => {
               bookingSuccess = true;
               console.log(`[Logistics] Shiprocket fallback successful for ${orderId}, AWB: ${awbNumber}`);
             } else {
-              console.warn('[Logistics] Shiprocket skipped: SHIPROCKET_EMAIL or SHIPROCKET_PASSWORD not set');
+              console.warn('[Logistics] Shiprocket skipped: SHIPROCKET_EMAIL or SHIPROCKET_PASSWORD not set in Cloudflare Pages');
+              innofulfillWarning = `Innofulfill failed (${innoErr?.message}) & Shiprocket fallback disabled (missing SHIPROCKET_EMAIL or SHIPROCKET_PASSWORD in Cloudflare Pages)`;
             }
           } catch (srErr: any) {
             console.error(`[Logistics] Shiprocket fallback also failed: ${srErr?.message}`);
