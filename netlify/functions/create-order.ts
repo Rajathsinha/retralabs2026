@@ -343,8 +343,14 @@ async function createShiprocketOrder(
   });
 
   const json: any = await res.json().catch(() => null);
-  if (!res.ok) {
-    const detail = typeof json?.message === 'string' ? json.message : JSON.stringify(json);
+  const srOrderId = String(json?.order_id ?? json?.data?.order_id ?? json?.id ?? '');
+
+  if (!res.ok || json?.status_code === 0 || !srOrderId) {
+    const detail = typeof json?.message === 'string'
+      ? json.message
+      : typeof json?.data === 'string'
+      ? json.data
+      : JSON.stringify(json);
     console.error(`[Shiprocket] Order creation failed: HTTP ${res.status} — ${detail}`);
     throw new Error(`Shiprocket: ${detail}`);
   }
