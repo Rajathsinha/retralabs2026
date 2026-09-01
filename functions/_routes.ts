@@ -1,9 +1,9 @@
-import { handler as createOrder } from '../../functions/create-order';
-import { handler as trackOrder } from '../../functions/track-order';
-import { handler as listOrders } from '../../functions/list-orders';
-import { handler as brevoOrderEmail } from '../../functions/brevo-order-email';
-import { handler as pushToInnofulfill } from '../../functions/push-to-innofulfill';
-import { handler as pushToShiprocket } from '../../functions/push-to-shiprocket';
+import { handler as createOrder } from './create-order';
+import { handler as trackOrder } from './track-order';
+import { handler as listOrders } from './list-orders';
+import { handler as brevoOrderEmail } from './brevo-order-email';
+import { handler as pushToInnofulfill } from './push-to-innofulfill';
+import { handler as pushToShiprocket } from './push-to-shiprocket';
 
 // Polyfill globalThis.process for Node-style env access in Cloudflare edge runtime
 if (typeof globalThis.process === 'undefined') {

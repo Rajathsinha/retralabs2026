@@ -90,5 +90,4 @@ export const handler = async (event) => {
   }
 };
 
-// Import helpers from create-order.ts (relative path)
-import { getInnofulfillToken, createInnofulfillOrder } from '../../netlify/functions/create-order';
+import { getInnofulfillToken, createInnofulfillOrder } from './create-order';

@@ -1,0 +1,2246 @@
+------formdata-undici-055968813227
+Content-Disposition: form-data; name="metadata"
+
+{"main_module":"functionsWorker-0.9059610943289372.js"}
+------formdata-undici-055968813227
+Content-Disposition: form-data; name="functionsWorker-0.9059610943289372.js"; filename="functionsWorker-0.9059610943289372.js"
+Content-Type: application/javascript+module
+
+var __defProp = Object.defineProperty;
+var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
+
+// create-order.ts
+function getIstDateString() {
+  const now = /* @__PURE__ */ new Date();
+  const istOffset = 5.5 * 60 * 60 * 1e3;
+  const istDate = new Date(now.getTime() + istOffset);
+  const yyyy = istDate.getUTCFullYear();
+  const mm = String(istDate.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(istDate.getUTCDate()).padStart(2, "0");
+  return `${yyyy}${mm}${dd}`;
+}
+__name(getIstDateString, "getIstDateString");
+function getRetraTrackingId() {
+  const now = /* @__PURE__ */ new Date();
+  const istOffset = 5.5 * 60 * 60 * 1e3;
+  const istDate = new Date(now.getTime() + istOffset);
+  const yyyy = istDate.getUTCFullYear();
+  const mm = String(istDate.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(istDate.getUTCDate()).padStart(2, "0");
+  const hh = String(istDate.getUTCHours()).padStart(2, "0");
+  const min = String(istDate.getUTCMinutes()).padStart(2, "0");
+  return `RETRA-${yyyy}${mm}${dd}-${hh}${min}`;
+}
+__name(getRetraTrackingId, "getRetraTrackingId");
+async function generateOrderId(baseId, table, token) {
+  const dateStr = getIstDateString();
+  const prefix = `RL-${dateStr}-`;
+  try {
+    const res = await fetch(
+      `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}?pageSize=100&sort%5B0%5D%5Bfield%5D=Created&sort%5B0%5D%5Bdirection%5D=desc`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      console.warn(`[Order ID] Airtable query failed (HTTP ${res.status}): ${detail}. Using initial sequence.`);
+      return `${prefix}1001`;
+    }
+    const json = await res.json();
+    const records = json?.records || [];
+    let maxNum = 1e3;
+    const regex = new RegExp(`^RL-${dateStr}-(\\d+)`);
+    for (const rec of records) {
+      const id = rec?.fields?.orderID;
+      if (!id) continue;
+      const match2 = id.match(regex);
+      if (match2) {
+        const num = parseInt(match2[1], 10);
+        if (!isNaN(num) && num > maxNum) {
+          maxNum = num;
+        }
+      }
+    }
+    return `${prefix}${maxNum + 1}`;
+  } catch (err) {
+    console.error("[Order ID] Error determining sequence:", err);
+    return `${prefix}1001`;
+  }
+}
+__name(generateOrderId, "generateOrderId");
+var corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization"
+};
+function getInnofulfillBase() {
+  const envVal = typeof process !== "undefined" && process.env ? process.env.INNOFULFILL_ENV || process.env.INNOFULFILL_SANDBOX || "" : "";
+  return ["sandbox", "test", "true"].includes(envVal.toLowerCase()) ? "https://sandbox.apis.innofulfill.com" : "https://apis.innofulfill.com";
+}
+__name(getInnofulfillBase, "getInnofulfillBase");
+var cachedToken = null;
+function innofulfillHeaders(token) {
+  const headers = { "Content-Type": "application/json" };
+  const tenantId = process.env.INNOFULFILL_TENANT_ID;
+  if (tenantId) headers["X-Tenant-Id"] = tenantId;
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  return headers;
+}
+__name(innofulfillHeaders, "innofulfillHeaders");
+async function getInnofulfillToken() {
+  const username = process.env.INNOFULFILL_USERNAME;
+  const password = process.env.INNOFULFILL_PASSWORD;
+  if (!username || !password) {
+    console.log("[Innofulfill] Skipped: INNOFULFILL_USERNAME or INNOFULFILL_PASSWORD not set");
+    return null;
+  }
+  if (cachedToken && Date.now() < cachedToken.expiresAt) {
+    return cachedToken.token;
+  }
+  const innoBase = getInnofulfillBase();
+  console.log(`[Innofulfill] Authenticating against ${innoBase}/auth/login as ${username}`);
+  const res = await fetch(`${innoBase}/auth/login`, {
+    method: "POST",
+    headers: innofulfillHeaders(),
+    body: JSON.stringify({ username, password, signinType: "EMAIL" })
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    console.error(`[Innofulfill] Auth failed: HTTP ${res.status} \u2014 ${detail}`);
+    throw new Error(`Innofulfill auth failed (HTTP ${res.status}): ${detail}`);
+  }
+  const json = await res.json();
+  const token = json?.id_token;
+  if (!token) {
+    console.error("[Innofulfill] Auth succeeded but no id_token in response:", JSON.stringify(json).slice(0, 500));
+    throw new Error("Innofulfill auth: no id_token in response");
+  }
+  console.log("[Innofulfill] Auth successful, token acquired");
+  cachedToken = { token, expiresAt: Date.now() + 23 * 60 * 60 * 1e3 };
+  return token;
+}
+__name(getInnofulfillToken, "getInnofulfillToken");
+function cleanPhone(phone) {
+  return (phone || "").replace(/\D/g, "").replace(/^91/, "").slice(-10).padStart(10, "0");
+}
+__name(cleanPhone, "cleanPhone");
+async function updateInnofulfillError(baseId, table, token, recordId, errorMsg) {
+  const fields = {
+    "Innofulfill Error": errorMsg,
+    "Shipment Status": "FAILED"
+  };
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const res = await fetch(
+      `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}/${recordId}`,
+      {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ fields, typecast: true })
+      }
+    );
+    if (res.ok) return;
+    const json = await res.json().catch(() => null);
+    const detail = typeof json?.error === "string" ? json.error : json?.error?.message || `HTTP ${res.status}`;
+    const unknownMatch = detail.match(/Unknown field name: ["']?([^"')]+)["']?/i);
+    if (unknownMatch) {
+      delete fields[unknownMatch[1]];
+      continue;
+    }
+    return;
+  }
+}
+__name(updateInnofulfillError, "updateInnofulfillError");
+var cachedShiprocketToken = null;
+async function getShiprocketToken() {
+  const email = (process.env.SHIPROCKET_EMAIL || process.env.VITE_SHIPROCKET_EMAIL || "").trim();
+  const password = (process.env.SHIPROCKET_PASSWORD || process.env.VITE_SHIPROCKET_PASSWORD || "").trim();
+  if (!email || !password) {
+    console.log("[Shiprocket] Skipped: SHIPROCKET_EMAIL or SHIPROCKET_PASSWORD not configured");
+    return null;
+  }
+  if (cachedShiprocketToken && Date.now() < cachedShiprocketToken.expiresAt) {
+    return cachedShiprocketToken.token;
+  }
+  console.log(`[Shiprocket] Authenticating as ${email}`);
+  const res = await fetch("https://apiv2.shiprocket.in/v1/external/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password })
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    let msg = `HTTP ${res.status}`;
+    try {
+      const parsed = JSON.parse(detail);
+      msg = parsed.message || parsed.error || msg;
+    } catch {
+    }
+    console.error(`[Shiprocket] Auth failed: ${msg}`);
+    throw new Error(`Shiprocket Auth Failed: ${msg}`);
+  }
+  const json = await res.json().catch(() => null);
+  const token = json?.token;
+  if (!token) {
+    console.error("[Shiprocket] Auth response missing token:", json);
+    return null;
+  }
+  console.log("[Shiprocket] Auth successful");
+  cachedShiprocketToken = { token, expiresAt: Date.now() + 9 * 24 * 60 * 60 * 1e3 };
+  return token;
+}
+__name(getShiprocketToken, "getShiprocketToken");
+async function createShiprocketOrder(token, orderId, customer, cartItems, total, paymentMethod) {
+  const phone = cleanPhone(customer.phone);
+  let pickupLocation = (process.env.SHIPROCKET_PICKUP_LOCATION || process.env.VITE_SHIPROCKET_PICKUP_LOCATION || "Rajath").trim();
+  if (!pickupLocation || pickupLocation.toLowerCase() === "primary") {
+    pickupLocation = "Rajath";
+  }
+  const now = /* @__PURE__ */ new Date();
+  const pad = /* @__PURE__ */ __name((n) => String(n).padStart(2, "0"), "pad");
+  const orderDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  const nameParts = (customer.name || "Valued Customer").trim().split(/\s+/);
+  const firstName = nameParts[0] || "Valued";
+  const lastName = nameParts.slice(1).join(" ") || "Customer";
+  let declaredTotal = total;
+  if (paymentMethod !== "cod") {
+    declaredTotal = total >= 1e4 ? 3e3 : 1e3;
+  }
+  const orderItems = [{
+    name: cartItems.map((i) => i.name).join(", ").slice(0, 50),
+    sku: "RETRA-PRODUCTS",
+    units: 1,
+    selling_price: declaredTotal,
+    discount: 0,
+    tax: 0
+  }];
+  const payload = {
+    order_id: orderId,
+    order_date: orderDate,
+    pickup_location: pickupLocation,
+    channel_id: "",
+    comment: "RetraLabs Order",
+    billing_customer_name: firstName,
+    billing_last_name: lastName,
+    billing_address: customer.address || "Address Line 1",
+    billing_city: customer.city || "Bengaluru",
+    billing_pincode: customer.pincode || "560001",
+    billing_state: customer.state || "Karnataka",
+    billing_country: "India",
+    billing_email: customer.email || "orders@retralabs.in",
+    billing_phone: phone,
+    shipping_is_billing: true,
+    order_items: orderItems,
+    payment_method: paymentMethod === "cod" ? "COD" : "Prepaid",
+    shipping_charges: 0,
+    giftwrap_charges: 0,
+    transaction_charges: 0,
+    total_discount: 0,
+    sub_total: declaredTotal,
+    length: 10,
+    breadth: 10,
+    height: 5,
+    weight: 0.5
+  };
+  console.log(`[Shiprocket] Creating fallback order for ${orderId}`);
+  const res = await fetch("https://apiv2.shiprocket.in/v1/external/orders/create/adhoc", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    },
+    body: JSON.stringify(payload)
+  });
+  const json = await res.json().catch(() => null);
+  const data = json?.data || json;
+  const srOrderId = String(data?.order_id ?? json?.order_id ?? json?.id ?? "");
+  const srShipmentId = String(data?.shipment_id ?? json?.shipment_id ?? "");
+  if (!res.ok || json?.status_code === 0 || !srOrderId) {
+    const detail = typeof json?.message === "string" ? json.message : typeof json?.data === "string" ? json.data : JSON.stringify(json);
+    console.error(`[Shiprocket] Order creation failed: HTTP ${res.status} \u2014 ${detail}`);
+    throw new Error(`Shiprocket: ${detail}`);
+  }
+  console.log("[Shiprocket] Order created successfully. Order ID:", srOrderId, "Shipment ID:", srShipmentId);
+  const awbNumber = json?.awb_code || data?.awb_code ? String(json?.awb_code || data?.awb_code) : getRetraTrackingId();
+  const courierName = json?.courier_name || data?.courier_name ? String(json?.courier_name || data?.courier_name) : "Shiprocket";
+  return {
+    provider: "Shiprocket",
+    shiprocketOrderId: srOrderId,
+    shiprocketShipmentId: srShipmentId,
+    courierName,
+    awbNumber,
+    shipmentStatus: awbNumber ? "AWB_ASSIGNED" : "CREATED",
+    shipmentCreatedAt: (/* @__PURE__ */ new Date()).toISOString()
+  };
+}
+__name(createShiprocketOrder, "createShiprocketOrder");
+async function createInnofulfillOrder(token, orderId, customer, cartItems, total, deliveryCharge, codCharge, paymentMethod, deliveryOption) {
+  const phone = cleanPhone(customer.phone);
+  const pickupName = process.env.INNOFULFILL_PICKUP_NAME || "RetraLabs";
+  const pickupPhone = process.env.INNOFULFILL_PICKUP_PHONE || "6360489397";
+  const pickupZip = process.env.INNOFULFILL_PICKUP_ZIP || "560016";
+  const pickupCity = process.env.INNOFULFILL_PICKUP_CITY || "Bengaluru";
+  const pickupState = process.env.INNOFULFILL_PICKUP_STATE || "Karnataka";
+  const pickupAddress = process.env.INNOFULFILL_PICKUP_ADDRESS || "Rajareddy layout 1st cross, shanti layout 8th cross, ramamurthy nagar, Bengaluru, Karnataka 560016";
+  const carrierId = process.env.INNOFULFILL_CARRIER_ID || "";
+  const carrierNameEnv = process.env.INNOFULFILL_CARRIER_NAME || "innofulfill_ecomm";
+  const isCod = paymentMethod === "cod";
+  let declaredTotal = total;
+  if (!isCod) {
+    declaredTotal = total >= 1e4 ? 3e3 : 1e3;
+  }
+  const items = [{
+    name: cartItems.map((i) => i.name).join(", ").slice(0, 50),
+    quantity: 1,
+    unitPrice: declaredTotal,
+    sku: "RETRA-PRODUCTS"
+  }];
+  const payload = {
+    referenceId: orderId,
+    orderDate: (/* @__PURE__ */ new Date()).toISOString(),
+    orderType: "FORWARD",
+    orderStatus: "CONFIRMED",
+    parcelCategory: "ECOMM",
+    deliveryPromise: "ECOMM",
+    deliveryMode: deliveryOption === "fast" ? "AIR" : "SURFACE",
+    autoManifest: true,
+    addresses: [
+      {
+        type: "PICKUP",
+        zip: pickupZip,
+        name: pickupName,
+        phone: pickupPhone,
+        email: "orders@retralabs.in",
+        street: pickupAddress,
+        city: pickupCity,
+        state: pickupState,
+        country: "India"
+      },
+      {
+        type: "DELIVERY",
+        zip: customer.pincode || "",
+        name: customer.name.slice(0, 70),
+        phone,
+        email: customer.email || "orders@retralabs.in",
+        street: customer.address || "",
+        city: customer.city || "Bengaluru",
+        state: customer.state || "Karnataka",
+        country: "India"
+      },
+      {
+        type: "BILLING",
+        zip: customer.pincode || "",
+        name: customer.name.slice(0, 70),
+        phone,
+        email: customer.email || "orders@retralabs.in",
+        street: customer.address || "",
+        city: customer.city || "Bengaluru",
+        state: customer.state || "Karnataka",
+        country: "India"
+      },
+      {
+        type: "RETURN",
+        zip: pickupZip,
+        name: pickupName,
+        phone: pickupPhone,
+        email: "orders@retralabs.in",
+        street: pickupAddress,
+        city: pickupCity,
+        state: pickupState,
+        country: "India"
+      }
+    ],
+    shipments: [
+      {
+        dimensions: { length: 10, width: 10, height: 5 },
+        shipmentStatus: "CONFIRMED",
+        physicalWeight: 0.5,
+        physicalWeightUnit: "KG",
+        volumetricWeight: 0.1,
+        items
+      }
+    ],
+    carrierId,
+    carrierName: carrierNameEnv,
+    payment: {
+      type: isCod ? "COD" : "PREPAID",
+      currency: "INR",
+      paymentMethod: isCod ? "CASH" : "ONLINE"
+    }
+  };
+  console.log(`[Innofulfill] Creating shipment for ${orderId}`);
+  const innoBase = getInnofulfillBase();
+  const res = await fetch(`${innoBase}/gateway/booking-service/orders`, {
+    method: "POST",
+    headers: innofulfillHeaders(token),
+    body: JSON.stringify(payload)
+  });
+  const json = await res.json().catch(() => null);
+  if (!res.ok) {
+    const detail = typeof json?.error === "string" ? json.error : json?.error?.message || json?.message || `HTTP ${res.status}`;
+    console.error(`[Innofulfill] Order creation failed: HTTP ${res.status} \u2014 ${JSON.stringify(json).slice(0, 800)}`);
+    throw new Error(`Innofulfill: ${detail}`);
+  }
+  const data = json?.data || json;
+  const innofulfillOrderId = data?.orderId || data?.id ? String(data.orderId || data.id) : "";
+  if (!innofulfillOrderId || json?.error || typeof json?.message === "string" && json.message.toLowerCase().includes("no serviceable")) {
+    const detail = typeof json?.error === "string" ? json.error : json?.error?.message || json?.message || "No serviceable carrier found for pincode";
+    console.error(`[Innofulfill] Order creation unserviceable / failed: ${detail}`);
+    throw new Error(`Innofulfill: ${detail}`);
+  }
+  console.log("[Innofulfill] Shipment created successfully");
+  const innofulfillInternalId = data?.id ? String(data.id) : void 0;
+  const awbNumber = getRetraTrackingId();
+  if (innofulfillOrderId) {
+    console.log(`[Innofulfill] Innofulfill Order ID: ${innofulfillOrderId}`);
+  }
+  console.log(`[Innofulfill] AWB retrieved and saved: ${awbNumber}`);
+  return {
+    innofulfillOrderId,
+    innofulfillInternalId,
+    carrierName,
+    carrierDisplayName,
+    awbNumber,
+    shipmentStatus: "AWB_ASSIGNED",
+    shipmentCreatedAt: (/* @__PURE__ */ new Date()).toISOString()
+  };
+}
+__name(createInnofulfillOrder, "createInnofulfillOrder");
+var handler = /* @__PURE__ */ __name(async (event) => {
+  if (event.httpMethod === "OPTIONS") {
+    return { statusCode: 200, headers: corsHeaders, body: "" };
+  }
+  if (event.httpMethod !== "POST") {
+    return {
+      statusCode: 405,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({ error: "Method not allowed" })
+    };
+  }
+  try {
+    const token = (process.env.VITE_AIRTABLE_TOKEN || process.env.AIRTABLE_TOKEN || "").trim();
+    const baseId = (process.env.VITE_AIRTABLE_BASE_ID || process.env.AIRTABLE_BASE_ID || "").trim();
+    const table = (process.env.VITE_AIRTABLE_TABLE || process.env.AIRTABLE_TABLE || "Orders").trim();
+    if (!token || !baseId) {
+      const presentKeys = Object.keys(process.env).filter((k) => !k.startsWith("CF_") && !k.startsWith("__"));
+      console.error("[Airtable Error] Missing environment variables. Present env keys:", presentKeys);
+      return {
+        statusCode: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          error: `Airtable missing VITE_AIRTABLE_TOKEN or VITE_AIRTABLE_BASE_ID. Environment keys detected in Cloudflare: [${presentKeys.join(", ")}]`
+        })
+      };
+    }
+    const body = JSON.parse(event.body || "{}");
+    if (!body.fields?.Name || !body.fields?.Email) {
+      return {
+        statusCode: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ error: "Missing required order fields" })
+      };
+    }
+    const orderId = await generateOrderId(baseId, table, token);
+    const fieldsToSave = {
+      ...body.fields,
+      orderID: orderId,
+      "Shipment Status": "NOT_CREATED"
+    };
+    let recordId = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const createRes = await fetch(
+        `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ fields: fieldsToSave, typecast: true })
+        }
+      );
+      const createJson = await createRes.json().catch(() => null);
+      if (createRes.ok) {
+        recordId = createJson?.id || null;
+        break;
+      }
+      const detail = typeof createJson?.error === "string" ? createJson.error : createJson?.error?.message || `HTTP ${createRes.status}`;
+      const unknownMatch = detail.match(/Unknown field name: ["']?([^"')]+)["']?/i);
+      if (unknownMatch) {
+        delete fieldsToSave[unknownMatch[1]];
+        continue;
+      }
+      return {
+        statusCode: 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ error: `Airtable: ${detail}` })
+      };
+    }
+    if (!recordId) {
+      return {
+        statusCode: 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ error: "Airtable: failed to create record after retries" })
+      };
+    }
+    let screenshotWarning;
+    if (body.screenshot?.base64) {
+      try {
+        const uploadRes = await fetch(
+          `https://content.airtable.com/v0/${baseId}/${recordId}/Screenshot/uploadAttachment`,
+          {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contentType: body.screenshot.contentType,
+              filename: body.screenshot.filename,
+              file: body.screenshot.base64
+            })
+          }
+        );
+        if (!uploadRes.ok) {
+          const errJson = await uploadRes.json().catch(() => null);
+          const detail = typeof errJson?.error === "string" ? errJson.error : errJson?.error?.message || `HTTP ${uploadRes.status}`;
+          screenshotWarning = `Screenshot upload failed: ${detail}`;
+        }
+      } catch (uploadErr) {
+        screenshotWarning = uploadErr instanceof Error ? uploadErr.message : String(uploadErr);
+      }
+    }
+    let innofulfillWarning = null;
+    let innofulfillOrderId;
+    let innofulfillInternalId;
+    let carrierName2;
+    let carrierDisplayName2 = "Shreemaruti";
+    let awbNumber;
+    let shipmentStatus = "NOT_CREATED";
+    let shipmentProvider = "Innofulfill";
+    let bookingSuccess = false;
+    if (!body.cartItems?.length) {
+      innofulfillWarning = "Skipped: no cartItems received by the function";
+      console.warn("[Logistics] Skipped: no cartItems in request body");
+    } else {
+      const existingRes = await fetch(
+        `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}/${recordId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const existingJson = await existingRes.json().catch(() => null);
+      const existingInnoId = existingJson?.fields?.["Innofulfill Order ID"];
+      const existingAwb = existingJson?.fields?.["AWB Number"];
+      const existingProvider = existingJson?.fields?.["Courier Provider"];
+      if (existingInnoId) {
+        console.log(`[Logistics] Idempotent hit: Order ${orderId} already processed (${existingInnoId})`);
+        innofulfillOrderId = String(existingInnoId);
+        awbNumber = existingAwb ? String(existingAwb) : void 0;
+        shipmentStatus = awbNumber ? "AWB_ASSIGNED" : "AWB_PENDING";
+        if (existingProvider) shipmentProvider = String(existingProvider);
+        bookingSuccess = true;
+      } else {
+        let innofulfillErrorMessage = "";
+        try {
+          console.log("[Innofulfill] Attempting primary shipment creation for", body.cartItems?.length, "items");
+          const innoToken = await getInnofulfillToken();
+          if (innoToken) {
+            const inno = await createInnofulfillOrder(
+              innoToken,
+              orderId,
+              body.customer,
+              body.cartItems,
+              body.total,
+              body.deliveryCharge,
+              body.codCharge,
+              body.paymentMethod,
+              body.deliveryOption
+            );
+            innofulfillOrderId = inno.innofulfillOrderId;
+            innofulfillInternalId = inno.innofulfillInternalId;
+            carrierName2 = inno.carrierName;
+            carrierDisplayName2 = inno.carrierDisplayName;
+            awbNumber = inno.awbNumber;
+            shipmentStatus = inno.shipmentStatus;
+            shipmentProvider = "Innofulfill";
+            bookingSuccess = true;
+          }
+        } catch (innoErr) {
+          innofulfillErrorMessage = innoErr?.message || String(innoErr);
+          console.warn(`[Logistics] Innofulfill booking failed for pincode ${body.customer?.pincode}: ${innofulfillErrorMessage}. Attempting Shiprocket fallback...`);
+          innofulfillWarning = `Innofulfill failed: ${innofulfillErrorMessage}`;
+        }
+        if (!bookingSuccess) {
+          try {
+            const srToken = await getShiprocketToken();
+            if (srToken) {
+              const sr = await createShiprocketOrder(
+                srToken,
+                orderId,
+                body.customer,
+                body.cartItems,
+                body.total,
+                body.paymentMethod
+              );
+              innofulfillOrderId = sr.shiprocketOrderId;
+              innofulfillInternalId = sr.shiprocketShipmentId;
+              carrierName2 = sr.courierName;
+              carrierDisplayName2 = `Shiprocket (${sr.courierName || "Partner"})`;
+              awbNumber = sr.awbNumber;
+              shipmentStatus = sr.shipmentStatus;
+              shipmentProvider = "Shiprocket";
+              bookingSuccess = true;
+              innofulfillWarning = null;
+              console.log(`[Logistics] Shiprocket fallback successful for ${orderId}, AWB: ${awbNumber}`);
+            } else {
+              console.warn("[Logistics] Shiprocket skipped: SHIPROCKET_EMAIL or SHIPROCKET_PASSWORD not set in Cloudflare Pages");
+              innofulfillWarning = `Innofulfill failed (${innofulfillErrorMessage}) & Shiprocket fallback disabled (missing SHIPROCKET_EMAIL or SHIPROCKET_PASSWORD in Cloudflare Pages)`;
+            }
+          } catch (srErr) {
+            const srErrorMessage = srErr?.message || String(srErr);
+            console.error(`[Logistics] Shiprocket fallback also failed: ${srErrorMessage}`);
+            innofulfillWarning = `Innofulfill failed: ${innofulfillErrorMessage} | Shiprocket failed: ${srErrorMessage}`;
+            await updateInnofulfillError(
+              baseId,
+              table,
+              token,
+              recordId,
+              innofulfillWarning
+            );
+          }
+        }
+      }
+      const updateFields = {
+        Status: bookingSuccess ? `Created in ${shipmentProvider}` : "Logistics Failed",
+        "Shipment Status": shipmentStatus,
+        "Courier Provider": shipmentProvider,
+        "Innofulfill Error": bookingSuccess ? "" : innofulfillWarning || "Logistics Failed"
+      };
+      if (innofulfillOrderId) updateFields["Innofulfill Order ID"] = innofulfillOrderId;
+      if (innofulfillInternalId) updateFields["Innofulfill Internal ID"] = innofulfillInternalId;
+      if (carrierName2) updateFields["Carrier Name"] = carrierName2;
+      if (carrierDisplayName2) {
+        updateFields["Carrier Display Name"] = carrierDisplayName2;
+        updateFields["Courier"] = carrierDisplayName2;
+      }
+      if (awbNumber) {
+        updateFields["AWB Number"] = awbNumber;
+        updateFields["Tracking ID"] = awbNumber;
+      }
+      updateFields["Shipment Created At"] = (/* @__PURE__ */ new Date()).toISOString();
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const updateRes = await fetch(
+          `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}/${recordId}`,
+          {
+            method: "PATCH",
+            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ fields: updateFields, typecast: true })
+          }
+        );
+        if (updateRes.ok) break;
+        const json = await updateRes.json().catch(() => null);
+        const detail = typeof json?.error === "string" ? json.error : json?.error?.message || `HTTP ${updateRes.status}`;
+        const unknownMatch = detail.match(/Unknown field name: ["']?([^"')]+)["']?/i);
+        if (unknownMatch) {
+          delete updateFields[unknownMatch[1]];
+          continue;
+        }
+        break;
+      }
+    }
+    return {
+      statusCode: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        success: true,
+        recordId,
+        orderId,
+        logisticsProvider: shipmentProvider,
+        innofulfillOrderId: innofulfillOrderId || null,
+        innofulfillInternalId: innofulfillInternalId || null,
+        shiprocketOrderId: shipmentProvider === "Shiprocket" ? innofulfillOrderId || null : null,
+        shiprocketShipmentId: shipmentProvider === "Shiprocket" ? innofulfillInternalId || null : null,
+        carrierName: carrierName2 || null,
+        carrierDisplayName: carrierDisplayName2 || (shipmentProvider === "Shiprocket" ? "Shiprocket" : "Shreemaruti"),
+        awbNumber: awbNumber || null,
+        shipmentStatus,
+        innofulfillWarning,
+        screenshotWarning: screenshotWarning || null
+      })
+    };
+  } catch (err) {
+    return {
+      statusCode: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({ error: err instanceof Error ? err.message : String(err) })
+    };
+  }
+}, "handler");
+
+// track-order.ts
+var corsHeaders2 = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization"
+};
+function getInnofulfillBase2() {
+  const envVal = typeof process !== "undefined" && process.env ? process.env.INNOFULFILL_ENV || process.env.INNOFULFILL_SANDBOX || "" : "";
+  return ["sandbox", "test", "true"].includes(envVal.toLowerCase()) ? "https://sandbox.apis.innofulfill.com" : "https://apis.innofulfill.com";
+}
+__name(getInnofulfillBase2, "getInnofulfillBase");
+var cachedToken2 = null;
+function innofulfillHeaders2(token) {
+  const headers = { "Content-Type": "application/json" };
+  const tenantId = process.env.INNOFULFILL_TENANT_ID;
+  if (tenantId) headers["X-Tenant-Id"] = tenantId;
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  return headers;
+}
+__name(innofulfillHeaders2, "innofulfillHeaders");
+async function getInnofulfillToken2() {
+  const username = process.env.INNOFULFILL_USERNAME;
+  const password = process.env.INNOFULFILL_PASSWORD;
+  if (!username || !password) return null;
+  if (cachedToken2 && Date.now() < cachedToken2.expiresAt) {
+    return cachedToken2.token;
+  }
+  const innoBase = getInnofulfillBase2();
+  const res = await fetch(`${innoBase}/auth/login`, {
+    method: "POST",
+    headers: innofulfillHeaders2(),
+    body: JSON.stringify({ username, password, signinType: "EMAIL" })
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Innofulfill auth failed (HTTP ${res.status}): ${detail}`);
+  }
+  const json = await res.json();
+  const token = json?.id_token;
+  if (!token) throw new Error("Innofulfill auth: no id_token in response");
+  cachedToken2 = { token, expiresAt: Date.now() + 23 * 60 * 60 * 1e3 };
+  return token;
+}
+__name(getInnofulfillToken2, "getInnofulfillToken");
+function cleanPhone2(phone) {
+  return (phone || "").replace(/\D/g, "").replace(/^91/, "").slice(-10).padStart(10, "0");
+}
+__name(cleanPhone2, "cleanPhone");
+function cleanEmail(email) {
+  return (email || "").trim().toLowerCase();
+}
+__name(cleanEmail, "cleanEmail");
+var handler2 = /* @__PURE__ */ __name(async (event) => {
+  if (event.httpMethod === "OPTIONS") {
+    return { statusCode: 200, headers: corsHeaders2, body: "" };
+  }
+  if (event.httpMethod !== "POST") {
+    return {
+      statusCode: 405,
+      headers: { ...corsHeaders2, "Content-Type": "application/json" },
+      body: JSON.stringify({ error: "Method not allowed" })
+    };
+  }
+  try {
+    const token = process.env.VITE_AIRTABLE_TOKEN || process.env.AIRTABLE_TOKEN;
+    const baseId = process.env.VITE_AIRTABLE_BASE_ID || process.env.AIRTABLE_BASE_ID;
+    const table = process.env.VITE_AIRTABLE_TABLE || process.env.AIRTABLE_TABLE || "Orders";
+    if (!token || !baseId) {
+      return {
+        statusCode: 500,
+        headers: { ...corsHeaders2, "Content-Type": "application/json" },
+        body: JSON.stringify({ error: "Order tracking is not configured" })
+      };
+    }
+    const body = JSON.parse(event.body || "{}");
+    const targetOrderId = (body.orderId || "").trim();
+    const verificationInput = (body.phoneOrEmail || body.phone || body.email || "").trim();
+    if (!targetOrderId || !verificationInput) {
+      return {
+        statusCode: 400,
+        headers: { ...corsHeaders2, "Content-Type": "application/json" },
+        body: JSON.stringify({ error: "Order ID and either phone number or email are required" })
+      };
+    }
+    const filterFormula = encodeURIComponent(`{orderID} = "${targetOrderId}"`);
+    const searchUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}?filterByFormula=${filterFormula}&maxRecords=1`;
+    const searchRes = await fetch(searchUrl, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!searchRes.ok) {
+      const detail = await searchRes.text().catch(() => "");
+      return {
+        statusCode: 502,
+        headers: { ...corsHeaders2, "Content-Type": "application/json" },
+        body: JSON.stringify({ error: `Failed to search orders: ${detail}` })
+      };
+    }
+    const searchJson = await searchRes.json();
+    let records = searchJson?.records || [];
+    if (!records.length) {
+      const allRecentRes = await fetch(
+        `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}?pageSize=100&sort%5B0%5D%5Bfield%5D=Created&sort%5B0%5D%5Bdirection%5D=desc`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (allRecentRes.ok) {
+        const recentJson = await allRecentRes.json();
+        const found = (recentJson?.records || []).find((r) => {
+          const id = String(r?.fields?.orderID ?? "").trim();
+          return id.toLowerCase() === targetOrderId.toLowerCase();
+        });
+        if (found) {
+          records = [found];
+        }
+      }
+    }
+    if (!records.length) {
+      return {
+        statusCode: 404,
+        headers: { ...corsHeaders2, "Content-Type": "application/json" },
+        body: JSON.stringify({ error: "Order not found. Please check your Order ID." })
+      };
+    }
+    const record = records[0];
+    const recordId = record.id;
+    const f = record.fields || {};
+    const storedPhone = cleanPhone2(String(f["Phone"] || ""));
+    const storedEmail = cleanEmail(String(f["Email"] || ""));
+    const inputCleanPhone = cleanPhone2(verificationInput);
+    const inputCleanEmail = cleanEmail(verificationInput);
+    const isPhoneMatch = inputCleanPhone.length === 10 && storedPhone === inputCleanPhone;
+    const isEmailMatch = inputCleanEmail.length > 3 && storedEmail === inputCleanEmail;
+    if (!isPhoneMatch && !isEmailMatch) {
+      return {
+        statusCode: 403,
+        headers: { ...corsHeaders2, "Content-Type": "application/json" },
+        body: JSON.stringify({ error: "The provided phone number or email does not match this order. Please verify and try again." })
+      };
+    }
+    let awbNumber = f["AWB Number"] ? String(f["AWB Number"]).trim() : null;
+    const innofulfillOrderId = f["Innofulfill Order ID"] ? String(f["Innofulfill Order ID"]).trim() : null;
+    const courierName = f["Carrier Display Name"] ? String(f["Carrier Display Name"]) : f["Courier"] ? String(f["Courier"]) : "Shreemaruti";
+    let shipmentStatus = f["Shipment Status"] ? String(f["Shipment Status"]) : awbNumber ? "AWB_ASSIGNED" : innofulfillOrderId ? "AWB_PENDING" : "NOT_CREATED";
+    if ((!awbNumber || shipmentStatus === "AWB_PENDING") && innofulfillOrderId) {
+      try {
+        const innoToken = await getInnofulfillToken2();
+        if (innoToken) {
+          const orderCheckRes = await fetch(
+            `${getInnofulfillBase2()}/gateway/booking-service/orders?orderId=${encodeURIComponent(innofulfillOrderId)}`,
+            { headers: innofulfillHeaders2(innoToken) }
+          );
+          if (orderCheckRes.ok) {
+            const orderCheckJson = await orderCheckRes.json();
+            const orderData = orderCheckJson?.data?.[0] || orderCheckJson?.data || orderCheckJson;
+            const assignedAwb = orderData?.shipments?.[0]?.awbNumber || orderData?.awbNumber || orderData?.shipments?.[0]?.trackingNumber;
+            if (assignedAwb && String(assignedAwb).trim() !== "") {
+              awbNumber = String(assignedAwb).trim();
+              shipmentStatus = "AWB_ASSIGNED";
+              console.log(`[Innofulfill] AWB retrieved and saved: ${awbNumber}`);
+              const updatePayload = {
+                "AWB Number": awbNumber,
+                "Tracking ID": awbNumber,
+                "Shipment Status": "AWB_ASSIGNED"
+              };
+              await fetch(
+                `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}/${recordId}`,
+                {
+                  method: "PATCH",
+                  headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+                  body: JSON.stringify({ fields: updatePayload, typecast: true })
+                }
+              ).catch(() => null);
+            }
+          }
+        }
+      } catch (pollErr) {
+        console.warn("[Innofulfill] AWB poll attempt non-critical error:", pollErr);
+      }
+    }
+    const provider = f["Courier Provider"] ? String(f["Courier Provider"]) : "Innofulfill";
+    let trackingStatus = null;
+    let trackingTimeline = null;
+    let trackingUrl = null;
+    if (awbNumber) {
+      if (provider === "Shiprocket") {
+        try {
+          const email = (process.env.SHIPROCKET_EMAIL || process.env.VITE_SHIPROCKET_EMAIL || "").trim();
+          const password = (process.env.SHIPROCKET_PASSWORD || process.env.VITE_SHIPROCKET_PASSWORD || "").trim();
+          if (email && password) {
+            const srAuth = await fetch("https://apiv2.shiprocket.in/v1/external/auth/login", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email, password })
+            }).then((r) => r.json()).catch(() => null);
+            if (srAuth?.token) {
+              const trackRes = await fetch(
+                `https://apiv2.shiprocket.in/v1/external/courier/track/awb/${encodeURIComponent(awbNumber)}`,
+                { headers: { Authorization: `Bearer ${srAuth.token}` } }
+              );
+              if (trackRes.ok) {
+                const trackJson = await trackRes.json();
+                const trackData = trackJson?.tracking_data || trackJson;
+                trackingStatus = trackData?.current_status || trackData?.shipment_track?.[0]?.current_status || null;
+                trackingTimeline = Array.isArray(trackData?.shipment_track_activities) ? trackData.shipment_track_activities.map((act) => ({
+                  status: act.activity || act.status,
+                  date: act.date,
+                  location: act.location
+                })) : null;
+                if (trackData?.track_url) trackingUrl = String(trackData.track_url);
+              }
+            }
+          }
+        } catch (srErr) {
+          console.warn("[Shiprocket] Tracking fetch non-critical error:", srErr);
+        }
+      } else {
+        try {
+          const innoToken = await getInnofulfillToken2();
+          if (innoToken) {
+            const trackRes = await fetch(
+              `${getInnofulfillBase2()}/gateway/booking-service/shipments/track?awb=${encodeURIComponent(awbNumber)}`,
+              { headers: innofulfillHeaders2(innoToken) }
+            );
+            if (trackRes.ok) {
+              const trackJson = await trackRes.json();
+              const trackData = trackJson?.data || trackJson;
+              trackingStatus = trackData?.status || trackData?.shipmentStatus || null;
+              trackingTimeline = Array.isArray(trackData?.trackingHistory) ? trackData.trackingHistory : null;
+              if (trackData?.trackingUrl) trackingUrl = String(trackData.trackingUrl);
+            }
+          }
+        } catch {
+        }
+      }
+    }
+    return {
+      statusCode: 200,
+      headers: { ...corsHeaders2, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        success: true,
+        order: {
+          orderId: String(f["orderID"] || targetOrderId),
+          orderDate: f["Created"] ? String(f["Created"]) : null,
+          status: f["Status"] ? String(f["Status"]) : "Processing",
+          items: f["Items"] ? String(f["Items"]) : null,
+          total: f["Total (\u20B9)"] ? Number(f["Total (\u20B9)"]) : null,
+          payment: f["Payment"] ? String(f["Payment"]) : null,
+          delivery: f["Delivery"] ? String(f["Delivery"]) : null,
+          name: f["Name"] ? String(f["Name"]) : null,
+          awbNumber,
+          courierName,
+          innofulfillOrderId,
+          shipmentStatus,
+          trackingStatus,
+          trackingTimeline,
+          trackingUrl
+        }
+      })
+    };
+  } catch (err) {
+    return {
+      statusCode: 500,
+      headers: { ...corsHeaders2, "Content-Type": "application/json" },
+      body: JSON.stringify({ error: err instanceof Error ? err.message : String(err) })
+    };
+  }
+}, "handler");
+
+// list-orders.ts
+var corsHeaders3 = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization"
+};
+var handler3 = /* @__PURE__ */ __name(async (event) => {
+  if (event.httpMethod === "OPTIONS") {
+    return { statusCode: 200, headers: corsHeaders3, body: "" };
+  }
+  if (event.httpMethod !== "GET") {
+    return {
+      statusCode: 405,
+      headers: { ...corsHeaders3, "Content-Type": "application/json" },
+      body: JSON.stringify({ error: "Method not allowed" })
+    };
+  }
+  try {
+    const token = process.env.VITE_AIRTABLE_TOKEN || process.env.AIRTABLE_TOKEN;
+    const baseId = process.env.VITE_AIRTABLE_BASE_ID || process.env.AIRTABLE_BASE_ID;
+    const table = process.env.VITE_AIRTABLE_TABLE || process.env.AIRTABLE_TABLE || "Orders";
+    if (!token || !baseId) {
+      return {
+        statusCode: 500,
+        headers: { ...corsHeaders3, "Content-Type": "application/json" },
+        body: JSON.stringify({ error: "Airtable is not configured (missing VITE_AIRTABLE_TOKEN or VITE_AIRTABLE_BASE_ID env vars)" })
+      };
+    }
+    const pageSize = 100;
+    let offset;
+    let allRecords = [];
+    let pageCount = 0;
+    do {
+      let url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}?pageSize=${pageSize}&sort[0][field]=Created&sort[0][direction]=desc`;
+      if (offset) url += `&offset=${offset}`;
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        const detail = await res.text().catch(() => "");
+        return {
+          statusCode: res.status,
+          headers: { ...corsHeaders3, "Content-Type": "application/json" },
+          body: JSON.stringify({ error: `Airtable fetch failed (HTTP ${res.status}): ${detail}` })
+        };
+      }
+      const json = await res.json();
+      allRecords = allRecords.concat(json.records || []);
+      offset = json.offset;
+      pageCount++;
+    } while (offset && pageCount < 10);
+    return {
+      statusCode: 200,
+      headers: { ...corsHeaders3, "Content-Type": "application/json" },
+      body: JSON.stringify({ success: true, records: allRecords })
+    };
+  } catch (err) {
+    return {
+      statusCode: 500,
+      headers: { ...corsHeaders3, "Content-Type": "application/json" },
+      body: JSON.stringify({ error: err instanceof Error ? err.message : String(err) })
+    };
+  }
+}, "handler");
+
+// email-template.ts
+function escapeHtml(value) {
+  return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+__name(escapeHtml, "escapeHtml");
+function formatCurrency(amount) {
+  return `&#8377;${amount.toLocaleString("en-IN")}`;
+}
+__name(formatCurrency, "formatCurrency");
+function formatDate(iso) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return escapeHtml(iso);
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+__name(formatDate, "formatDate");
+function generateProductTable(items) {
+  const headerRow = `
+    <tr>
+      <th style="text-align:left;padding:12px 14px;font-size:13px;font-weight:700;color:#64748b;border-bottom:2px solid #e2e8f0;">Product</th>
+      <th style="text-align:center;padding:12px 10px;font-size:13px;font-weight:700;color:#64748b;border-bottom:2px solid #e2e8f0;">Qty</th>
+      <th style="text-align:right;padding:12px 10px;font-size:13px;font-weight:700;color:#64748b;border-bottom:2px solid #e2e8f0;">Unit Price</th>
+      <th style="text-align:right;padding:12px 14px;font-size:13px;font-weight:700;color:#64748b;border-bottom:2px solid #e2e8f0;">Line Total</th>
+    </tr>`;
+  const bodyRows = items.map((item) => `
+    <tr>
+      <td style="padding:14px;border-bottom:1px solid #f1f5f9;">
+        <div style="font-size:15px;font-weight:600;color:#0f172a;">${escapeHtml(item.name)}</div>
+        <div style="font-size:12px;color:#94a3b8;margin-top:2px;">${escapeHtml(item.variant)}</div>
+      </td>
+      <td style="text-align:center;padding:14px 10px;font-size:15px;color:#334155;border-bottom:1px solid #f1f5f9;">${item.quantity}</td>
+      <td style="text-align:right;padding:14px 10px;font-size:15px;color:#334155;border-bottom:1px solid #f1f5f9;">${formatCurrency(item.unitPrice)}</td>
+      <td style="text-align:right;padding:14px;font-size:15px;font-weight:600;color:#0f172a;border-bottom:1px solid #f1f5f9;">${formatCurrency(item.unitPrice * item.quantity)}</td>
+    </tr>`).join("");
+  return `
+  <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100% !important;">
+    <thead>${headerRow}</thead>
+    <tbody>${bodyRows}</tbody>
+  </table>`;
+}
+__name(generateProductTable, "generateProductTable");
+function generateTotalsSection(order) {
+  const rows = [];
+  rows.push(totalsRow("Subtotal", formatCurrency(order.subtotal)));
+  if (order.discount > 0) {
+    rows.push(totalsRow("Volume Discount", `-${formatCurrency(order.discount)}`, "#16a34a"));
+  }
+  rows.push(totalsRow(
+    "Delivery",
+    order.deliveryCharge > 0 ? formatCurrency(order.deliveryCharge) : "Free"
+  ));
+  if (order.codCharge > 0) {
+    rows.push(totalsRow("COD Charge", formatCurrency(order.codCharge)));
+  }
+  rows.push(`
+    <tr>
+      <td style="padding-top:16px;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+          <tr>
+            <td style="padding:16px 18px;background:#1e3a8a;border-radius:10px;">
+              <span style="font-size:16px;font-weight:700;color:#ffffff;">Total Paid</span>
+            </td>
+            <td style="padding:16px 18px;background:#1e3a8a;border-radius:10px;text-align:right;">
+              <span style="font-size:20px;font-weight:800;color:#ffffff;">${formatCurrency(order.total)}</span>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>`);
+  return `
+  <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100% !important;">
+    ${rows.join("")}
+  </table>`;
+}
+__name(generateTotalsSection, "generateTotalsSection");
+function totalsRow(label, value, valueColor = "#0f172a") {
+  return `
+    <tr>
+      <td style="padding:8px 0;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+          <tr>
+            <td style="font-size:14px;color:#64748b;">${label}</td>
+            <td style="font-size:14px;font-weight:600;color:${valueColor};text-align:right;">${value}</td>
+          </tr>
+        </table>
+      </td>
+    </tr>`;
+}
+__name(totalsRow, "totalsRow");
+function infoCard(rows) {
+  const content = rows.map((r) => `
+    <tr>
+      <td style="padding:6px 0;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+          <tr>
+            <td style="font-size:13px;color:#94a3b8;width:40%;">${escapeHtml(r.label)}</td>
+            <td style="font-size:14px;font-weight:600;color:#1e293b;">${escapeHtml(r.value)}</td>
+          </tr>
+        </table>
+      </td>
+    </tr>`).join("");
+  return `
+  <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100% !important;">
+    ${content}
+  </table>`;
+}
+__name(infoCard, "infoCard");
+function generateOrderConfirmationEmail(order) {
+  const firstName = escapeHtml(order.name.split(" ")[0] || order.name);
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Order Confirmed</title>
+  <!--[if mso]>
+  <noscript>
+    <xml>
+      <o:OfficeDocumentSettings>
+        <o:PixelsPerInch>96</o:PixelsPerInch>
+      </o:OfficeDocumentSettings>
+    </xml>
+  </noscript>
+  <![endif]-->
+</head>
+<body style="margin:0;padding:0;background-color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background-color:#f8fafc;">
+    <tr>
+      <td align="center" style="padding:24px 12px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="border-collapse:collapse;max-width:600px;width:100%;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+
+          <!-- Logo -->
+          <tr>
+            <td align="center" style="padding:32px 24px 20px;">
+              <img src="https://retralabs.in/favicon.png" alt="RetraLabs" width="48" height="48" style="display:block;margin:0 auto 8px;width:48px;height:48px;border-radius:10px;" />
+              <div style="font-size:28px;font-weight:800;color:#1e3a8a;letter-spacing:-0.5px;">RetraLabs</div>
+              <div style="font-size:12px;color:#94a3b8;margin-top:4px;letter-spacing:1px;text-transform:uppercase;">Premium Peptides</div>
+            </td>
+          </tr>
+
+          <!-- Order Confirmed banner -->
+          <tr>
+            <td style="padding:0 24px;">
+              <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;padding:20px;text-align:center;">
+                <div style="display:inline-block;width:40px;height:40px;background:#16a34a;border-radius:50%;line-height:40px;color:#ffffff;font-size:22px;font-weight:700;vertical-align:middle;">&#10003;</div>
+                <div style="font-size:20px;font-weight:700;color:#065f46;margin-top:10px;">Order Confirmed</div>
+                <div style="font-size:13px;color:#047857;margin-top:4px;">Thank you for your purchase</div>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Greeting -->
+          <tr>
+            <td style="padding:28px 24px 8px;">
+              <div style="font-size:18px;font-weight:700;color:#0f172a;">Hi ${firstName},</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 24px 24px;">
+              <div style="font-size:15px;line-height:1.6;color:#475569;">
+                We've received your order and it's being prepared for dispatch. A summary of your purchase is below \u2014 keep this email for your records.
+              </div>
+            </td>
+          </tr>
+
+          <!-- Order Summary card -->
+          <tr>
+            <td style="padding:0 24px 8px;">
+              <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
+                <div style="font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;">Order Summary</div>
+                ${infoCard([
+    { label: "Order ID", value: order.orderId },
+    { label: "Order Date", value: formatDate(order.orderDate) },
+    { label: "Payment Method", value: order.paymentMethod },
+    { label: "Total Amount", value: formatCurrency(order.total) }
+  ])}
+              </div>
+            </td>
+          </tr>
+
+          <!-- Products table -->
+          <tr>
+            <td style="padding:24px 24px 8px;">
+              <div style="font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">Products</div>
+              ${generateProductTable(order.items)}
+            </td>
+          </tr>
+
+          <!-- Totals -->
+          <tr>
+            <td style="padding:16px 24px 24px;">
+              ${generateTotalsSection(order)}
+            </td>
+          </tr>
+
+          <!-- Shipping Address card -->
+          <tr>
+            <td style="padding:0 24px 8px;">
+              <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
+                <div style="font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;">Shipping Address</div>
+                ${infoCard([
+    { label: "Name", value: order.name },
+    { label: "Address", value: order.address },
+    { label: "City", value: order.city },
+    { label: "State", value: order.state },
+    { label: "PIN", value: order.pincode },
+    { label: "Phone", value: order.phone },
+    { label: "Email", value: order.email }
+  ])}
+              </div>
+            </td>
+          </tr>
+
+          <!-- Track Order CTA -->
+          <tr>
+            <td style="padding:16px 24px 8px;" align="center">
+              <a href="https://retralabs.in/track?orderId=${encodeURIComponent(order.orderId)}" style="display:inline-block;background:#1e3a8a;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:10px;">
+                Track Your Order
+              </a>
+            </td>
+          </tr>
+
+          <!-- What's Next section -->
+          <tr>
+            <td style="padding:24px 24px 8px;">
+              <div style="font-size:16px;font-weight:700;color:#0f172a;margin-bottom:12px;">What's Next?</div>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                <tr>
+                  <td style="vertical-align:top;width:32px;">
+                    <div style="width:24px;height:24px;background:#dbeafe;border-radius:50%;text-align:center;line-height:24px;font-size:13px;font-weight:700;color:#1e3a8a;">1</div>
+                  </td>
+                  <td style="padding-bottom:14px;">
+                    <div style="font-size:14px;font-weight:600;color:#1e293b;">Order Processing</div>
+                    <div style="font-size:13px;color:#64748b;line-height:1.5;margin-top:2px;">We're preparing your order with care. Most orders ship within 24-48 hours.</div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="vertical-align:top;width:32px;">
+                    <div style="width:24px;height:24px;background:#dbeafe;border-radius:50%;text-align:center;line-height:24px;font-size:13px;font-weight:700;color:#1e3a8a;">2</div>
+                  </td>
+                  <td style="padding-bottom:14px;">
+                    <div style="font-size:14px;font-weight:600;color:#1e293b;">Dispatch &amp; Tracking</div>
+                    <div style="font-size:13px;color:#64748b;line-height:1.5;margin-top:2px;">Once shipped, we'll send you a tracking number via WhatsApp so you can follow your delivery in real time.</div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="vertical-align:top;width:32px;">
+                    <div style="width:24px;height:24px;background:#dbeafe;border-radius:50%;text-align:center;line-height:24px;font-size:13px;font-weight:700;color:#1e3a8a;">3</div>
+                  </td>
+                  <td>
+                    <div style="font-size:14px;font-weight:600;color:#1e293b;">Delivery</div>
+                    <div style="font-size:13px;color:#64748b;line-height:1.5;margin-top:2px;">Your order will arrive at the shipping address above. Standard delivery takes 3-5 business days.</div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Support section -->
+          <tr>
+            <td style="padding:24px;">
+              <div style="background:#1e3a8a;border-radius:12px;padding:24px;text-align:center;">
+                <div style="font-size:15px;font-weight:700;color:#ffffff;margin-bottom:8px;">Need Help?</div>
+                <div style="font-size:13px;color:#bfdbfe;line-height:1.6;">
+                  Reply to this email or reach us at<br>
+                  <a href="mailto:orders@retralabs.in" style="color:#ffffff;font-weight:600;text-decoration:underline;">orders@retralabs.in</a><br>
+                  <a href="https://retralabs.in" style="color:#ffffff;font-weight:600;text-decoration:underline;">https://retralabs.in</a>
+                </div>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:24px;border-top:1px solid #e2e8f0;">
+              <div style="font-size:12px;color:#94a3b8;text-align:center;line-height:1.6;">
+                &copy; ${(/* @__PURE__ */ new Date()).getFullYear()} RetraLabs. All rights reserved.<br>
+                This email was sent regarding your order #${escapeHtml(order.orderId)}.
+              </div>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+__name(generateOrderConfirmationEmail, "generateOrderConfirmationEmail");
+
+// brevo-order-email.ts
+var corsHeaders4 = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization"
+};
+var handler4 = /* @__PURE__ */ __name(async (event) => {
+  if (event.httpMethod === "OPTIONS") {
+    return { statusCode: 200, headers: corsHeaders4, body: "" };
+  }
+  if (event.httpMethod !== "POST") {
+    return {
+      statusCode: 405,
+      headers: { ...corsHeaders4, "Content-Type": "application/json" },
+      body: JSON.stringify({ error: "Method not allowed" })
+    };
+  }
+  try {
+    const body = JSON.parse(event.body || "{}");
+    const required = [
+      "orderId",
+      "name",
+      "email",
+      "phone",
+      "address",
+      "items",
+      "total",
+      "paymentMethod"
+    ];
+    const missing = required.filter((k) => !body[k] || String(body[k]).trim() === "");
+    if (missing.length) {
+      return {
+        statusCode: 400,
+        headers: { ...corsHeaders4, "Content-Type": "application/json" },
+        body: JSON.stringify({ error: `Missing required fields: ${missing.join(", ")}` })
+      };
+    }
+    const apiKey = (process.env.BREVO_API_KEY || "").trim();
+    if (!apiKey) {
+      return {
+        statusCode: 500,
+        headers: { ...corsHeaders4, "Content-Type": "application/json" },
+        body: JSON.stringify({ error: "Brevo is not configured (missing BREVO_API_KEY env var)" })
+      };
+    }
+    const order = {
+      orderId: body.orderId,
+      name: body.name,
+      email: body.email,
+      phone: body.phone,
+      address: body.address,
+      city: body.city || "",
+      state: body.state || "",
+      pincode: body.pincode || "",
+      items: body.items || [],
+      subtotal: body.subtotal ?? body.total,
+      discount: body.discount ?? 0,
+      deliveryCharge: body.deliveryCharge ?? 0,
+      codCharge: body.codCharge ?? 0,
+      total: body.total,
+      paymentMethod: body.paymentMethod,
+      orderDate: body.orderDate || (/* @__PURE__ */ new Date()).toISOString()
+    };
+    const htmlContent = generateOrderConfirmationEmail(order);
+    const payload = {
+      sender: {
+        name: "RetraLabs",
+        email: "orders@retralabs.in"
+      },
+      to: [{ email: order.email, name: order.name }],
+      subject: `Order #${order.orderId} Confirmed`,
+      htmlContent
+    };
+    const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json",
+        "api-key": apiKey
+      },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      return {
+        statusCode: 502,
+        headers: { ...corsHeaders4, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          error: `Brevo request failed (HTTP ${res.status})`,
+          detail
+        })
+      };
+    }
+    const data = await res.json().catch(() => ({}));
+    return {
+      statusCode: 200,
+      headers: { ...corsHeaders4, "Content-Type": "application/json" },
+      body: JSON.stringify({ success: true, messageId: data?.messageId ?? null })
+    };
+  } catch (err) {
+    return {
+      statusCode: 500,
+      headers: { ...corsHeaders4, "Content-Type": "application/json" },
+      body: JSON.stringify({ error: err instanceof Error ? err.message : String(err) })
+    };
+  }
+}, "handler");
+
+// push-to-innofulfill.ts
+var corsHeaders5 = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization"
+};
+var handler5 = /* @__PURE__ */ __name(async (event) => {
+  if (event.httpMethod === "OPTIONS") {
+    return { statusCode: 200, headers: corsHeaders5, body: "" };
+  }
+  if (event.httpMethod !== "POST") {
+    return { statusCode: 405, headers: corsHeaders5, body: JSON.stringify({ error: "Method not allowed" }) };
+  }
+  try {
+    const { recordId } = JSON.parse(event.body || "{}");
+    if (!recordId) {
+      return { statusCode: 400, headers: corsHeaders5, body: JSON.stringify({ error: "recordId is required" }) };
+    }
+    const token = process.env.VITE_AIRTABLE_TOKEN || process.env.AIRTABLE_TOKEN;
+    const baseId = process.env.VITE_AIRTABLE_BASE_ID || process.env.AIRTABLE_BASE_ID;
+    const table = process.env.VITE_AIRTABLE_TABLE || process.env.AIRTABLE_TABLE || "Orders";
+    if (!token || !baseId) throw new Error("Airtable not configured");
+    const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}/${recordId}`;
+    const getRes = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (!getRes.ok) throw new Error("Failed to fetch Airtable record");
+    const record = await getRes.json();
+    const f = record.fields;
+    const innoToken = await getInnofulfillToken();
+    if (!innoToken) throw new Error("Innofulfill credentials missing");
+    const paymentMethodStr = String(f["Payment"] || "").toUpperCase();
+    const isCod = paymentMethodStr.includes("COD");
+    const total = Number(f["Total (\u20B9)"] || 0);
+    const declaredTotal = isCod ? total : total >= 1e4 ? 3e3 : 1e3;
+    const cartItems = [{ name: f["Items"] || "Item", quantity: 1, unitPrice: declaredTotal, variant: "MANUAL" }];
+    const customer = {
+      name: f["Name"] || "Customer",
+      email: f["Email"] || "manual@retralabs.in",
+      phone: f["Phone"] || "9999999999",
+      address: f["Address"] || "",
+      city: "City",
+      state: "State",
+      pincode: String(f["Address"] || "").match(/\b\d{6}\b/)?.[0] || "110001"
+    };
+    const innoResult = await createInnofulfillOrder(
+      innoToken,
+      f["orderID"] || `MANUAL-${Date.now()}`,
+      customer,
+      cartItems,
+      total,
+      0,
+      0,
+      isCod ? "cod" : "prepay",
+      void 0
+    );
+    const patchRes = await fetch(url, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ fields: {
+        "Innofulfill Order ID": String(innoResult.innofulfillOrderId || ""),
+        "Innofulfill Internal ID": String(innoResult.innofulfillInternalId || ""),
+        "Carrier Display Name": innoResult.carrierDisplayName || "Innofulfill",
+        "Courier Provider": "Innofulfill",
+        "AWB Number": String(innoResult.awbNumber || ""),
+        "Tracking ID": String(innoResult.awbNumber || ""),
+        "Shipment Status": innoResult.shipmentStatus || "CREATED"
+      } })
+    });
+    if (!patchRes.ok) console.error("Failed to update Airtable after innofulfill push");
+    return { statusCode: 200, headers: corsHeaders5, body: JSON.stringify({ success: true, innofulfill: innoResult }) };
+  } catch (err) {
+    console.error("[PushToInnofulfill] Error:", err);
+    return { statusCode: 500, headers: corsHeaders5, body: JSON.stringify({ error: err.message || "Internal error" }) };
+  }
+}, "handler");
+
+// push-to-shiprocket.ts
+var corsHeaders6 = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization"
+};
+var handler6 = /* @__PURE__ */ __name(async (event) => {
+  if (event.httpMethod === "OPTIONS") {
+    return { statusCode: 200, headers: corsHeaders6, body: "" };
+  }
+  if (event.httpMethod !== "POST") {
+    return { statusCode: 405, headers: corsHeaders6, body: JSON.stringify({ error: "Method not allowed" }) };
+  }
+  try {
+    const { recordId } = JSON.parse(event.body || "{}");
+    if (!recordId) {
+      return { statusCode: 400, headers: corsHeaders6, body: JSON.stringify({ error: "recordId is required" }) };
+    }
+    const token = process.env.VITE_AIRTABLE_TOKEN || process.env.AIRTABLE_TOKEN;
+    const baseId = process.env.VITE_AIRTABLE_BASE_ID || process.env.AIRTABLE_BASE_ID;
+    const table = process.env.VITE_AIRTABLE_TABLE || process.env.AIRTABLE_TABLE || "Orders";
+    if (!token || !baseId) {
+      throw new Error("Airtable is not configured");
+    }
+    const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}/${recordId}`;
+    const getRes = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (!getRes.ok) throw new Error("Failed to fetch record from Airtable");
+    const record = await getRes.json();
+    const f = record.fields;
+    const email = (process.env.SHIPROCKET_EMAIL || process.env.VITE_SHIPROCKET_EMAIL || "").trim();
+    const password = (process.env.SHIPROCKET_PASSWORD || process.env.VITE_SHIPROCKET_PASSWORD || "").trim();
+    const pickupLocation = (process.env.SHIPROCKET_PICKUP_LOCATION || process.env.VITE_SHIPROCKET_PICKUP_LOCATION || "Rajath").trim();
+    if (!email || !password) {
+      throw new Error("Shiprocket credentials are not configured");
+    }
+    const srAuth = await fetch("https://apiv2.shiprocket.in/v1/external/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    }).then((r) => r.json());
+    if (!srAuth.token) {
+      throw new Error("Failed to authenticate with Shiprocket");
+    }
+    const paymentMethodStr = String(f["Payment"] || "").toUpperCase();
+    const isCod = paymentMethodStr.includes("COD");
+    const realAmount = Number(f["Total (\u20B9)"] || 0);
+    let amount = realAmount;
+    if (!isCod) {
+      amount = realAmount >= 1e4 ? 3e3 : 1e3;
+    }
+    const dateStr = f["Created"] ? new Date(f["Created"]) : /* @__PURE__ */ new Date();
+    const pad = /* @__PURE__ */ __name((n) => String(n).padStart(2, "0"), "pad");
+    const orderDate = `${dateStr.getFullYear()}-${pad(dateStr.getMonth() + 1)}-${pad(dateStr.getDate())} ${pad(dateStr.getHours())}:${pad(dateStr.getMinutes())}`;
+    let finalPickup = pickupLocation;
+    if (finalPickup.toLowerCase() === "primary") finalPickup = "Rajath";
+    const srPayload = {
+      order_id: String(f["orderID"] || `MANUAL-${Date.now()}`),
+      order_date: orderDate,
+      pickup_location: finalPickup,
+      channel_id: "",
+      comment: "Manual Push from Admin",
+      billing_customer_name: String(f["Name"] || "Customer"),
+      billing_last_name: "",
+      billing_address: String(f["Address"] || "No address"),
+      billing_city: "City",
+      // Requires a valid city, ideally parsed but falling back
+      billing_pincode: String(f["Address"] || "").match(/\b\d{6}\b/)?.[0] || "110001",
+      billing_state: "State",
+      billing_country: "India",
+      billing_email: String(f["Email"] || "manual@retralabs.in"),
+      billing_phone: String(f["Phone"] || "9999999999").replace(/\D/g, "").slice(-10),
+      shipping_is_billing: true,
+      order_items: [
+        {
+          name: String(f["Items"] || "Retratrutide Starter vial"),
+          sku: "RETRA-ITEM",
+          units: 1,
+          selling_price: amount,
+          discount: 0,
+          tax: 0
+        }
+      ],
+      payment_method: String(f["Payment"] || "").toUpperCase().includes("COD") ? "COD" : "Prepaid",
+      shipping_charges: 0,
+      giftwrap_charges: 0,
+      transaction_charges: 0,
+      total_discount: 0,
+      sub_total: amount,
+      length: 10,
+      breadth: 10,
+      height: 5,
+      weight: 0.5
+    };
+    const createRes = await fetch("https://apiv2.shiprocket.in/v1/external/orders/create/adhoc", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${srAuth.token}`
+      },
+      body: JSON.stringify(srPayload)
+    });
+    const createJson = await createRes.json();
+    if (createRes.ok && (createJson.status_code === 0 || !createJson.order_id)) {
+      throw new Error(`Shiprocket API error: ${JSON.stringify(createJson)}`);
+    } else if (!createRes.ok) {
+      throw new Error(`Shiprocket API HTTP ${createRes.status}: ${JSON.stringify(createJson)}`);
+    }
+    const patchRes = await fetch(url, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        fields: {
+          "AWB Number": String(createJson.awb_code || ""),
+          "Tracking ID": String(createJson.shipment_id || ""),
+          "Carrier Display Name": "Shiprocket (Manual Push)",
+          "Courier Provider": "Shiprocket"
+        }
+      })
+    });
+    if (!patchRes.ok) {
+      console.error("Failed to update Airtable after pushing to Shiprocket");
+    }
+    return {
+      statusCode: 200,
+      headers: corsHeaders6,
+      body: JSON.stringify({ success: true, shiprocket: createJson })
+    };
+  } catch (err) {
+    console.error("[PushToShiprocket] Error:", err);
+    return {
+      statusCode: 500,
+      headers: corsHeaders6,
+      body: JSON.stringify({ error: err.message || "Internal error" })
+    };
+  }
+}, "handler");
+
+// _routes.ts
+if (typeof globalThis.process === "undefined") {
+  globalThis.process = { env: {} };
+} else if (!globalThis.process.env) {
+  globalThis.process.env = {};
+}
+var HANDLERS = {
+  "create-order": handler,
+  "track-order": handler2,
+  "list-orders": handler3,
+  "brevo-order-email": handler4,
+  "push-to-shiprocket": handler6,
+  "push-to-innofulfill": handler5
+};
+var onRequest = /* @__PURE__ */ __name(async (context) => {
+  const { request, env, params } = context;
+  if (env) {
+    for (const [k, v] of Object.entries(env)) {
+      if (typeof v === "string") {
+        globalThis.process.env[k] = v;
+        globalThis.process.env[k.toUpperCase()] = v;
+      }
+    }
+  }
+  const pathParts = params.path || [];
+  const functionName = pathParts[pathParts.length - 1] || pathParts[0];
+  if (request.method === "OPTIONS") {
+    return new Response(null, {
+      status: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS, PUT, DELETE"
+      }
+    });
+  }
+  const handlerFn = HANDLERS[functionName];
+  if (!handlerFn) {
+    return context.next();
+  }
+  const url = new URL(request.url);
+  const queryStringParameters = {};
+  url.searchParams.forEach((v, k) => {
+    queryStringParameters[k] = v;
+  });
+  let body = "";
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    body = await request.text();
+  }
+  const event = {
+    httpMethod: request.method,
+    headers: Object.fromEntries(request.headers.entries()),
+    queryStringParameters,
+    body,
+    path: url.pathname
+  };
+  try {
+    const res = await handlerFn(event, context);
+    const responseBody = typeof res?.body === "string" ? res.body : JSON.stringify(res?.body ?? {});
+    return new Response(responseBody, {
+      status: res?.statusCode || 200,
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        ...res?.headers || {}
+      }
+    });
+  } catch (err) {
+    console.error(`[Cloudflare Function Error] ${functionName}:`, err);
+    return new Response(JSON.stringify({ error: err?.message || "Internal Server Error" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+}, "onRequest");
+var onRequestPost = onRequest;
+var onRequestGet = onRequest;
+var onRequestOptions = onRequest;
+
+// api/[[path]].ts
+var onRequest2 = onRequest;
+
+// [[path]].ts
+var onRequest3 = onRequest;
+var onRequestPost2 = onRequestPost;
+var onRequestGet2 = onRequestGet;
+var onRequestOptions2 = onRequestOptions;
+
+// _middleware.ts
+if (typeof globalThis.process === "undefined") {
+  globalThis.process = { env: {} };
+} else if (!globalThis.process.env) {
+  globalThis.process.env = {};
+}
+var onRequest4 = /* @__PURE__ */ __name(async (context) => {
+  if (context.env) {
+    for (const [k, v] of Object.entries(context.env)) {
+      if (typeof v === "string") {
+        globalThis.process.env[k] = v;
+      }
+    }
+  }
+  return context.next();
+}, "onRequest");
+
+// ../.wrangler/tmp/pages-uBWiVu/functionsRoutes-0.6079859446853272.mjs
+var routes = [
+  {
+    routePath: "/api/:path*",
+    mountPath: "/api",
+    method: "",
+    middlewares: [],
+    modules: [onRequest2]
+  },
+  {
+    routePath: "/_routes",
+    mountPath: "/",
+    method: "GET",
+    middlewares: [],
+    modules: [onRequestGet]
+  },
+  {
+    routePath: "/_routes",
+    mountPath: "/",
+    method: "OPTIONS",
+    middlewares: [],
+    modules: [onRequestOptions]
+  },
+  {
+    routePath: "/_routes",
+    mountPath: "/",
+    method: "POST",
+    middlewares: [],
+    modules: [onRequestPost]
+  },
+  {
+    routePath: "/_routes",
+    mountPath: "/",
+    method: "",
+    middlewares: [],
+    modules: [onRequest]
+  },
+  {
+    routePath: "/:path*",
+    mountPath: "/",
+    method: "GET",
+    middlewares: [],
+    modules: [onRequestGet2]
+  },
+  {
+    routePath: "/:path*",
+    mountPath: "/",
+    method: "OPTIONS",
+    middlewares: [],
+    modules: [onRequestOptions2]
+  },
+  {
+    routePath: "/:path*",
+    mountPath: "/",
+    method: "POST",
+    middlewares: [],
+    modules: [onRequestPost2]
+  },
+  {
+    routePath: "/:path*",
+    mountPath: "/",
+    method: "",
+    middlewares: [],
+    modules: [onRequest3]
+  },
+  {
+    routePath: "/",
+    mountPath: "/",
+    method: "",
+    middlewares: [onRequest4],
+    modules: []
+  }
+];
+
+// ../node_modules/path-to-regexp/dist.es2015/index.js
+function lexer(str) {
+  var tokens = [];
+  var i = 0;
+  while (i < str.length) {
+    var char = str[i];
+    if (char === "*" || char === "+" || char === "?") {
+      tokens.push({ type: "MODIFIER", index: i, value: str[i++] });
+      continue;
+    }
+    if (char === "\\") {
+      tokens.push({ type: "ESCAPED_CHAR", index: i++, value: str[i++] });
+      continue;
+    }
+    if (char === "{") {
+      tokens.push({ type: "OPEN", index: i, value: str[i++] });
+      continue;
+    }
+    if (char === "}") {
+      tokens.push({ type: "CLOSE", index: i, value: str[i++] });
+      continue;
+    }
+    if (char === ":") {
+      var name = "";
+      var j = i + 1;
+      while (j < str.length) {
+        var code = str.charCodeAt(j);
+        if (
+          // `0-9`
+          code >= 48 && code <= 57 || // `A-Z`
+          code >= 65 && code <= 90 || // `a-z`
+          code >= 97 && code <= 122 || // `_`
+          code === 95
+        ) {
+          name += str[j++];
+          continue;
+        }
+        break;
+      }
+      if (!name)
+        throw new TypeError("Missing parameter name at ".concat(i));
+      tokens.push({ type: "NAME", index: i, value: name });
+      i = j;
+      continue;
+    }
+    if (char === "(") {
+      var count = 1;
+      var pattern = "";
+      var j = i + 1;
+      if (str[j] === "?") {
+        throw new TypeError('Pattern cannot start with "?" at '.concat(j));
+      }
+      while (j < str.length) {
+        if (str[j] === "\\") {
+          pattern += str[j++] + str[j++];
+          continue;
+        }
+        if (str[j] === ")") {
+          count--;
+          if (count === 0) {
+            j++;
+            break;
+          }
+        } else if (str[j] === "(") {
+          count++;
+          if (str[j + 1] !== "?") {
+            throw new TypeError("Capturing groups are not allowed at ".concat(j));
+          }
+        }
+        pattern += str[j++];
+      }
+      if (count)
+        throw new TypeError("Unbalanced pattern at ".concat(i));
+      if (!pattern)
+        throw new TypeError("Missing pattern at ".concat(i));
+      tokens.push({ type: "PATTERN", index: i, value: pattern });
+      i = j;
+      continue;
+    }
+    tokens.push({ type: "CHAR", index: i, value: str[i++] });
+  }
+  tokens.push({ type: "END", index: i, value: "" });
+  return tokens;
+}
+__name(lexer, "lexer");
+function parse(str, options) {
+  if (options === void 0) {
+    options = {};
+  }
+  var tokens = lexer(str);
+  var _a = options.prefixes, prefixes = _a === void 0 ? "./" : _a, _b = options.delimiter, delimiter = _b === void 0 ? "/#?" : _b;
+  var result = [];
+  var key = 0;
+  var i = 0;
+  var path = "";
+  var tryConsume = /* @__PURE__ */ __name(function(type) {
+    if (i < tokens.length && tokens[i].type === type)
+      return tokens[i++].value;
+  }, "tryConsume");
+  var mustConsume = /* @__PURE__ */ __name(function(type) {
+    var value2 = tryConsume(type);
+    if (value2 !== void 0)
+      return value2;
+    var _a2 = tokens[i], nextType = _a2.type, index = _a2.index;
+    throw new TypeError("Unexpected ".concat(nextType, " at ").concat(index, ", expected ").concat(type));
+  }, "mustConsume");
+  var consumeText = /* @__PURE__ */ __name(function() {
+    var result2 = "";
+    var value2;
+    while (value2 = tryConsume("CHAR") || tryConsume("ESCAPED_CHAR")) {
+      result2 += value2;
+    }
+    return result2;
+  }, "consumeText");
+  var isSafe = /* @__PURE__ */ __name(function(value2) {
+    for (var _i = 0, delimiter_1 = delimiter; _i < delimiter_1.length; _i++) {
+      var char2 = delimiter_1[_i];
+      if (value2.indexOf(char2) > -1)
+        return true;
+    }
+    return false;
+  }, "isSafe");
+  var safePattern = /* @__PURE__ */ __name(function(prefix2) {
+    var prev = result[result.length - 1];
+    var prevText = prefix2 || (prev && typeof prev === "string" ? prev : "");
+    if (prev && !prevText) {
+      throw new TypeError('Must have text between two parameters, missing text after "'.concat(prev.name, '"'));
+    }
+    if (!prevText || isSafe(prevText))
+      return "[^".concat(escapeString(delimiter), "]+?");
+    return "(?:(?!".concat(escapeString(prevText), ")[^").concat(escapeString(delimiter), "])+?");
+  }, "safePattern");
+  while (i < tokens.length) {
+    var char = tryConsume("CHAR");
+    var name = tryConsume("NAME");
+    var pattern = tryConsume("PATTERN");
+    if (name || pattern) {
+      var prefix = char || "";
+      if (prefixes.indexOf(prefix) === -1) {
+        path += prefix;
+        prefix = "";
+      }
+      if (path) {
+        result.push(path);
+        path = "";
+      }
+      result.push({
+        name: name || key++,
+        prefix,
+        suffix: "",
+        pattern: pattern || safePattern(prefix),
+        modifier: tryConsume("MODIFIER") || ""
+      });
+      continue;
+    }
+    var value = char || tryConsume("ESCAPED_CHAR");
+    if (value) {
+      path += value;
+      continue;
+    }
+    if (path) {
+      result.push(path);
+      path = "";
+    }
+    var open = tryConsume("OPEN");
+    if (open) {
+      var prefix = consumeText();
+      var name_1 = tryConsume("NAME") || "";
+      var pattern_1 = tryConsume("PATTERN") || "";
+      var suffix = consumeText();
+      mustConsume("CLOSE");
+      result.push({
+        name: name_1 || (pattern_1 ? key++ : ""),
+        pattern: name_1 && !pattern_1 ? safePattern(prefix) : pattern_1,
+        prefix,
+        suffix,
+        modifier: tryConsume("MODIFIER") || ""
+      });
+      continue;
+    }
+    mustConsume("END");
+  }
+  return result;
+}
+__name(parse, "parse");
+function match(str, options) {
+  var keys = [];
+  var re = pathToRegexp(str, keys, options);
+  return regexpToFunction(re, keys, options);
+}
+__name(match, "match");
+function regexpToFunction(re, keys, options) {
+  if (options === void 0) {
+    options = {};
+  }
+  var _a = options.decode, decode = _a === void 0 ? function(x) {
+    return x;
+  } : _a;
+  return function(pathname) {
+    var m = re.exec(pathname);
+    if (!m)
+      return false;
+    var path = m[0], index = m.index;
+    var params = /* @__PURE__ */ Object.create(null);
+    var _loop_1 = /* @__PURE__ */ __name(function(i2) {
+      if (m[i2] === void 0)
+        return "continue";
+      var key = keys[i2 - 1];
+      if (key.modifier === "*" || key.modifier === "+") {
+        params[key.name] = m[i2].split(key.prefix + key.suffix).map(function(value) {
+          return decode(value, key);
+        });
+      } else {
+        params[key.name] = decode(m[i2], key);
+      }
+    }, "_loop_1");
+    for (var i = 1; i < m.length; i++) {
+      _loop_1(i);
+    }
+    return { path, index, params };
+  };
+}
+__name(regexpToFunction, "regexpToFunction");
+function escapeString(str) {
+  return str.replace(/([.+*?=^!:${}()[\]|/\\])/g, "\\$1");
+}
+__name(escapeString, "escapeString");
+function flags(options) {
+  return options && options.sensitive ? "" : "i";
+}
+__name(flags, "flags");
+function regexpToRegexp(path, keys) {
+  if (!keys)
+    return path;
+  var groupsRegex = /\((?:\?<(.*?)>)?(?!\?)/g;
+  var index = 0;
+  var execResult = groupsRegex.exec(path.source);
+  while (execResult) {
+    keys.push({
+      // Use parenthesized substring match if available, index otherwise
+      name: execResult[1] || index++,
+      prefix: "",
+      suffix: "",
+      modifier: "",
+      pattern: ""
+    });
+    execResult = groupsRegex.exec(path.source);
+  }
+  return path;
+}
+__name(regexpToRegexp, "regexpToRegexp");
+function arrayToRegexp(paths, keys, options) {
+  var parts = paths.map(function(path) {
+    return pathToRegexp(path, keys, options).source;
+  });
+  return new RegExp("(?:".concat(parts.join("|"), ")"), flags(options));
+}
+__name(arrayToRegexp, "arrayToRegexp");
+function stringToRegexp(path, keys, options) {
+  return tokensToRegexp(parse(path, options), keys, options);
+}
+__name(stringToRegexp, "stringToRegexp");
+function tokensToRegexp(tokens, keys, options) {
+  if (options === void 0) {
+    options = {};
+  }
+  var _a = options.strict, strict = _a === void 0 ? false : _a, _b = options.start, start = _b === void 0 ? true : _b, _c = options.end, end = _c === void 0 ? true : _c, _d = options.encode, encode = _d === void 0 ? function(x) {
+    return x;
+  } : _d, _e = options.delimiter, delimiter = _e === void 0 ? "/#?" : _e, _f = options.endsWith, endsWith = _f === void 0 ? "" : _f;
+  var endsWithRe = "[".concat(escapeString(endsWith), "]|$");
+  var delimiterRe = "[".concat(escapeString(delimiter), "]");
+  var route = start ? "^" : "";
+  for (var _i = 0, tokens_1 = tokens; _i < tokens_1.length; _i++) {
+    var token = tokens_1[_i];
+    if (typeof token === "string") {
+      route += escapeString(encode(token));
+    } else {
+      var prefix = escapeString(encode(token.prefix));
+      var suffix = escapeString(encode(token.suffix));
+      if (token.pattern) {
+        if (keys)
+          keys.push(token);
+        if (prefix || suffix) {
+          if (token.modifier === "+" || token.modifier === "*") {
+            var mod = token.modifier === "*" ? "?" : "";
+            route += "(?:".concat(prefix, "((?:").concat(token.pattern, ")(?:").concat(suffix).concat(prefix, "(?:").concat(token.pattern, "))*)").concat(suffix, ")").concat(mod);
+          } else {
+            route += "(?:".concat(prefix, "(").concat(token.pattern, ")").concat(suffix, ")").concat(token.modifier);
+          }
+        } else {
+          if (token.modifier === "+" || token.modifier === "*") {
+            throw new TypeError('Can not repeat "'.concat(token.name, '" without a prefix and suffix'));
+          }
+          route += "(".concat(token.pattern, ")").concat(token.modifier);
+        }
+      } else {
+        route += "(?:".concat(prefix).concat(suffix, ")").concat(token.modifier);
+      }
+    }
+  }
+  if (end) {
+    if (!strict)
+      route += "".concat(delimiterRe, "?");
+    route += !options.endsWith ? "$" : "(?=".concat(endsWithRe, ")");
+  } else {
+    var endToken = tokens[tokens.length - 1];
+    var isEndDelimited = typeof endToken === "string" ? delimiterRe.indexOf(endToken[endToken.length - 1]) > -1 : endToken === void 0;
+    if (!strict) {
+      route += "(?:".concat(delimiterRe, "(?=").concat(endsWithRe, "))?");
+    }
+    if (!isEndDelimited) {
+      route += "(?=".concat(delimiterRe, "|").concat(endsWithRe, ")");
+    }
+  }
+  return new RegExp(route, flags(options));
+}
+__name(tokensToRegexp, "tokensToRegexp");
+function pathToRegexp(path, keys, options) {
+  if (path instanceof RegExp)
+    return regexpToRegexp(path, keys);
+  if (Array.isArray(path))
+    return arrayToRegexp(path, keys, options);
+  return stringToRegexp(path, keys, options);
+}
+__name(pathToRegexp, "pathToRegexp");
+
+// ../node_modules/wrangler/templates/pages-template-worker.ts
+var escapeRegex = /[.+?^${}()|[\]\\]/g;
+function* executeRequest(request) {
+  const requestPath = new URL(request.url).pathname;
+  for (const route of [...routes].reverse()) {
+    if (route.method && route.method !== request.method) {
+      continue;
+    }
+    const routeMatcher = match(route.routePath.replace(escapeRegex, "\\$&"), {
+      end: false
+    });
+    const mountMatcher = match(route.mountPath.replace(escapeRegex, "\\$&"), {
+      end: false
+    });
+    const matchResult = routeMatcher(requestPath);
+    const mountMatchResult = mountMatcher(requestPath);
+    if (matchResult && mountMatchResult) {
+      for (const handler7 of route.middlewares.flat()) {
+        yield {
+          handler: handler7,
+          params: matchResult.params,
+          path: mountMatchResult.path
+        };
+      }
+    }
+  }
+  for (const route of routes) {
+    if (route.method && route.method !== request.method) {
+      continue;
+    }
+    const routeMatcher = match(route.routePath.replace(escapeRegex, "\\$&"), {
+      end: true
+    });
+    const mountMatcher = match(route.mountPath.replace(escapeRegex, "\\$&"), {
+      end: false
+    });
+    const matchResult = routeMatcher(requestPath);
+    const mountMatchResult = mountMatcher(requestPath);
+    if (matchResult && mountMatchResult && route.modules.length) {
+      for (const handler7 of route.modules.flat()) {
+        yield {
+          handler: handler7,
+          params: matchResult.params,
+          path: matchResult.path
+        };
+      }
+      break;
+    }
+  }
+}
+__name(executeRequest, "executeRequest");
+var pages_template_worker_default = {
+  async fetch(originalRequest, env, workerContext) {
+    let request = originalRequest;
+    const handlerIterator = executeRequest(request);
+    let data = {};
+    let isFailOpen = false;
+    const next = /* @__PURE__ */ __name(async (input, init) => {
+      if (input !== void 0) {
+        let url = input;
+        if (typeof input === "string") {
+          url = new URL(input, request.url).toString();
+        }
+        request = new Request(url, init);
+      }
+      const result = handlerIterator.next();
+      if (result.done === false) {
+        const { handler: handler7, params, path } = result.value;
+        const context = {
+          request: new Request(request.clone()),
+          functionPath: path,
+          next,
+          params,
+          get data() {
+            return data;
+          },
+          set data(value) {
+            if (typeof value !== "object" || value === null) {
+              throw new Error("context.data must be an object");
+            }
+            data = value;
+          },
+          env,
+          waitUntil: workerContext.waitUntil.bind(workerContext),
+          passThroughOnException: /* @__PURE__ */ __name(() => {
+            isFailOpen = true;
+          }, "passThroughOnException")
+        };
+        const response = await handler7(context);
+        if (!(response instanceof Response)) {
+          throw new Error("Your Pages function should return a Response");
+        }
+        return cloneResponse(response);
+      } else if ("ASSETS") {
+        const response = await env["ASSETS"].fetch(request);
+        return cloneResponse(response);
+      } else {
+        const response = await fetch(request);
+        return cloneResponse(response);
+      }
+    }, "next");
+    try {
+      return await next();
+    } catch (error) {
+      if (isFailOpen) {
+        const response = await env["ASSETS"].fetch(request);
+        return cloneResponse(response);
+      }
+      throw error;
+    }
+  }
+};
+var cloneResponse = /* @__PURE__ */ __name((response) => (
+  // https://fetch.spec.whatwg.org/#null-body-status
+  new Response(
+    [101, 204, 205, 304].includes(response.status) ? null : response.body,
+    response
+  )
+), "cloneResponse");
+export {
+  pages_template_worker_default as default
+};
+
+------formdata-undici-055968813227--
