@@ -159,6 +159,10 @@ export function OrderDrawer({ record, onClose }: OrderDrawerProps) {
           <div className="grid grid-cols-2 gap-2">
             <button 
               onClick={async (e) => {
+                if (f['AWB Number'] || f['Tracking ID'] || f['Innofulfill Order ID']) {
+                  const confirmPush = window.confirm("This order already has an AWB Number or has been pushed to logistics before. Are you sure you want to push it again?");
+                  if (!confirmPush) return;
+                }
                 const btn = e.currentTarget;
                 const originalText = btn.innerHTML;
                 btn.innerHTML = `<span class="animate-pulse">Pushing...</span>`;

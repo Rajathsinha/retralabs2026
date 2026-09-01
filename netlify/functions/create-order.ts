@@ -412,12 +412,17 @@ async function createInnofulfillOrder(
   const carrierNameEnv = process.env.INNOFULFILL_CARRIER_NAME || 'innofulfill_ecomm';
 
   const isCod = paymentMethod === 'cod';
-  const items = cartItems.map((item) => ({
-    name: item.name,
-    quantity: item.quantity,
-    unitPrice: item.unitPrice,
-    sku: item.variant.replace(/\s+/g, '-').toUpperCase().slice(0, 40),
-  }));
+  let declaredTotal = total;
+  if (!isCod) {
+    declaredTotal = total >= 10000 ? 3000 : 1000;
+  }
+
+  const items = [{
+    name: cartItems.map(i => i.name).join(', ').slice(0, 50),
+    quantity: 1,
+    unitPrice: declaredTotal,
+    sku: 'RETRA-PRODUCTS',
+  }];
 
   const payload = {
     referenceId: orderId,
