@@ -157,8 +157,31 @@ export function OrderDrawer({ record, onClose }: OrderDrawerProps) {
         {/* Action buttons */}
         <div className="px-5 py-4 border-t border-slate-200 bg-slate-50/50 space-y-2">
           <div className="grid grid-cols-2 gap-2">
-            <button className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#2563EB] text-white text-sm font-semibold hover:bg-[#1D4ED8] transition-colors">
-              <FileText className="w-4 h-4" /> Generate Label
+            <button 
+              onClick={async (e) => {
+                const btn = e.currentTarget;
+                const originalText = btn.innerHTML;
+                btn.innerHTML = `<span class="animate-pulse">Pushing...</span>`;
+                btn.disabled = true;
+                try {
+                  const res = await fetch('/.netlify/functions/push-to-shiprocket', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ recordId: record.id })
+                  });
+                  const json = await res.json();
+                  if (!res.ok) throw new Error(json.error || 'Failed to push');
+                  btn.innerHTML = `✅ Pushed successfully`;
+                  setTimeout(() => onClose(), 1500); // close to refresh
+                } catch(err) {
+                  alert(String(err));
+                  btn.innerHTML = originalText;
+                  btn.disabled = false;
+                }
+              }}
+              className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-[#2563EB] text-white text-sm font-semibold hover:bg-[#1D4ED8] transition-colors disabled:opacity-50"
+            >
+              <Truck className="w-4 h-4" /> Push to Shiprocket
             </button>
             <button className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition-colors">
               <Printer className="w-4 h-4" /> Print Invoice

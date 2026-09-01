@@ -231,8 +231,8 @@ export const handler: Handler = async (event) => {
     if (awbNumber) {
       if (provider === 'Shiprocket') {
         try {
-          const email = (process.env.SHIPROCKET_EMAIL || process.env.VITE_SHIPROCKET_EMAIL || 'Support@retralabs.in').trim();
-          const password = (process.env.SHIPROCKET_PASSWORD || process.env.VITE_SHIPROCKET_PASSWORD || '0$S9qcD%nQyJFql2E^hnYs!qnhotBUF!').trim();
+          const email = (process.env.SHIPROCKET_EMAIL || process.env.VITE_SHIPROCKET_EMAIL || '').trim();
+          const password = (process.env.SHIPROCKET_PASSWORD || process.env.VITE_SHIPROCKET_PASSWORD || '').trim();
           if (email && password) {
             const srAuth = await fetch('https://apiv2.shiprocket.in/v1/external/auth/login', {
               method: 'POST',

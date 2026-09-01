@@ -224,8 +224,8 @@ async function updateInnofulfillError(baseId: string, table: string, token: stri
 let cachedShiprocketToken: { token: string; expiresAt: number } | null = null;
 
 async function getShiprocketToken(): Promise<string | null> {
-  const email = (process.env.SHIPROCKET_EMAIL || process.env.VITE_SHIPROCKET_EMAIL || 'Support@retralabs.in').trim();
-  const password = (process.env.SHIPROCKET_PASSWORD || process.env.VITE_SHIPROCKET_PASSWORD || '0$S9qcD%nQyJFql2E^hnYs!qnhotBUF!').trim();
+  const email = (process.env.SHIPROCKET_EMAIL || process.env.VITE_SHIPROCKET_EMAIL || '').trim();
+  const password = (process.env.SHIPROCKET_PASSWORD || process.env.VITE_SHIPROCKET_PASSWORD || '').trim();
   if (!email || !password) {
     console.log('[Shiprocket] Skipped: SHIPROCKET_EMAIL or SHIPROCKET_PASSWORD not configured');
     return null;

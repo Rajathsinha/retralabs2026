@@ -1,4 +1,4 @@
-import { LayoutDashboard, ShoppingBag, BarChart3, Users, Settings, LogOut, X } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, BarChart3, Users, Settings, LogOut, X, ExternalLink } from 'lucide-react';
 
 export type AdminPage = 'dashboard' | 'orders' | 'analytics' | 'customers' | 'settings';
 
@@ -64,8 +64,23 @@ export function Sidebar({ current, onNavigate, onLogout, mobileOpen, onCloseMobi
           })}
         </nav>
 
+        {/* External Links */}
+        <div className="px-3 py-2 mt-auto border-t border-white/[0.06]">
+          <a
+            href="https://app.shiprocket.in/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 transition-all"
+          >
+            <div className="flex items-center gap-3">
+              <ExternalLink className="w-[18px] h-[18px]" />
+              <span>Shiprocket</span>
+            </div>
+          </a>
+        </div>
+
         {/* Logout */}
-        <div className="p-3 border-t border-white/[0.06]">
+        <div className="p-3">
           <button
             onClick={onLogout}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-white/[0.03] transition-all"
