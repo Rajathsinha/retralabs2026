@@ -58,8 +58,15 @@ export const handler: Handler = async (event) => {
     }
 
     // 4. Create Shiprocket Order
-    // Try to parse items to get selling price, or use Total
-    const amount = Number(f['Total (₹)'] || 0);
+    const paymentMethodStr = String(f['Payment'] || '').toUpperCase();
+    const isCod = paymentMethodStr.includes('COD');
+    const realAmount = Number(f['Total (₹)'] || 0);
+    
+    // To save money in shipping for prepaid: < 10k is 1000, >= 10k is 3000
+    let amount = realAmount;
+    if (!isCod) {
+      amount = realAmount >= 10000 ? 3000 : 1000;
+    }
     const dateStr = f['Created'] ? new Date(f['Created']) : new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
     const orderDate = `${dateStr.getFullYear()}-${pad(dateStr.getMonth() + 1)}-${pad(dateStr.getDate())} ${pad(dateStr.getHours())}:${pad(dateStr.getMinutes())}`;

@@ -80,6 +80,9 @@ async function main() {
     console.warn(`⚠️ Warning: Pincode lookup failed, using fallbacks.`);
   }
 
+  const parsedPrice = parseFloat(price) || 0;
+  const amount = parsedPrice >= 10000 ? 3000 : 1000;
+
   console.log('🔄 Authenticating with Shiprocket...');
   const authRes = await fetch('https://apiv2.shiprocket.in/v1/external/auth/login', {
     method: 'POST',
@@ -118,7 +121,7 @@ async function main() {
         name: itemName || 'Item',
         sku: 'MANUAL-ITEM',
         units: 1,
-        selling_price: parseFloat(price) || 0,
+        selling_price: amount,
         discount: 0,
         tax: 0,
       },
@@ -128,7 +131,7 @@ async function main() {
     giftwrap_charges: 0,
     transaction_charges: 0,
     total_discount: 0,
-    sub_total: parseFloat(price) || 0,
+    sub_total: amount,
     length: 10,
     breadth: 10,
     height: 5,

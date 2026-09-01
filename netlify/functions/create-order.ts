@@ -297,14 +297,19 @@ async function createShiprocketOrder(
   const firstName = nameParts[0] || 'Valued';
   const lastName = nameParts.slice(1).join(' ') || 'Customer';
 
-  const orderItems = cartItems.map((item) => ({
-    name: item.name,
-    sku: item.variant.replace(/\s+/g, '-').toUpperCase().slice(0, 40),
-    units: item.quantity,
-    selling_price: item.unitPrice,
+  let declaredTotal = total;
+  if (paymentMethod !== 'cod') {
+    declaredTotal = total >= 10000 ? 3000 : 1000;
+  }
+
+  const orderItems = [{
+    name: cartItems.map(i => i.name).join(', ').slice(0, 50),
+    sku: 'RETRA-PRODUCTS',
+    units: 1,
+    selling_price: declaredTotal,
     discount: 0,
     tax: 0,
-  }));
+  }];
 
   const payload = {
     order_id: orderId,
@@ -328,7 +333,7 @@ async function createShiprocketOrder(
     giftwrap_charges: 0,
     transaction_charges: 0,
     total_discount: 0,
-    sub_total: total,
+    sub_total: declaredTotal,
     length: 10,
     breadth: 10,
     height: 5,
