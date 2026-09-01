@@ -1,4 +1,4 @@
-import type { Handler } from '@netlify/functions';
+
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
-export const handler: Handler = async (event) => {
+export const handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers: corsHeaders, body: '' };
   }

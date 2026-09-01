@@ -1,4 +1,4 @@
-import type { Handler } from '@netlify/functions';
+
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -59,7 +59,7 @@ function cleanEmail(email: string): string {
   return (email || '').trim().toLowerCase();
 }
 
-export const handler: Handler = async (event) => {
+export const handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers: corsHeaders, body: '' };
   }

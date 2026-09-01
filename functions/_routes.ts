@@ -1,8 +1,9 @@
-import { handler as createOrder } from '../../netlify/functions/create-order';
-import { handler as trackOrder } from '../../netlify/functions/track-order';
-import { handler as listOrders } from '../../netlify/functions/list-orders';
-import { handler as brevoOrderEmail } from '../../netlify/functions/brevo-order-email';
-import { handler as pushToShiprocket } from '../../netlify/functions/push-to-shiprocket';
+import { handler as createOrder } from '../../functions/create-order';
+import { handler as trackOrder } from '../../functions/track-order';
+import { handler as listOrders } from '../../functions/list-orders';
+import { handler as brevoOrderEmail } from '../../functions/brevo-order-email';
+import { handler as pushToInnofulfill } from '../../functions/push-to-innofulfill';
+import { handler as pushToShiprocket } from '../../functions/push-to-shiprocket';
 
 // Polyfill globalThis.process for Node-style env access in Cloudflare edge runtime
 if (typeof globalThis.process === 'undefined') {
@@ -17,6 +18,7 @@ const HANDLERS: Record<string, (event: any, context?: any) => Promise<any>> = {
   'list-orders': listOrders,
   'brevo-order-email': brevoOrderEmail,
   'push-to-shiprocket': pushToShiprocket,
+  'push-to-innofulfill': pushToInnofulfill,
 };
 
 export const onRequest: PagesFunction<Record<string, string>> = async (context) => {

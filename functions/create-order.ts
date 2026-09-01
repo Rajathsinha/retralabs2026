@@ -1,4 +1,4 @@
-import type { Handler } from '@netlify/functions';
+
 
 interface OrderFields {
   orderID?: string;
@@ -530,8 +530,7 @@ async function createInnofulfillOrder(
 
   console.log('[Innofulfill] Shipment created successfully');
   const innofulfillInternalId = data?.id ? String(data.id) : undefined;
-  const carrierName = data?.carrierName ? String(data.carrierName) : carrierNameEnv;
-  const carrierDisplayName = data?.carrierDisplayName ? String(data.carrierDisplayName) : 'Shreemaruti';
+export { getInnofulfillToken, createInnofulfillOrder };
 
   // Generate unique Retra date & time minute tracking number: RETRA-YYYYMMDD-HHMM
   const awbNumber = getRetraTrackingId();
@@ -555,7 +554,7 @@ async function createInnofulfillOrder(
 
 // ── Main handler ──────────────────────────────────────────────────────────────
 
-export const handler: Handler = async (event) => {
+export const handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers: corsHeaders, body: '' };
   }
