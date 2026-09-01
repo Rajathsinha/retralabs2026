@@ -530,7 +530,6 @@ async function createInnofulfillOrder(
 
   console.log('[Innofulfill] Shipment created successfully');
   const innofulfillInternalId = data?.id ? String(data.id) : undefined;
-export { getInnofulfillToken, createInnofulfillOrder };
 
   // Generate unique Retra date & time minute tracking number: RETRA-YYYYMMDD-HHMM
   const awbNumber = getRetraTrackingId();
@@ -551,6 +550,8 @@ export { getInnofulfillToken, createInnofulfillOrder };
     shipmentCreatedAt: new Date().toISOString(),
   };
 }
+
+export { getInnofulfillToken, createInnofulfillOrder };
 
 // ── Main handler ──────────────────────────────────────────────────────────────
 
