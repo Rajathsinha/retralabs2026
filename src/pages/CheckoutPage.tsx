@@ -2,7 +2,7 @@ import { useSEO } from '../hooks/useSEO';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getProductImageUrl, BAC_WATER_IMAGE_URL } from '../utils/imageUrl';
-import { Minus, Plus, Trash2, Check, MessageCircle, Tag, ShoppingBag, ArrowRight, X, GraduationCap, Zap, Clock, Banknote, Package, Truck } from 'lucide-react';
+import { Minus, Plus, Trash2, Check, MessageCircle, Tag, ShoppingBag, ArrowRight, X, GraduationCap, Zap, Clock, Banknote, Package, Truck, Loader2 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { OrderFormData } from '../types';
@@ -135,6 +135,39 @@ export default function CheckoutPage() {
   const [showExpressTerms, setShowExpressTerms] = useState(false);
   const [expressTermsAccepted, setExpressTermsAccepted] = useState(false);
   const [expressBlocked, setExpressBlocked] = useState(false);
+  const [checkingExpress, setCheckingExpress] = useState(false);
+
+  const handleExpressClick = async () => {
+    if (expressBlocked || checkingExpress) return;
+    if (!formData.pincode || formData.pincode.length !== 6) {
+      alert('Please enter your 6-digit Pincode in the Shipping Details above before selecting Express Delivery.');
+      return;
+    }
+
+    setCheckingExpress(true);
+    try {
+      const res = await fetch('/.netlify/functions/check-innofulfill-serviceability', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          toPincode: formData.pincode,
+          paymentMode: paymentMethod
+        })
+      });
+      const data = await res.json();
+      if (data.serviceable) {
+        setShowExpressTerms(true);
+      } else {
+        alert(`Express Delivery is not available for pincode ${formData.pincode}.\nReason: ${data.reason || 'Unserviceable'}`);
+        setFormData(prev => ({ ...prev, delivery_option: 'normal' }));
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Failed to verify express serviceability. Please check your internet connection or try Standard Delivery.');
+    } finally {
+      setCheckingExpress(false);
+    }
+  };
 
   /* ── Check if express is blocked for the selected state ── */
   useEffect(() => {
@@ -1257,11 +1290,9 @@ export default function CheckoutPage() {
                     {/* Fast delivery */}
                     <button
                       type="button"
-                      onClick={() => {
-                        if (expressBlocked) return;
-                        setShowExpressTerms(true);
-                      }}
-                      className={`relative flex flex-col items-start gap-1.5 p-4 rounded-xl border-2 text-left transition-all ${
+                      disabled={checkingExpress}
+                      onClick={handleExpressClick}
+                      className={`relative flex flex-col items-start gap-1.5 p-4 rounded-xl border-2 text-left transition-all ${checkingExpress ? 'opacity-70 pointer-events-none' : ''} ${
                         expressBlocked
                           ? 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'
                           : formData.delivery_option === 'fast'
@@ -1270,8 +1301,12 @@ export default function CheckoutPage() {
                       }`}
                     >
                       <div className="flex items-center gap-2">
-                        <Zap className={`w-4 h-4 ${expressBlocked ? 'text-slate-300' : formData.delivery_option === 'fast' ? 'text-white' : 'text-amber-500'}`} />
-                        <span className="text-sm font-bold">Express</span>
+                        {checkingExpress ? (
+                          <Loader2 className="w-4 h-4 text-amber-500 animate-spin" />
+                        ) : (
+                          <Zap className={`w-4 h-4 ${expressBlocked ? 'text-slate-300' : formData.delivery_option === 'fast' ? 'text-white' : 'text-amber-500'}`} />
+                        )}
+                        <span className="text-sm font-bold">{checkingExpress ? 'Checking...' : 'Express'}</span>
                       </div>
                       <p className={`text-xs ${expressBlocked ? 'text-slate-400' : formData.delivery_option === 'fast' ? 'text-amber-100' : 'text-slate-500'}`}>
                         {expressBlocked ? 'Not available in your region' : '1–2 days · Major cities only'}

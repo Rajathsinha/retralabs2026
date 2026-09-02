@@ -543,8 +543,8 @@ async function createInnofulfillOrder(
   return {
     innofulfillOrderId,
     innofulfillInternalId,
-    carrierName,
-    carrierDisplayName,
+    carrierName: carrierNameEnv,
+    carrierDisplayName: 'Innofulfill',
     awbNumber,
     shipmentStatus: 'AWB_ASSIGNED',
     shipmentCreatedAt: new Date().toISOString(),
