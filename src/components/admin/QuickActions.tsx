@@ -16,7 +16,7 @@ export function QuickActions({ onRefresh }: QuickActionsProps) {
   ];
 
   return (
-    <div className="fixed bottom-6 right-6 z-30 flex flex-col items-end gap-2">
+    <div className="fixed bottom-6 left-6 z-30 flex flex-col items-start gap-2">
       {open && (
         <div className="flex flex-col gap-1.5 mb-2 bg-white rounded-2xl border border-slate-200 shadow-xl p-1.5 min-w-[200px] animate-[fadeIn_0.15s_ease]">
           {actions.map((a) => {
