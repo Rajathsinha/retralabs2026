@@ -24,6 +24,7 @@ const TrackOrderPage     = lazy(() => import('./pages/TrackOrderPage'));
 const CategoryPage       = lazy(() => import('./pages/CategoryPage'));
 const GuidePage          = lazy(() => import('./pages/GuidePage'));
 const GuidesIndexPage    = lazy(() => import('./pages/GuidesIndexPage'));
+const NovaAIPage         = lazy(() => import('./pages/NovaAIPage'));
 const HeroUIWrapper      = lazy(() => import('./providers/HeroUIWrapper'));
 
 // ─── Error Boundary ───────────────────────────────────────────────────────────
@@ -104,6 +105,7 @@ export default function App() {
         <Routes>
           <Route element={<RootLayout />}>
             <Route path="/"                element={<HomePage />} />
+            <Route path="/novaai"          element={<NovaAIPage />} />
             <Route path="/catalogue"       element={<CataloguePage />} />
             <Route path="/product/:id"     element={<ProductDetailPage />} />
             <Route path="/checkout"        element={<CheckoutPage />} />
