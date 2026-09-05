@@ -20,21 +20,31 @@ import {
   WalletCards,
   X,
 } from 'lucide-react';
+import { PAYMENT_SESSION_SECONDS } from '../constants/payment';
 
 const UPI_ID = 'retralabs@ptaxis';
 const MERCHANT_NAME = 'RetraLabs';
-const COUNTDOWN_SECONDS = 180;
+const COUNTDOWN_SECONDS = PAYMENT_SESSION_SECONDS;
 
-type Stage = 'idle' | 'verifying' | 'success' | 'expired';
+type Stage = 'idle' | 'verifying' | 'success' | 'expired' | 'proof_submitted';
 type OcrStatus = 'idle' | 'scanning' | 'matched' | 'mismatch' | 'error';
 type PaymentMethod = 'upi' | 'paytm' | 'gpay' | 'whatsapp';
 type PaymentTab = 'qr' | 'upi';
+type ModalView = 'pay' | 'already_paid';
 
 interface UpiQrModalProps {
   isOpen: boolean;
   onClose: () => void;
   amount: number;
+  orderId?: string | null;
   onConfirm: (txnRef: string, screenshot: File | null) => Promise<void>;
+  onSubmitPaymentProof?: (payload: {
+    orderDocumentNumber: string;
+    amountPaid: number;
+    transaction: string;
+    paymentDateTime: string;
+    screenshot: File;
+  }) => Promise<void>;
   whatsappUrl: string;
 }
 
@@ -99,7 +109,7 @@ const methodDetails: Record<PaymentMethod, { label: string; detail: string; icon
   whatsapp: { label: 'WhatsApp Pay', detail: 'Pay in WhatsApp', icon: <WhatsAppLogo size={18} /> },
 };
 
-export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsappUrl }: UpiQrModalProps) {
+export default function UpiQrModal({ isOpen, onClose, amount, orderId, onConfirm, onSubmitPaymentProof, whatsappUrl }: UpiQrModalProps) {
   const [txnRef, setTxnRef] = useState('');
   const [screenshot, setScreenshot] = useState<File | null>(null);
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
@@ -114,7 +124,14 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
   const [method, setMethod] = useState<PaymentMethod>('upi');
   const [tab, setTab] = useState<PaymentTab>('qr');
   const [toast, setToast] = useState('');
+  const [view, setView] = useState<ModalView>('pay');
+  const [proofOrderId, setProofOrderId] = useState('');
+  const [proofAmount, setProofAmount] = useState(String(amount));
+  const [proofTxn, setProofTxn] = useState('');
+  const [proofDateTime, setProofDateTime] = useState(() => new Date().toISOString().slice(0, 16));
+  const [proofScreenshot, setProofScreenshot] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const proofFileRef = useRef<HTMLInputElement>(null);
   const ocrAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -124,16 +141,26 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
       setSecondsLeft(COUNTDOWN_SECONDS);
       setMethod('upi');
       setTab('qr');
+      setView('pay');
       setTxnRef('');
       setScreenshot(null);
       setScreenshotUrl(null);
+      setProofOrderId(orderId || '');
+      setProofAmount(String(amount));
+      setProofTxn('');
+      setProofDateTime(new Date().toISOString().slice(0, 16));
+      setProofScreenshot(null);
       setOcrStatus('idle');
       setFraudWarning('');
     } else {
       setMounted(false);
       ocrAbortRef.current?.abort();
     }
-  }, [isOpen]);
+  }, [isOpen, orderId, amount]);
+
+  useEffect(() => {
+    if (orderId) setProofOrderId(orderId);
+  }, [orderId]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -235,6 +262,25 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
     }
   }, [txnRef, confirming, stage, onConfirm, screenshot]);
 
+  const handleSubmitProof = useCallback(async () => {
+    if (!onSubmitPaymentProof || !proofTxn.trim() || !proofScreenshot || confirming) return;
+    setConfirming(true);
+    try {
+      await onSubmitPaymentProof({
+        orderDocumentNumber: proofOrderId.trim(),
+        amountPaid: Number(proofAmount) || amount,
+        transaction: proofTxn.trim(),
+        paymentDateTime: new Date(proofDateTime).toISOString(),
+        screenshot: proofScreenshot,
+      });
+      setStage('proof_submitted');
+    } catch {
+      setStage('idle');
+    } finally {
+      setConfirming(false);
+    }
+  }, [onSubmitPaymentProof, proofTxn, proofScreenshot, confirming, proofOrderId, proofAmount, amount, proofDateTime]);
+
   const copyUpiId = async () => {
     await navigator.clipboard.writeText(UPI_ID);
     setCopied(true);
@@ -307,8 +353,28 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
 
         {stage === 'success' ? (
           <SuccessState amount={amount} onClose={onClose} />
+        ) : stage === 'proof_submitted' ? (
+          <ProofSubmittedState onClose={onClose} />
         ) : stage === 'expired' ? (
           <ExpiredState onRestart={() => { setStage('idle'); setSecondsLeft(COUNTDOWN_SECONDS); }} />
+        ) : view === 'already_paid' ? (
+          <AlreadyPaidContent
+            amount={amount}
+            orderId={proofOrderId}
+            setOrderId={setProofOrderId}
+            proofAmount={proofAmount}
+            setProofAmount={setProofAmount}
+            proofTxn={proofTxn}
+            setProofTxn={setProofTxn}
+            proofDateTime={proofDateTime}
+            setProofDateTime={setProofDateTime}
+            proofScreenshot={proofScreenshot}
+            onChooseScreenshot={(file) => setProofScreenshot(file)}
+            proofFileRef={proofFileRef}
+            confirming={confirming}
+            onSubmit={() => void handleSubmitProof()}
+            onBack={() => setView('pay')}
+          />
         ) : (
           <main className="grid gap-0 lg:grid-cols-[220px_1fr]">
             <aside className="border-b border-[#e5e7eb] bg-white p-4 lg:border-b-0 lg:border-r sm:p-5">
@@ -341,6 +407,17 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
                 {screenshot && <div className="mt-3 flex items-center gap-2 text-[11px] text-[#6b7280]"><FileImage size={14} className="text-[#20c9b5]" />{screenshot.name}{ocrStatus === 'scanning' && <span className="text-[#167c73]">Checking screenshot {ocrProgress}%</span>}{ocrStatus === 'matched' && <span className="font-bold text-[#16a34a]">Amount detected</span>}{ocrStatus === 'error' && <span className="text-amber-600">Manual review</span>}</div>}
                 {fraudWarning && <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-800"><AlertCircle size={15} className="mt-0.5 shrink-0" />{fraudWarning}</div>}
                 <button onClick={() => void handleConfirm()} disabled={!canConfirm} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#081426] px-4 py-3.5 text-sm font-bold text-white transition hover:bg-[#10233c] disabled:cursor-not-allowed disabled:opacity-40">{confirming ? <><Loader2 size={17} className="animate-spin" />Waiting for payment confirmation</> : <>I’ve paid — verify payment <ChevronRight size={17} /></>}</button>
+                <div className="mt-5 rounded-2xl border border-[#e5e7eb] bg-white p-4">
+                  <p className="text-sm font-bold text-[#172033]">Already paid?</p>
+                  <p className="mt-1 text-xs leading-relaxed text-[#6b7280]">Already transferred the payment? Submit your payment proof for verification.</p>
+                  <button
+                    type="button"
+                    onClick={() => setView('already_paid')}
+                    className="mt-3 w-full rounded-xl border border-[#d7e0e8] bg-[#f8fafc] px-4 py-3 text-sm font-semibold text-[#172033] transition hover:border-[#2563EB]/40 hover:bg-white"
+                  >
+                    I've Already Paid
+                  </button>
+                </div>
                 <div className="mt-3 flex items-center justify-center gap-4 text-[11px] text-[#8a98a8]"><button onClick={() => { setTxnRef(''); setScreenshot(null); setScreenshotUrl(null); setOcrStatus('idle'); }} className="transition hover:text-[#172033]">Cancel payment</button><a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="transition hover:text-[#172033]">Need help?</a></div>
               </div>
             </section>
@@ -376,6 +453,89 @@ function UpiPaymentContent({ tab, setTab, copied, copyUpiId, amount, openPayment
 function AppPaymentContent({ method, amount, onOpen }: { method: PaymentMethod; amount: number; onOpen: () => void }) {
   const detail = methodDetails[method];
   return <div><p className="text-[11px] font-bold uppercase tracking-[0.13em] text-[#20a995]">{detail.label}</p><h2 className="mt-1 text-2xl font-bold tracking-[-0.03em] text-[#172033]">Pay securely with {detail.label}</h2><p className="mt-1 text-sm text-[#6b7280]">You will be redirected to your payment app to complete ₹{amount.toLocaleString('en-IN')}.</p><div className="mt-6 rounded-2xl border border-[#dfe6ed] bg-white p-6 text-center"><div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#e9fbf8]">{getBrandLogo(method, 36)}</div><p className="mt-4 text-base font-bold text-[#172033]">{detail.label} payment</p><p className="mt-1 text-sm text-[#6b7280]">Complete the payment in the app, then return here to enter your reference number.</p><button onClick={onOpen} className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-[#081426] px-6 py-3.5 text-sm font-bold text-white transition hover:bg-[#10233c]">Open {detail.label} <ExternalLink size={15} /></button></div></div>;
+}
+
+function ProofSubmittedState({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="bg-white px-6 py-16 text-center sm:px-12">
+      <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#e9fbf8] text-[#16a34a]"><CheckCircle2 size={42} /></div>
+      <h2 className="mt-6 text-2xl font-bold text-[#172033]">Payment proof submitted</h2>
+      <p className="mt-2 text-sm text-[#6b7280]">We'll verify your payment and process your order.</p>
+      <button onClick={onClose} className="mt-7 rounded-xl bg-[#081426] px-7 py-3 text-sm font-bold text-white">Continue</button>
+    </div>
+  );
+}
+
+function AlreadyPaidContent({
+  amount,
+  orderId,
+  setOrderId,
+  proofAmount,
+  setProofAmount,
+  proofTxn,
+  setProofTxn,
+  proofDateTime,
+  setProofDateTime,
+  proofScreenshot,
+  onChooseScreenshot,
+  proofFileRef,
+  confirming,
+  onSubmit,
+  onBack,
+}: {
+  amount: number;
+  orderId: string;
+  setOrderId: (value: string) => void;
+  proofAmount: string;
+  setProofAmount: (value: string) => void;
+  proofTxn: string;
+  setProofTxn: (value: string) => void;
+  proofDateTime: string;
+  setProofDateTime: (value: string) => void;
+  proofScreenshot: File | null;
+  onChooseScreenshot: (file: File | null) => void;
+  proofFileRef: React.RefObject<HTMLInputElement>;
+  confirming: boolean;
+  onSubmit: () => void;
+  onBack: () => void;
+}) {
+  return (
+    <main className="bg-[#f7f9fc] p-5 sm:p-7">
+      <button type="button" onClick={onBack} className="mb-4 text-xs font-semibold text-[#6b7280] hover:text-[#172033]">← Back to UPI payment</button>
+      <h2 className="text-2xl font-bold tracking-[-0.03em] text-[#172033]">Submit payment proof</h2>
+      <p className="mt-1 text-sm text-[#6b7280]">Upload your transfer details for manual verification. This does not automatically mark your order as paid.</p>
+      <div className="mt-5 space-y-3">
+        <div>
+          <label className="mb-1.5 block text-xs font-bold text-[#172033]">Order / document number</label>
+          <input value={orderId} onChange={(e) => setOrderId(e.target.value)} placeholder="RETR0000000035" className="w-full rounded-xl border border-[#d7e0e8] bg-white px-3.5 py-3 text-sm outline-none focus:border-[#20c9b5]" />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-bold text-[#172033]">Amount paid</label>
+          <input value={proofAmount} onChange={(e) => setProofAmount(e.target.value)} placeholder={String(amount)} className="w-full rounded-xl border border-[#d7e0e8] bg-white px-3.5 py-3 text-sm outline-none focus:border-[#20c9b5]" />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-bold text-[#172033]">UTR / Transaction ID</label>
+          <input value={proofTxn} onChange={(e) => setProofTxn(e.target.value)} placeholder="Enter UTR or transaction reference" className="w-full rounded-xl border border-[#d7e0e8] bg-white px-3.5 py-3 text-sm outline-none focus:border-[#20c9b5]" />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-bold text-[#172033]">Payment date/time</label>
+          <input type="datetime-local" value={proofDateTime} onChange={(e) => setProofDateTime(e.target.value)} className="w-full rounded-xl border border-[#d7e0e8] bg-white px-3.5 py-3 text-sm outline-none focus:border-[#20c9b5]" />
+        </div>
+        <button type="button" onClick={() => proofFileRef.current?.click()} className={`flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-xs font-bold transition ${proofScreenshot ? 'border-[#20c9b5] bg-[#e9fbf8] text-[#167c73]' : 'border-dashed border-[#b9c7d3] bg-white text-[#526579]'}`}>
+          <Upload size={15} />{proofScreenshot ? proofScreenshot.name : 'Upload payment screenshot/receipt'}
+        </button>
+        <input ref={proofFileRef} type="file" accept="image/*" className="hidden" onChange={(e) => onChooseScreenshot(e.target.files?.[0] || null)} />
+      </div>
+      <button
+        type="button"
+        onClick={onSubmit}
+        disabled={!proofTxn.trim() || !proofScreenshot || confirming}
+        className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#081426] px-4 py-3.5 text-sm font-bold text-white transition hover:bg-[#10233c] disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        {confirming ? <><Loader2 size={17} className="animate-spin" />Submitting proof</> : 'Submit Payment for Verification'}
+      </button>
+    </main>
+  );
 }
 
 function AppShortcut({ label, logo, onClick }: { label: string; logo: ReactNode; onClick: () => void }) { return <button onClick={onClick} className="rounded-xl border border-[#dfe6ed] bg-white px-2 py-3 text-center text-[11px] font-bold text-[#172033] transition hover:border-[#20c9b5] hover:bg-[#f4fffd]"><span className="mx-auto mb-1 flex h-7 w-7 items-center justify-center rounded-lg bg-[#eef2f6]">{logo}</span>{label}</button>; }
