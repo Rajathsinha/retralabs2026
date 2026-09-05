@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getProductImageUrl } from '../utils/imageUrl';
+import { ProductVialWrapper } from '../animation';
 import { ProductWithVariants, ProductVariant } from '../types';
 import { useCart } from '../context/CartContext';
 import { useCurrency } from '../context/CurrencyContext';
@@ -353,19 +354,20 @@ export default function ProductDetailPage() {
             {/* Main image */}
             <div className="flex-1 sticky top-24">
               <div
-                className="relative aspect-[4/5] rounded-[20px] overflow-hidden bg-[#F8F9FA] border border-[#E5E7EB] flex items-center justify-center"
+                className="relative aspect-[4/5] rounded-[20px] overflow-hidden bg-[#F8F9FA] border border-[#E5E7EB]"
               >
-                <img
-                  src={getProductImageUrl(product.image_url, product.name)}
-                  alt={`${product.name} research peptide in India — ${purity}% HPLC verified, COA included`}
-                  className="w-full h-full object-contain p-8 sm:p-12"
+                <ProductVialWrapper
+                  accentColor={accent}
+                  className="w-full h-full"
+                  fallbackSrc={getProductImageUrl(product.image_url, product.name)}
+                  materialize={1}
                 />
                 {isFlagship && (
-                  <div className="absolute top-4 left-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold text-white" style={{ background: accent }}>
+                  <div className="absolute top-4 left-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold text-white z-10" style={{ background: accent }}>
                     <Star className="w-3 h-3 fill-current" /> BEST SELLER
                   </div>
                 )}
-                <div className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F0FDF4] border border-[#BBF7D0] text-[11px] font-bold text-[#16a34a]">
+                <div className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#F0FDF4] border border-[#BBF7D0] text-[11px] font-bold text-[#16a34a] z-10">
                   <Check className="w-3 h-3" strokeWidth={3} /> IN STOCK
                 </div>
               </div>

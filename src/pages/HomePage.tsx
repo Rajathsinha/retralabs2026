@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState, useMemo } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import {
   ArrowRight, Star, CheckCircle, Zap, Truck, Lock, ShoppingBag,
@@ -7,13 +7,18 @@ import {
 } from 'lucide-react';
 import { PRODUCTS } from '../data/products';
 import ProductCard from '../components/ProductCard';
+import { ProductShowcase } from '../components/ProductShowcase';
 import { useSEO } from '../hooks/useSEO';
 import { getLocalBusinessSchema, getServiceAreaSchema } from '../utils/localSeoSchemas';
 import { BUSINESS_NAP } from '../constants/config';
-import { ParticleField } from '../components/ParticleField';
-import { MagneticButton } from '../components/MagneticButton';
-import { RevealSection, StaggerGroup } from '../components/Reveal';
-import { gsap, prefersReducedMotion, useParallax, usePinnedSection } from '../hooks/useGsapAnimations';
+import {
+  HeroSceneWrapper,
+  ScrollJourneyWrapper,
+  CTAConvergenceWrapper,
+  ScientificDiagramWrapper,
+  useScrollProgress,
+} from '../animation';
+import { prefersReducedMotion } from '../hooks/useGsapAnimations';
 
 const TrustpilotSection = lazy(() => import('../components/TrustpilotSection'));
 
@@ -56,8 +61,6 @@ const FEATURE_BLOCKS = [
   { icon: Package,      title: 'Discreet Packaging',   caption: 'Plain outer packaging. No product markings.' },
 ];
 
-// Visible FAQ — mirrors the FAQPage structured data in index.html so the
-// on-page content matches the schema (Google requires FAQ text to be visible).
 const HOME_FAQS = [
   {
     q: 'Where to buy peptides in India?',
@@ -77,85 +80,13 @@ const HOME_FAQS = [
   },
 ];
 
-// ── Per-character text reveal (pure CSS, no library) ──────────────────────────
-function CharReveal({ text, className = '', color, staggerMs = 32, delayMs = 0 }: {
-  text: string;
-  className?: string;
-  color?: string;
-  staggerMs?: number;
-  delayMs?: number;
-}) {
-  const words = useMemo(() => text.split(' '), [text]);
-  let charIdx = 0;
-  return (
-    <span className={className} style={{ display: 'inline', color }} aria-label={text}>
-      {words.map((word, wi) => (
-        <span key={wi} aria-hidden="true" style={{ display: 'inline-block', whiteSpace: 'nowrap' }}>
-          {[...word].map((ch, ci) => {
-            const i = charIdx++;
-            return (
-              <span
-                key={ci}
-                style={{
-                  display: 'inline-block',
-                  verticalAlign: 'bottom',
-                  overflow: 'hidden',
-                  lineHeight: 'inherit',
-                }}
-              >
-                <span
-                  style={{
-                    display: 'inline-block',
-                    opacity: 0,
-                    transform: 'translateY(10px)',
-                    filter: 'blur(6px)',
-                    animation: `charReveal 0.55s cubic-bezier(0.22,1,0.36,1) forwards`,
-                    animationDelay: `${delayMs + i * staggerMs}ms`,
-                  }}
-                >{ch}</span>
-              </span>
-            );
-          })}
-          {wi < words.length - 1 && <span style={{ display: 'inline-block' }}>&nbsp;</span>}
-        </span>
-      ))}
-    </span>
-  );
-}
-
-function Reveal({ children, delay = 0, className = '' }: { children: React.ReactNode; delay?: number; className?: string }) {
-  return (
-    <RevealSection delay={delay} className={className}>
-      {children}
-    </RevealSection>
-  );
-}
-
 export default function HomePage() {
   const navigate = useNavigate();
   const [slideIndex, setSlideIndex] = useState(0);
-  const heroRef = useRef<HTMLElement>(null);
-  const heroVisualRef = useParallax<HTMLDivElement>(0.12);
-  const processRef = usePinnedSection<HTMLDivElement>((timeline, element) => {
-    const panels = element.querySelectorAll('[data-process-panel]');
-    timeline.fromTo(panels, { yPercent: 18, opacity: 0.35 }, { yPercent: 0, opacity: 1, stagger: 0.35, ease: 'none' });
-  }, { end: '+=180%', pinSpacing: true });
-
-  useEffect(() => {
-    const hero = heroRef.current;
-    if (!hero || prefersReducedMotion()) return;
-
-    const ctx = gsap.context(() => {
-      const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
-      tl.fromTo('[data-hero-kicker]', { opacity: 0, x: -24 }, { opacity: 1, x: 0, duration: 0.8 })
-        .fromTo('[data-hero-copy]', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.9 }, '-=0.45')
-        .fromTo('[data-hero-visual]', { opacity: 0, scale: 0.92, rotate: 2 }, { opacity: 1, scale: 1, rotate: 0, duration: 1.4 }, '-=0.7')
-        .fromTo('[data-hero-badge]', { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.7, stagger: 0.12 }, '-=0.8');
-    }, hero);
-
-    return () => ctx.revert();
-  }, [slideIndex]);
-
+  const { ref: journeyRef, progress: journeyProgress } = useScrollProgress<HTMLElement>({
+    start: 'top bottom',
+    end: 'bottom top',
+  });
 
   useSEO({
     title: 'Buy Research Peptides India — Retatrutide (Reta), Tirzepatide, GHK-Cu | 99%+ Purity, COA | RetraLabs',
@@ -165,7 +96,6 @@ export default function HomePage() {
     schema: [getLocalBusinessSchema(), getServiceAreaSchema()],
   });
 
-  // Calculator state
   const [peptideAmount, setPeptideAmount] = useState('10');
   const [waterVolume,   setWaterVolume]   = useState('2');
   const [desiredDose,   setDesiredDose]   = useState('0.25');
@@ -173,9 +103,10 @@ export default function HomePage() {
   const [syringeType,   setSyringeType]   = useState<'u100' | 'u40'>('u100');
 
   useEffect(() => {
+    if (prefersReducedMotion()) return;
     const interval = setInterval(() => {
       setSlideIndex(i => (i + 1) % HERO_SLIDES.length);
-    }, 4000);
+    }, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -193,60 +124,56 @@ export default function HomePage() {
     <div className="bg-white min-h-screen">
 
       {/* ═══════════════════════════ HERO ═══════════════════════════ */}
-      <section ref={heroRef} className="relative overflow-hidden bg-[#f8fafc]">
-        <div className="absolute inset-0 pointer-events-none opacity-70">
-          <ParticleField density={0.0001} color="rgba(37,99,235,0.38)" connectionColor="rgba(37,99,235,0.18)" maxDistance={150} />
+      <section className="relative overflow-hidden bg-[#f8fafc]">
+        <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+          <div className="absolute inset-0 opacity-30" style={{ background: 'radial-gradient(ellipse 80% 60% at 70% 40%, rgba(37,99,235,0.12) 0%, transparent 70%)' }} />
         </div>
-        <div className="absolute -right-32 -top-32 w-[32rem] h-[32rem] rounded-full bg-blue-100/40 blur-3xl pointer-events-none" />
         <div className="relative max-w-[1440px] mx-auto px-3 sm:px-6 lg:px-10" style={{ paddingTop: 'clamp(40px,8vw,100px)', paddingBottom: 'clamp(40px,8vw,100px)' }}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 lg:gap-20 items-center">
 
             {/* ── Left Column ── */}
             <div className="min-w-0 flex flex-col" style={{ gap: 'clamp(16px, 3vw, 32px)' }}>
-              {/* Badge */}
-              <div
-                data-hero-kicker
-                data-hero-badge
-                className="inline-flex items-center gap-1.5 w-fit px-3 py-[5px] rounded-full border border-[#2563EB]/20 bg-white/80 backdrop-blur-sm"
-              >
-                <div className="w-[5px] h-[5px] rounded-full bg-[#2563EB] animate-pulse flex-shrink-0" />
+              <div className="inline-flex items-center gap-1.5 w-fit px-3 py-[5px] rounded-full border border-[#2563EB]/20 bg-white/80 backdrop-blur-sm">
+                <div className="w-[5px] h-[5px] rounded-full bg-[#2563EB] flex-shrink-0" />
                 <span className="text-[#2563EB] text-[9px] sm:text-[11px] font-bold tracking-[0.1em] uppercase">
                   India's Most Trusted Peptide Source
                 </span>
               </div>
 
-              {/* Headline + dots */}
-              <div data-hero-copy>
-                <div key={slideIndex}>
-                    <h1
-                      className="text-[#111111] text-[clamp(32px,6vw,64px)] tracking-[-0.03em] leading-[1.05]"
-                      style={{ fontFamily: "'Geist', system-ui, sans-serif", fontWeight: 300 }}
-                    >
-                      <CharReveal text={`${slide.lines[0]} ${slide.lines[1]}`} staggerMs={28} />
-                    </h1>
-                    <div style={{ marginTop: '0.5rem' }}>
-                      {slide.link ? (
-                        <a
-                          href={slide.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[#2563EB] text-[clamp(32px,6vw,64px)] tracking-[-0.03em] leading-[1.05] hover:text-[#1d4ed8] transition-colors cursor-pointer"
-                          style={{ fontFamily: "'Geist', system-ui, sans-serif", fontWeight: 300, textDecoration: 'none' }}
-                        >
-                          <CharReveal text={slide.accent} staggerMs={35} delayMs={slide.lines[0].length + slide.lines[1].length + 1} />
-                        </a>
-                      ) : (
-                        <h2
-                          className="text-[#2563EB] text-[clamp(32px,6vw,64px)] tracking-[-0.03em] leading-[1.05]"
-                          style={{ fontFamily: "'Geist', system-ui, sans-serif", fontWeight: 300 }}
-                        >
-                          <CharReveal text={slide.accent} staggerMs={35} delayMs={slide.lines[0].length + slide.lines[1].length + 1} />
-                        </h2>
-                      )}
-                    </div>
+              <div>
+                <div
+                  key={slideIndex}
+                  className="rl-hero-copy"
+                  style={{ animation: prefersReducedMotion() ? 'none' : 'rlHeroFade 0.8s ease-out' }}
+                >
+                  <h1
+                    className="text-[#111111] text-[clamp(32px,6vw,64px)] tracking-[-0.03em] leading-[1.05]"
+                    style={{ fontFamily: "'Geist', system-ui, sans-serif", fontWeight: 300 }}
+                  >
+                    {slide.lines[0]} {slide.lines[1]}
+                  </h1>
+                  <div style={{ marginTop: '0.5rem' }}>
+                    {slide.link ? (
+                      <a
+                        href={slide.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#2563EB] text-[clamp(32px,6vw,64px)] tracking-[-0.03em] leading-[1.05] hover:text-[#1d4ed8] transition-colors cursor-pointer"
+                        style={{ fontFamily: "'Geist', system-ui, sans-serif", fontWeight: 300, textDecoration: 'none' }}
+                      >
+                        {slide.accent}
+                      </a>
+                    ) : (
+                      <h2
+                        className="text-[#2563EB] text-[clamp(32px,6vw,64px)] tracking-[-0.03em] leading-[1.05]"
+                        style={{ fontFamily: "'Geist', system-ui, sans-serif", fontWeight: 300 }}
+                      >
+                        {slide.accent}
+                      </h2>
+                    )}
+                  </div>
                 </div>
 
-                {/* Slide dots */}
                 <div className="flex items-center gap-1.5 mt-3 sm:mt-5">
                   {HERO_SLIDES.map((_, i) => (
                     <button
@@ -254,7 +181,7 @@ export default function HomePage() {
                       type="button"
                       aria-label={`Slide ${i + 1}`}
                       onClick={() => setSlideIndex(i)}
-                      className="transition-all duration-300"
+                      className="transition-all duration-500"
                       style={{
                         width: i === slideIndex ? 20 : 6,
                         height: 6,
@@ -269,7 +196,6 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Body */}
               <div>
                 <p className="text-[#374151] text-[clamp(13px,1.2vw,17px)] leading-[1.7]">
                   No grey market. No compromises. Verified compounds, direct sourcing,
@@ -281,33 +207,29 @@ export default function HomePage() {
                 </p>
               </div>
 
-              {/* CTAs */}
-              <div>
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-3 w-full sm:w-auto">
-                  <MagneticButton
-                    onClick={() => navigate('/catalogue')}
-                    className="group flex items-center justify-center gap-2 rounded-[10px] bg-[#111111] hover:bg-[#1a1a1a] text-white font-semibold px-6 py-3 sm:px-7 sm:py-4 text-[13px] sm:text-[15px] transition-all duration-200 hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.3)] flex-1 sm:flex-none"
-                  >
-                    Shop the Real Stuff <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  </MagneticButton>
-                  <a
-                    href={BUSINESS_NAP.social.trustpilot}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group flex items-center justify-center gap-2 border-[1.5px] border-[#E5E7EB] hover:border-[#111111] text-[#374151] hover:text-[#111111] font-semibold px-6 py-3 sm:px-7 sm:py-4 bg-white transition-all duration-200 hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] flex-1 sm:flex-none"
-                    style={{ fontSize: 'clamp(13px,1.1vw,15px)', borderRadius: 10 }}
-                  >
-                    Read Our Reviews
-                    <div>
-                      <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    </div>
-                  </a>
-                </div>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-3 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => navigate('/catalogue')}
+                  className="group flex items-center justify-center gap-2 rounded-[10px] bg-[#111111] hover:bg-[#1a1a1a] text-white font-semibold px-6 py-3 sm:px-7 sm:py-4 text-[13px] sm:text-[15px] transition-colors duration-200 flex-1 sm:flex-none"
+                >
+                  Shop the Real Stuff <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                </button>
+                <a
+                  href={BUSINESS_NAP.social.trustpilot}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex items-center justify-center gap-2 border-[1.5px] border-[#E5E7EB] hover:border-[#111111] text-[#374151] hover:text-[#111111] font-semibold px-6 py-3 sm:px-7 sm:py-4 bg-white transition-colors duration-200 flex-1 sm:flex-none"
+                  style={{ fontSize: 'clamp(13px,1.1vw,15px)', borderRadius: 10 }}
+                >
+                  Read Our Reviews
+                  <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                </a>
               </div>
             </div>
 
-            {/* ── Right Column — Product Image ── */}
-            <div ref={heroVisualRef} data-hero-visual className="relative flex items-center justify-center" style={{ height: 'clamp(200px, 46vw, 620px)' }}>
+            {/* ── Right Column — 3D Molecular Environment ── */}
+            <div className="relative flex items-center justify-center" style={{ height: 'clamp(200px, 46vw, 620px)' }}>
               <div
                 className="relative w-full h-full"
                 style={{
@@ -315,44 +237,10 @@ export default function HomePage() {
                   maskImage: 'radial-gradient(ellipse 82% 78% at 50% 50%, black 38%, transparent 80%)',
                 }}
               >
-                <div
-                  style={{
-                    position: 'relative',
-                    width: '100%',
-                    height: '100%',
-                  }}
-                >
-                  {/* Pulsing glow */}
-                  <div
-                    className="animate-pulse-soft"
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      borderRadius: '50%',
-                      background: 'radial-gradient(ellipse 70% 65% at 50% 52%, rgba(37,99,235,0.18) 0%, rgba(37,99,235,0.06) 50%, transparent 80%)',
-                      pointerEvents: 'none',
-                    }}
-                  />
-
-                  {/* Floating animation */}
-                  <div
-                    className="animate-float"
-                    style={{ position: 'relative', width: '100%', height: '100%' }}
-                  >
-                    <img
-                      src="/peptide.png"
-                      alt="RetraLabs Premium Research Peptide Vials"
-                      fetchpriority="high"
-                      decoding="async"
-                      className="w-full h-full object-contain"
-                      style={{ objectPosition: 'center center', transform: 'scale(1.08)' }}
-                    />
-                  </div>
-                </div>
+                <HeroSceneWrapper className="w-full h-full" />
               </div>
 
-              {/* Floating badges — visible on sm+, inline trust row on mobile */}
-              <div data-hero-badge className="hidden sm:block absolute top-6 left-4 px-5 py-3.5 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.12)]"
+              <div className="hidden sm:block absolute top-6 left-4 px-5 py-3.5 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.12)]"
                 style={{
                   borderRadius: 16,
                   zIndex: 2,
@@ -365,7 +253,7 @@ export default function HomePage() {
                 <p className="text-[#111111] text-[13px] font-extrabold leading-tight tracking-tight">99%+ Purity</p>
                 <p className="text-[#374151] text-[11px] mt-0.5 font-bold">HPLC Verified</p>
               </div>
-              <div data-hero-badge className="hidden sm:block absolute bottom-6 right-4 px-5 py-3.5 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.12)]"
+              <div className="hidden sm:block absolute bottom-6 right-4 px-5 py-3.5 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.12)]"
                 style={{
                   borderRadius: 16,
                   zIndex: 2,
@@ -382,7 +270,6 @@ export default function HomePage() {
 
           </div>
 
-          {/* Mobile trust badges row — only visible on xs */}
           <div className="flex sm:hidden items-center justify-center gap-3 mt-3">
             <div className="flex items-center gap-2 bg-[#F8FAFF] border border-[#DBEAFE] px-3 py-2 rounded-[10px]">
               <p className="text-[#2563EB] text-[11px] font-bold">99%+ Purity</p>
@@ -397,7 +284,7 @@ export default function HomePage() {
       {/* ═══════════════════ TRUST STRIP ═══════════════════ */}
       <section className="border-y border-[#E5E7EB]">
         <div className="max-w-[1440px] mx-auto">
-          <StaggerGroup className="grid grid-cols-2 lg:grid-cols-5" stagger={0.08} y={18}>
+          <div className="grid grid-cols-2 lg:grid-cols-5">
             {TRUST_ITEMS.map((item, i) => {
               const inner = (
                 <>
@@ -430,48 +317,56 @@ export default function HomePage() {
                 <div key={i} className={cls}>{inner}</div>
               );
             })}
-          </StaggerGroup>
+          </div>
         </div>
       </section>
 
-      {/* ═══════════════════ BEST SELLERS ═══════════════════ */}
+      {/* ═══════════════════ BEST SELLERS + 3D PRODUCT SHOWCASE ═══════════════════ */}
       <section style={{ paddingTop: 80, paddingBottom: 80, paddingLeft: 24, paddingRight: 24 }}>
         <div className="max-w-[1440px] mx-auto">
-          <Reveal>
-            <div className="flex items-end justify-between mb-8">
-              <div>
-                <p className="text-[#2563EB] text-[11px] font-bold uppercase tracking-[0.15em] mb-2.5">
-                  Most Popular
-                </p>
-                <h2 className="text-[#111111] text-[32px] font-bold tracking-[-0.02em]">
-                  Best Sellers
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => navigate('/catalogue')}
-                className="group flex items-center gap-1.5 text-[#2563EB] text-[14px] font-semibold hover:text-[#1d4ed8] transition-colors"
-              >
-                View all <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-              </button>
-            </div>
-          </Reveal>
-
-          <Reveal delay={0.05}>
-            <div className="flex items-center gap-2 mb-6 px-4 py-2.5 bg-[#EFF6FF] border border-[#BFDBFE] rounded-[10px]">
-              <Zap className="w-3.5 h-3.5 text-[#2563EB] flex-shrink-0" strokeWidth={2} />
-              <p className="text-[#2563EB] text-[12px] font-semibold">
-                Order by 2 PM for same-day dispatch — ships India-wide in 1–2 days
+          <div className="grid lg:grid-cols-[1fr_1fr] gap-12 lg:gap-16 items-center mb-12">
+            <div>
+              <p className="text-[#2563EB] text-[11px] font-bold uppercase tracking-[0.15em] mb-2.5">
+                Molecular Precision
+              </p>
+              <h2 className="text-[#111111] text-[32px] font-bold tracking-[-0.02em]">
+                Research-Grade Compounds
+              </h2>
+              <p className="text-[#6B7280] text-[15px] mt-3 leading-relaxed max-w-md">
+                Every vial is HPLC-verified, batch-traceable, and shipped under controlled conditions.
               </p>
             </div>
-          </Reveal>
+            <ProductShowcase products={BEST_SELLERS} />
+          </div>
 
-          {/* Product grid — 4 cards */}
+          <div className="flex items-end justify-between mb-8">
+            <div>
+              <p className="text-[#2563EB] text-[11px] font-bold uppercase tracking-[0.15em] mb-2.5">
+                Most Popular
+              </p>
+              <h2 className="text-[#111111] text-[32px] font-bold tracking-[-0.02em]">
+                Best Sellers
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate('/catalogue')}
+              className="group flex items-center gap-1.5 text-[#2563EB] text-[14px] font-semibold hover:text-[#1d4ed8] transition-colors"
+            >
+              View all <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 mb-6 px-4 py-2.5 bg-[#EFF6FF] border border-[#BFDBFE] rounded-[10px]">
+            <Zap className="w-3.5 h-3.5 text-[#2563EB] flex-shrink-0" strokeWidth={2} />
+            <p className="text-[#2563EB] text-[12px] font-semibold">
+              Order by 2 PM for same-day dispatch — ships India-wide in 1–2 days
+            </p>
+          </div>
+
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-            {BEST_SELLERS.map((product, i) => (
-              <Reveal key={product.id} delay={i * 0.08}>
-                <ProductCard product={product} />
-              </Reveal>
+            {BEST_SELLERS.map(product => (
+              <ProductCard key={product.id} product={product} />
             ))}
           </div>
         </div>
@@ -485,71 +380,69 @@ export default function HomePage() {
       {/* ═══════════════════ COD BANNER ═══════════════════ */}
       <section style={{ padding: '48px 24px' }}>
         <div className="max-w-[1440px] mx-auto px-0 lg:px-4">
-          <Reveal>
-            <div
-              className="bg-white border border-[#E5E7EB] px-8 lg:px-10 py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6"
-              style={{ borderRadius: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-[#DCFCE7] flex items-center justify-center flex-shrink-0">
-                  <CheckCircle className="w-4.5 h-4.5 text-[#16a34a]" strokeWidth={2} />
-                </div>
-                <div>
-                  <h3 className="text-[#111111] text-[15px] font-semibold leading-snug">
-                    Cash on Delivery (COD) Available
-                  </h3>
-                  <p className="text-[#6B7280] text-[13px] mt-0.5 leading-relaxed">
-                    Pay only when your package arrives. Available across every city in India.
-                  </p>
-                </div>
+          <div
+            className="bg-white border border-[#E5E7EB] px-8 lg:px-10 py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6"
+            style={{ borderRadius: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-[#DCFCE7] flex items-center justify-center flex-shrink-0">
+                <CheckCircle className="w-4.5 h-4.5 text-[#16a34a]" strokeWidth={2} />
               </div>
-              <div className="flex items-center gap-4 flex-shrink-0">
-                <span className="inline-flex items-center gap-1.5 bg-[#16a34a] text-white text-[12px] font-bold px-4 py-2 rounded-full">
-                  <CheckCircle className="w-3.5 h-3.5" strokeWidth={2.5} />
-                  COD
-                </span>
-                <button
-                  type="button"
-                  onClick={() => navigate('/catalogue')}
-                  className="group text-[#16a34a] text-[14px] font-semibold hover:text-[#15803d] transition-colors flex items-center gap-1.5"
-                >
-                  Shop Now <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
-                </button>
+              <div>
+                <h3 className="text-[#111111] text-[15px] font-semibold leading-snug">
+                  Cash on Delivery (COD) Available
+                </h3>
+                <p className="text-[#6B7280] text-[13px] mt-0.5 leading-relaxed">
+                  Pay only when your package arrives. Available across every city in India.
+                </p>
               </div>
             </div>
-          </Reveal>
+            <div className="flex items-center gap-4 flex-shrink-0">
+              <span className="inline-flex items-center gap-1.5 bg-[#16a34a] text-white text-[12px] font-bold px-4 py-2 rounded-full">
+                <CheckCircle className="w-3.5 h-3.5" strokeWidth={2.5} />
+                COD
+              </span>
+              <button
+                type="button"
+                onClick={() => navigate('/catalogue')}
+                className="group text-[#16a34a] text-[14px] font-semibold hover:text-[#15803d] transition-colors flex items-center gap-1.5"
+              >
+                Shop Now <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 
       {/* ═══════════════════ FEATURE ICONS ═══════════════════ */}
       <section className="border-t border-[#E5E7EB] bg-[#F5F7FA]" style={{ paddingTop: 80, paddingBottom: 80, paddingLeft: 24, paddingRight: 24 }}>
         <div className="max-w-[1440px] mx-auto">
-          <Reveal>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-6">
-              {FEATURE_BLOCKS.map((block, i) => (
-                <div key={i} className="flex flex-col items-center text-center gap-4">
-                  <div
-                    className="w-12 h-12 flex items-center justify-center bg-white border border-[#E5E7EB]"
-                    style={{ borderRadius: 14, boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
-                  >
-                    <block.icon className="w-[22px] h-[22px] text-[#374151]" strokeWidth={1.5} />
-                  </div>
-                  <div>
-                    <h3 className="text-[#111111] text-[14px] font-semibold mb-1.5">{block.title}</h3>
-                    <p className="text-[#9CA3AF] text-[13px] leading-relaxed max-w-[200px] mx-auto">{block.caption}</p>
-                  </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-6">
+            {FEATURE_BLOCKS.map((block, i) => (
+              <div key={i} className="flex flex-col items-center text-center gap-4">
+                <div
+                  className="w-12 h-12 flex items-center justify-center bg-white border border-[#E5E7EB]"
+                  style={{ borderRadius: 14, boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
+                >
+                  <block.icon className="w-[22px] h-[22px] text-[#374151]" strokeWidth={1.5} />
                 </div>
-              ))}
-            </div>
-          </Reveal>
+                <div>
+                  <h3 className="text-[#111111] text-[14px] font-semibold mb-1.5">{block.title}</h3>
+                  <p className="text-[#9CA3AF] text-[13px] leading-relaxed max-w-[200px] mx-auto">{block.caption}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* ═══════════════════ MOLECULAR PROCESS ═══════════════════ */}
-      <section className="relative overflow-hidden bg-[#07111f] text-white py-20 sm:py-28">
-        <div className="absolute inset-0 opacity-60 pointer-events-none"><ParticleField density={0.00008} color="rgba(125,211,252,0.5)" connectionColor="rgba(125,211,252,0.18)" maxDistance={140} /></div>
-        <div ref={processRef} className="relative min-h-[70vh] max-w-[1200px] mx-auto px-6 flex items-center">
-          <div className="grid lg:grid-cols-[0.8fr_1.2fr] gap-12 lg:gap-24 items-center w-full">
+      {/* ═══════════════════ SCROLL JOURNEY — MOLECULAR PROCESS ═══════════════════ */}
+      <section ref={journeyRef} className="relative overflow-hidden bg-[#07111f] text-white" style={{ minHeight: '120vh' }}>
+        <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+          <ScrollJourneyWrapper progress={journeyProgress} className="w-full h-full" />
+        </div>
+        <div className="relative max-w-[1200px] mx-auto px-6 py-20 sm:py-28">
+          <div className="grid lg:grid-cols-[0.8fr_1.2fr] gap-12 lg:gap-24 items-center">
             <div>
               <p className="text-cyan-300 text-[11px] font-bold uppercase tracking-[0.2em] mb-4">Inside the lab</p>
               <h2 className="text-3xl sm:text-5xl font-semibold tracking-tight leading-[1.05]">Purity is a process, not a promise.</h2>
@@ -560,9 +453,19 @@ export default function HomePage() {
                 ['01', 'Identity verified', 'Each compound is logged against its source and batch profile.'],
                 ['02', 'Analytically reviewed', 'Independent testing keeps the signal clear and the record complete.'],
                 ['03', 'Cold-chain ready', 'Careful handling protects the material from lab to doorstep.'],
-              ].map(([number, title, copy]) => (
-                <div data-process-panel key={number} className="border border-white/10 bg-white/[0.06] backdrop-blur-sm rounded-2xl p-5 sm:p-6">
-                  <div className="flex gap-4 items-start"><span className="text-cyan-300 font-mono text-xs">{number}</span><div><h3 className="font-semibold text-white">{title}</h3><p className="mt-1 text-sm text-slate-400 leading-relaxed">{copy}</p></div></div>
+              ].map(([number, title, copy], i) => (
+                <div
+                  key={number}
+                  className="border border-white/10 bg-white/[0.06] backdrop-blur-sm rounded-2xl p-5 sm:p-6 transition-opacity duration-700"
+                  style={{ opacity: 0.5 + journeyProgress * 0.5 * (i + 1) / 3 }}
+                >
+                  <div className="flex gap-4 items-start">
+                    <span className="text-cyan-300 font-mono text-xs">{number}</span>
+                    <div>
+                      <h3 className="font-semibold text-white">{title}</h3>
+                      <p className="mt-1 text-sm text-slate-400 leading-relaxed">{copy}</p>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -573,24 +476,25 @@ export default function HomePage() {
       {/* ═══════════════════ RECONSTITUTION CALCULATOR ═══════════════════ */}
       <section className="border-t border-[#E5E7EB] bg-[#F5F7FA]" style={{ paddingTop: 80, paddingBottom: 80, paddingLeft: 24, paddingRight: 24 }}>
         <div className="max-w-[900px] mx-auto">
-          <Reveal>
-            <div className="text-center mb-10">
-              <div className="inline-flex items-center gap-2 mb-4 px-4 py-[7px] rounded-full border border-[#2563EB]/20 bg-[#EFF6FF]">
-                <Calculator className="w-3.5 h-3.5 text-[#2563EB]" strokeWidth={2} />
-                <span className="text-[#2563EB] text-[11px] font-bold tracking-[0.1em] uppercase">Research Tool</span>
-              </div>
-              <h2 className="text-[#111111] text-[28px] sm:text-[32px] font-bold tracking-[-0.02em]">
-                Reconstitution Calculator
-              </h2>
-              <p className="text-[#6B7280] text-[15px] mt-2 max-w-[480px] mx-auto leading-relaxed">
-                Enter your vial specs and desired dose to get exact injection volume and syringe units.
-              </p>
+          <div className="text-center mb-10">
+            <div className="inline-flex items-center gap-2 mb-4 px-4 py-[7px] rounded-full border border-[#2563EB]/20 bg-[#EFF6FF]">
+              <Calculator className="w-3.5 h-3.5 text-[#2563EB]" strokeWidth={2} />
+              <span className="text-[#2563EB] text-[11px] font-bold tracking-[0.1em] uppercase">Research Tool</span>
             </div>
-          </Reveal>
+            <h2 className="text-[#111111] text-[28px] sm:text-[32px] font-bold tracking-[-0.02em]">
+              Reconstitution Calculator
+            </h2>
+            <p className="text-[#6B7280] text-[15px] mt-2 max-w-[480px] mx-auto leading-relaxed">
+              Enter your vial specs and desired dose to get exact injection volume and syringe units.
+            </p>
+          </div>
 
-          <Reveal delay={0.1}>
+          <div className="relative">
+            <div className="absolute -top-8 right-0 w-32 h-32 hidden sm:block pointer-events-none" aria-hidden="true">
+              <ScientificDiagramWrapper className="w-full h-full" />
+            </div>
+
             <div className="bg-white border border-[#E5E7EB] rounded-[24px] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
-              {/* Warning */}
               <div className="bg-[#FFFBEB] border-b border-[#FDE68A] px-6 py-3 flex items-center gap-3">
                 <AlertTriangle className="w-4 h-4 text-[#D97706] flex-shrink-0" strokeWidth={2} />
                 <p className="text-[#92400E] text-[12px] font-medium">
@@ -599,11 +503,9 @@ export default function HomePage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
-                {/* ── Inputs ── */}
                 <div className="p-6 sm:p-8 space-y-5 border-b md:border-b-0 md:border-r border-[#E5E7EB]">
                   <h3 className="text-[#111111] text-[15px] font-bold mb-1">Your Setup</h3>
 
-                  {/* Peptide Amount */}
                   <div>
                     <label className="flex items-center gap-1.5 text-[12px] font-bold text-[#374151] uppercase tracking-wide mb-2">
                       <Beaker className="w-3.5 h-3.5 text-[#2563EB]" strokeWidth={2} />
@@ -621,7 +523,6 @@ export default function HomePage() {
                     </div>
                   </div>
 
-                  {/* BAC Water */}
                   <div>
                     <label className="flex items-center gap-1.5 text-[12px] font-bold text-[#374151] uppercase tracking-wide mb-2">
                       <Droplets className="w-3.5 h-3.5 text-[#2563EB]" strokeWidth={2} />
@@ -639,7 +540,6 @@ export default function HomePage() {
                     </div>
                   </div>
 
-                  {/* Desired Dose */}
                   <div>
                     <label className="flex items-center gap-1.5 text-[12px] font-bold text-[#374151] uppercase tracking-wide mb-2">
                       <Syringe className="w-3.5 h-3.5 text-[#2563EB]" strokeWidth={2} />
@@ -667,7 +567,6 @@ export default function HomePage() {
                     </div>
                   </div>
 
-                  {/* Syringe Type */}
                   <div>
                     <label className="flex items-center gap-1.5 text-[12px] font-bold text-[#374151] uppercase tracking-wide mb-2">
                       <Syringe className="w-3.5 h-3.5 text-[#2563EB]" strokeWidth={2} />
@@ -682,7 +581,7 @@ export default function HomePage() {
                           key={key}
                           type="button"
                           onClick={() => setSyringeType(key)}
-                          className={`py-3 rounded-[10px] border text-[13px] font-semibold transition-all duration-200 ${
+                          className={`py-3 rounded-[10px] border text-[13px] font-semibold transition-colors duration-200 ${
                             syringeType === key
                               ? 'bg-[#111111] border-[#111111] text-white'
                               : 'bg-white border-[#E5E7EB] text-[#374151] hover:border-[#111111]'
@@ -695,11 +594,9 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                {/* ── Results ── */}
                 <div className="p-6 sm:p-8 flex flex-col justify-center">
                   <h3 className="text-[#111111] text-[15px] font-bold mb-6">Results</h3>
 
-                  {/* Concentration */}
                   <div className="bg-[#F5F7FA] border border-[#E5E7EB] rounded-[16px] p-5 mb-4">
                     <p className="text-[#9CA3AF] text-[11px] font-semibold uppercase tracking-wider mb-1">Concentration</p>
                     <p className="text-[#111111] text-[32px] font-extrabold leading-none">
@@ -707,7 +604,6 @@ export default function HomePage() {
                     </p>
                   </div>
 
-                  {/* Injection Volume + Units */}
                   <div className="grid grid-cols-2 gap-3 mb-6">
                     <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-[16px] p-5">
                       <p className="text-[#2563EB] text-[10px] font-bold uppercase tracking-wider mb-1">Inject Volume</p>
@@ -725,7 +621,6 @@ export default function HomePage() {
                     </div>
                   </div>
 
-                  {/* Quick steps */}
                   <div className="border-t border-[#E5E7EB] pt-5 space-y-2">
                     {[
                       'Enter total peptide mg in your vial',
@@ -742,90 +637,85 @@ export default function HomePage() {
                 </div>
               </div>
             </div>
-          </Reveal>
+          </div>
         </div>
       </section>
 
       {/* ═══════════════════ FAQ ═══════════════════ */}
       <section className="border-t border-[#E5E7EB] bg-white" style={{ paddingTop: 80, paddingBottom: 80, paddingLeft: 24, paddingRight: 24 }}>
         <div className="max-w-[820px] mx-auto">
-          <Reveal>
-            <div className="text-center mb-10">
-              <p className="text-[#2563EB] text-[11px] font-bold uppercase tracking-[0.15em] mb-2.5">
-                Buying Guide
-              </p>
-              <h2 className="text-[#111111] text-[28px] sm:text-[32px] font-bold tracking-[-0.02em]">
-                Where to Buy Peptides in India
-              </h2>
-              <p className="text-[#6B7280] text-[15px] mt-2 max-w-[560px] mx-auto leading-relaxed">
-                Everything researchers ask before ordering research-grade peptides from RetraLabs.
-                Looking for a specific compound? <RouterLink to="/product/1" className="text-[#2563EB] font-semibold hover:underline">Buy Retatrutide in India</RouterLink> or <RouterLink to="/product/2" className="text-[#2563EB] font-semibold hover:underline">Tirzepatide</RouterLink>.
-              </p>
-            </div>
-          </Reveal>
+          <div className="text-center mb-10">
+            <p className="text-[#2563EB] text-[11px] font-bold uppercase tracking-[0.15em] mb-2.5">
+              Buying Guide
+            </p>
+            <h2 className="text-[#111111] text-[28px] sm:text-[32px] font-bold tracking-[-0.02em]">
+              Where to Buy Peptides in India
+            </h2>
+            <p className="text-[#6B7280] text-[15px] mt-2 max-w-[560px] mx-auto leading-relaxed">
+              Everything researchers ask before ordering research-grade peptides from RetraLabs.
+              Looking for a specific compound? <RouterLink to="/product/1" className="text-[#2563EB] font-semibold hover:underline">Buy Retatrutide in India</RouterLink> or <RouterLink to="/product/2" className="text-[#2563EB] font-semibold hover:underline">Tirzepatide</RouterLink>.
+            </p>
+          </div>
 
-          <Reveal delay={0.1}>
-            <div className="flex flex-col gap-3">
-              {HOME_FAQS.map((faq, i) => (
-                <details
-                  key={i}
-                  className="group bg-white border border-[#E5E7EB] rounded-[14px] px-5 py-4 open:shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-shadow"
-                >
-                  <summary className="flex items-center justify-between gap-4 cursor-pointer list-none">
-                    <h3 className="text-[#111111] text-[15px] font-semibold">{faq.q}</h3>
-                    <ChevronDown className="w-4 h-4 text-[#9CA3AF] flex-shrink-0 transition-transform group-open:rotate-180" strokeWidth={2} />
-                  </summary>
-                  <p className="text-[#6B7280] text-[14px] leading-[1.7] mt-3">{faq.a}</p>
-                </details>
-              ))}
-            </div>
-          </Reveal>
-
-          <Reveal delay={0.15}>
-            <div className="text-center mt-8">
-              <button
-                type="button"
-                onClick={() => navigate('/catalogue')}
-                className="group inline-flex items-center gap-2 bg-[#111111] hover:bg-[#1a1a1a] text-white font-semibold px-6 py-3 rounded-[10px] transition-all duration-200 text-[14px]"
+          <div className="flex flex-col gap-3">
+            {HOME_FAQS.map((faq, i) => (
+              <details
+                key={i}
+                className="group bg-white border border-[#E5E7EB] rounded-[14px] px-5 py-4 open:shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-shadow"
               >
-                Browse the Full Catalogue
-                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-              </button>
-            </div>
-          </Reveal>
+                <summary className="flex items-center justify-between gap-4 cursor-pointer list-none">
+                  <h3 className="text-[#111111] text-[15px] font-semibold">{faq.q}</h3>
+                  <ChevronDown className="w-4 h-4 text-[#9CA3AF] flex-shrink-0 transition-transform group-open:rotate-180" strokeWidth={2} />
+                </summary>
+                <p className="text-[#6B7280] text-[14px] leading-[1.7] mt-3">{faq.a}</p>
+              </details>
+            ))}
+          </div>
+
+          <div className="text-center mt-8">
+            <button
+              type="button"
+              onClick={() => navigate('/catalogue')}
+              className="group inline-flex items-center gap-2 bg-[#111111] hover:bg-[#1a1a1a] text-white font-semibold px-6 py-3 rounded-[10px] transition-colors duration-200 text-[14px]"
+            >
+              Browse the Full Catalogue
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </section>
 
       {/* ═══════════════════ FINAL CTA ═══════════════════ */}
-      <section className="bg-[#111111]" style={{ paddingTop: 80, paddingBottom: 80, paddingLeft: 24, paddingRight: 24 }}>
-        <div className="max-w-[900px] mx-auto text-center">
-          <Reveal>
-            <h2 className="text-white text-[32px] sm:text-[40px] font-bold tracking-[-0.02em] leading-[1.1]">
-              Ready to order?
-            </h2>
-            <p className="text-[#9CA3AF] text-[15px] mt-3 max-w-[480px] mx-auto leading-relaxed">
-              Join 2,400+ researchers who trust RetraLabs for verified, research-grade peptides. Order by 2 PM for same-day dispatch.
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-8">
-              <button
-                type="button"
-                onClick={() => navigate('/catalogue')}
-                className="group inline-flex items-center gap-2 bg-white text-[#111111] font-bold px-7 py-4 rounded-[10px] transition-all duration-200 hover:shadow-[0_8px_24px_-4px_rgba(255,255,255,0.2)] text-[15px]"
-              >
-                Shop the Catalogue
-                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-              </button>
-              <a
-                href={BUSINESS_NAP.social.trustpilot}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group inline-flex items-center gap-2 border-[1.5px] border-[#374151] hover:border-[#4B5563] text-[#D1D5DB] hover:text-white font-semibold px-7 py-4 rounded-[10px] transition-all duration-200 text-[15px]"
-              >
-                Read Reviews
-                <Star className="w-4 h-4 text-[#F59E0B]" strokeWidth={2} />
-              </a>
-            </div>
-          </Reveal>
+      <section className="relative bg-[#111111] overflow-hidden" style={{ paddingTop: 80, paddingBottom: 80, paddingLeft: 24, paddingRight: 24 }}>
+        <div className="absolute inset-0 pointer-events-none opacity-40" aria-hidden="true">
+          <CTAConvergenceWrapper className="w-full h-full" />
+        </div>
+        <div className="relative max-w-[900px] mx-auto text-center z-10">
+          <h2 className="text-white text-[32px] sm:text-[40px] font-bold tracking-[-0.02em] leading-[1.1]">
+            Ready to order?
+          </h2>
+          <p className="text-[#9CA3AF] text-[15px] mt-3 max-w-[480px] mx-auto leading-relaxed">
+            Join 2,400+ researchers who trust RetraLabs for verified, research-grade peptides. Order by 2 PM for same-day dispatch.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-8">
+            <button
+              type="button"
+              onClick={() => navigate('/catalogue')}
+              className="group inline-flex items-center gap-2 bg-white text-[#111111] font-bold px-7 py-4 rounded-[10px] transition-colors duration-200 text-[15px]"
+            >
+              Shop the Catalogue
+              <ArrowRight className="w-4 h-4" />
+            </button>
+            <a
+              href={BUSINESS_NAP.social.trustpilot}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group inline-flex items-center gap-2 border-[1.5px] border-[#374151] hover:border-[#4B5563] text-[#D1D5DB] hover:text-white font-semibold px-7 py-4 rounded-[10px] transition-colors duration-200 text-[15px]"
+            >
+              Read Reviews
+              <Star className="w-4 h-4 text-[#F59E0B]" strokeWidth={2} />
+            </a>
+          </div>
         </div>
       </section>
 

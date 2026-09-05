@@ -301,27 +301,23 @@
   .animate-cart-bounce,
   .animate-badge-pop,
   .animate-page-in,
-  .animate-btn-success {
+  .animate-btn-success,
+  .animate-float,
+  .animate-pulse-soft {
     animation: none;
+  }
+  html {
+    scroll-behavior: auto;
   }
 }
 
-/* ── Per-character hero text reveal ── */
-@keyframes charReveal {
-  0% {
-    opacity: 0;
-    transform: translateY(10px);
-    filter: blur(6px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-    filter: blur(0);
-  }
+/* ── Hero headline crossfade (replaces per-character blur reveal) ── */
+@keyframes rlHeroFade {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
 }
 @media (prefers-reduced-motion: reduce) {
-  @keyframes charReveal {
-    0% { opacity: 0; }
-    100% { opacity: 1; transform: none; filter: none; }
+  .rl-hero-copy {
+    animation: none !important;
   }
 }
