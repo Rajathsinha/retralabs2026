@@ -1,9 +1,13 @@
 import { handler as createOrder } from './create-order';
+import { handler as confirmPayment } from './confirm-payment';
+import { handler as submitPaymentProof } from './submit-payment-proof';
+import { handler as verifyPayment } from './verify-payment';
 import { handler as trackOrder } from './track-order';
 import { handler as listOrders } from './list-orders';
 import { handler as brevoOrderEmail } from './brevo-order-email';
 import { handler as pushToInnofulfill } from './push-to-innofulfill';
 import { handler as pushToShiprocket } from './push-to-shiprocket';
+import { handler as checkInnofulfillServiceability } from './check-innofulfill-serviceability';
 
 // Polyfill globalThis.process for Node-style env access in Cloudflare edge runtime
 if (typeof globalThis.process === 'undefined') {
@@ -14,11 +18,15 @@ if (typeof globalThis.process === 'undefined') {
 
 const HANDLERS: Record<string, (event: any, context?: any) => Promise<any>> = {
   'create-order': createOrder,
+  'confirm-payment': confirmPayment,
+  'submit-payment-proof': submitPaymentProof,
+  'verify-payment': verifyPayment,
   'track-order': trackOrder,
   'list-orders': listOrders,
   'brevo-order-email': brevoOrderEmail,
   'push-to-shiprocket': pushToShiprocket,
   'push-to-innofulfill': pushToInnofulfill,
+  'check-innofulfill-serviceability': checkInnofulfillServiceability,
 };
 
 export const onRequest: PagesFunction<Record<string, string>> = async (context) => {
