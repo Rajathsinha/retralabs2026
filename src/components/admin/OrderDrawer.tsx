@@ -1,6 +1,6 @@
 import { X, Copy, Printer, ExternalLink, Truck, FileText, MapPin, CreditCard, User, Clock, StickyNote } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { StatusBadge, DeliveryBadge, PaymentBadge } from './badges';
+import { StatusBadge, DeliveryBadge, PaymentBadge, PaymentStatusBadge } from './badges';
 import type { AirtableRecord, AirtableAttachment } from './types';
 
 interface OrderDrawerProps {
@@ -51,6 +51,8 @@ function Check({ className }: { className?: string }) {
 }
 
 export function OrderDrawer({ record, onClose }: OrderDrawerProps) {
+  const [verifying, setVerifying] = useState(false);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     if (record) window.addEventListener('keydown', onKey);
@@ -63,6 +65,31 @@ export function OrderDrawer({ record, onClose }: OrderDrawerProps) {
   const phone = String(f['Phone'] ?? '');
   const address = String(f['Address'] ?? '');
   const tracking = String(f['Tracking ID'] ?? '');
+  const paymentStatus = String(f['Payment Status'] ?? '');
+  const awbRaw = f['AWB Number'] ? String(f['AWB Number']) : '';
+  const awbDisplay = awbRaw && !/^RETRA-\d{8}-\d{4}$/i.test(awbRaw)
+    ? awbRaw
+    : (f['Innofulfill Order ID'] ? 'Awaiting shipment assignment' : '—');
+
+  const handleVerifyPayment = async () => {
+    if (!window.confirm('Confirm that payment proof has been verified for this order?')) return;
+    setVerifying(true);
+    try {
+      const res = await fetch('/.netlify/functions/verify-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recordId: record.id }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Verification failed');
+      alert(json.duplicate ? 'Payment was already confirmed.' : 'Payment verified. Order will proceed to fulfillment.');
+      onClose();
+    } catch (err) {
+      alert(String(err));
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -83,6 +110,7 @@ export function OrderDrawer({ record, onClose }: OrderDrawerProps) {
           {/* Status pills */}
           <div className="px-5 py-4 flex flex-wrap gap-2 border-b border-slate-100">
             <StatusBadge status={String(f['Status'] ?? 'New')} />
+            {paymentStatus && <PaymentStatusBadge status={paymentStatus} />}
             <PaymentBadge payment={String(f['Payment'] ?? '')} />
             <DeliveryBadge delivery={String(f['Delivery'] ?? '')} />
           </div>
@@ -105,7 +133,18 @@ export function OrderDrawer({ record, onClose }: OrderDrawerProps) {
 
           <Section icon={CreditCard} title="Payment">
             <Row label="Method" value={String(f['Payment'] ?? '—')} />
+            <Row label="Payment Status" value={paymentStatus ? paymentStatus.replace(/_/g, ' ') : '—'} />
             <Row label="Transaction" value={String(f['Transaction'] ?? '—')} />
+            {paymentStatus === 'PAYMENT_PROOF_SUBMITTED' && (
+              <button
+                type="button"
+                onClick={handleVerifyPayment}
+                disabled={verifying}
+                className="mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-500 transition-colors disabled:opacity-50"
+              >
+                {verifying ? 'Verifying…' : 'Verify Payment'}
+              </button>
+            )}
             {screenshots && screenshots.length > 0 && (
               <div className="mt-2 flex gap-2 flex-wrap">
                 {screenshots.map((att, i) => (
@@ -120,8 +159,9 @@ export function OrderDrawer({ record, onClose }: OrderDrawerProps) {
           <Section icon={Truck} title="Tracking">
             <Row label="Courier Provider" value={String(f['Courier Provider'] ?? (String(f['Carrier Display Name'] ?? '').includes('Shiprocket') ? 'Shiprocket' : 'Innofulfill'))} />
             <Row label="Courier" value={String(f['Carrier Display Name'] ?? f['Courier Provider'] ?? f['Courier'] ?? 'Shiprocket')} />
-            <Row label="Shipment Status" value={String(f['Shipment Status'] ?? (f['AWB Number'] ? 'AWB_ASSIGNED' : f['Innofulfill Order ID'] ? 'AWB_PENDING' : 'NOT_CREATED'))} />
-            <Row label="AWB Number" value={String(f['AWB Number'] ?? 'Pending')} />
+            <Row label="Shipment Status" value={String(f['Shipment Status'] ?? (f['Innofulfill Order ID'] ? 'AWB_PENDING' : 'NOT_CREATED'))} />
+            <Row label="Document No." value={String(f['orderID'] ?? '—')} />
+            <Row label="AWB Number" value={awbDisplay} />
             <Row label="Booking / Order ID" value={String(f['Innofulfill Order ID'] ?? '—')} />
             {f['Innofulfill Internal ID'] && (
               <Row label="Internal ID" value={String(f['Innofulfill Internal ID'])} />

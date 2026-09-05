@@ -1,55 +1,13 @@
-
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
-
-function getInnofulfillBase(): string {
-  const envVal = (typeof process !== 'undefined' && process.env)
-    ? (process.env.INNOFULFILL_ENV || process.env.INNOFULFILL_SANDBOX || '')
-    : '';
-  return ['sandbox', 'test', 'true'].includes(envVal.toLowerCase())
-    ? 'https://sandbox.apis.innofulfill.com'
-    : 'https://apis.innofulfill.com';
-}
-
-let cachedToken: { token: string; expiresAt: number } | null = null;
-
-function innofulfillHeaders(token?: string): Record<string, string> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  const tenantId = process.env.INNOFULFILL_TENANT_ID;
-  if (tenantId) headers['X-Tenant-Id'] = tenantId;
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  return headers;
-}
-
-async function getInnofulfillToken(): Promise<string | null> {
-  const username = process.env.INNOFULFILL_USERNAME;
-  const password = process.env.INNOFULFILL_PASSWORD;
-  if (!username || !password) return null;
-
-  if (cachedToken && Date.now() < cachedToken.expiresAt) {
-    return cachedToken.token;
-  }
-
-  const innoBase = getInnofulfillBase();
-  const res = await fetch(`${innoBase}/auth/login`, {
-    method: 'POST',
-    headers: innofulfillHeaders(),
-    body: JSON.stringify({ username, password, signinType: 'EMAIL' }),
-  });
-  if (!res.ok) {
-    const detail = await res.text().catch(() => '');
-    throw new Error(`Innofulfill auth failed (HTTP ${res.status}): ${detail}`);
-  }
-  const json: any = await res.json();
-  const token = json?.id_token as string | undefined;
-  if (!token) throw new Error('Innofulfill auth: no id_token in response');
-  cachedToken = { token, expiresAt: Date.now() + 23 * 60 * 60 * 1000 };
-  return token;
-}
+import {
+  corsHeaders,
+  getAirtableConfig,
+  getInnofulfillBase,
+  getInnofulfillToken,
+  isFakeAwb,
+  patchAirtableRecord,
+  sanitizeAwb,
+  SHIPMENT_STATUS,
+} from './order-shared';
 
 function cleanPhone(phone: string): string {
   return (phone || '').replace(/\D/g, '').replace(/^91/, '').slice(-10).padStart(10, '0');
@@ -59,30 +17,39 @@ function cleanEmail(email: string): string {
   return (email || '').trim().toLowerCase();
 }
 
-export const handler = async (event) => {
+function innofulfillHeaders(token?: string): Record<string, string> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const tenantId = process.env.INNOFULFILL_TENANT_ID;
+  if (tenantId) headers['X-Tenant-Id'] = tenantId;
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return headers;
+}
+
+function shipmentMessage(shipmentStatus: string, awbNumber: string | null, innofulfillOrderId: string | null): string {
+  if (!innofulfillOrderId && shipmentStatus === SHIPMENT_STATUS.NOT_CREATED) {
+    return 'Shipment not created yet';
+  }
+  if (innofulfillOrderId && !awbNumber) {
+    return 'AWB awaiting shipment assignment';
+  }
+  if (!awbNumber) {
+    return 'Tracking information will appear once the shipment is dispatched.';
+  }
+  return '';
+}
+
+export const handler = async (event: { httpMethod?: string; body?: string }) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers: corsHeaders, body: '' };
   }
-
   if (event.httpMethod !== 'POST') {
-    return {
-      statusCode: 405,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ error: 'Method not allowed' }),
-    };
+    return { statusCode: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Method not allowed' }) };
   }
 
   try {
-    const token = process.env.VITE_AIRTABLE_TOKEN || process.env.AIRTABLE_TOKEN;
-    const baseId = process.env.VITE_AIRTABLE_BASE_ID || process.env.AIRTABLE_BASE_ID;
-    const table = process.env.VITE_AIRTABLE_TABLE || process.env.AIRTABLE_TABLE || 'Orders';
-
+    const { token, baseId, table } = getAirtableConfig();
     if (!token || !baseId) {
-      return {
-        statusCode: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'Order tracking is not configured' }),
-      };
+      return { statusCode: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Order tracking is not configured' }) };
     }
 
     const body = JSON.parse(event.body || '{}') as {
@@ -94,139 +61,110 @@ export const handler = async (event) => {
 
     const targetOrderId = (body.orderId || '').trim();
     const verificationInput = (body.phoneOrEmail || body.phone || body.email || '').trim();
-
     if (!targetOrderId || !verificationInput) {
-      return {
-        statusCode: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'Order ID and either phone number or email are required' }),
-      };
+      return { statusCode: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Order ID and either phone number or email are required' }) };
     }
 
-    // Search Airtable for the order by orderID (supporting exact match or case-insensitive)
     const filterFormula = encodeURIComponent(`{orderID} = "${targetOrderId}"`);
-    const searchUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}?filterByFormula=${filterFormula}&maxRecords=1`;
-
-    const searchRes = await fetch(searchUrl, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
+    const searchRes = await fetch(
+      `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}?filterByFormula=${filterFormula}&maxRecords=1`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
     if (!searchRes.ok) {
-      const detail = await searchRes.text().catch(() => '');
-      return {
-        statusCode: 502,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: `Failed to search orders: ${detail}` }),
-      };
+      return { statusCode: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Failed to search orders' }) };
     }
 
-    const searchJson: any = await searchRes.json();
-    let records = searchJson?.records || [];
-
-    // Fallback: If not found by exact formula (e.g. historical orders where orderID had different case), search recent records
+    let records: Array<{ id: string; fields?: Record<string, string | number> }> = (await searchRes.json()).records || [];
     if (!records.length) {
       const allRecentRes = await fetch(
         `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}?pageSize=100&sort%5B0%5D%5Bfield%5D=Created&sort%5B0%5D%5Bdirection%5D=desc`,
         { headers: { Authorization: `Bearer ${token}` } },
       );
       if (allRecentRes.ok) {
-        const recentJson: any = await allRecentRes.json();
-        const found = (recentJson?.records || []).find((r: any) => {
-          const id = String(r?.fields?.orderID ?? '').trim();
-          return id.toLowerCase() === targetOrderId.toLowerCase();
-        });
-        if (found) {
-          records = [found];
-        }
+        const recentJson: { records?: Array<{ id: string; fields?: Record<string, string | number> }> } = await allRecentRes.json();
+        const found = (recentJson.records || []).find((r) => String(r.fields?.orderID ?? '').trim().toLowerCase() === targetOrderId.toLowerCase());
+        if (found) records = [found];
       }
     }
 
     if (!records.length) {
-      return {
-        statusCode: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'Order not found. Please check your Order ID.' }),
-      };
+      return { statusCode: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Order not found. Please check your Order ID.' }) };
     }
 
     const record = records[0];
     const recordId = record.id;
     const f = record.fields || {};
 
-    // Verify identity against Phone OR Email
-    const storedPhone = cleanPhone(String(f['Phone'] || ''));
-    const storedEmail = cleanEmail(String(f['Email'] || ''));
-
+    const storedPhone = cleanPhone(String(f.Phone || ''));
+    const storedEmail = cleanEmail(String(f.Email || ''));
     const inputCleanPhone = cleanPhone(verificationInput);
     const inputCleanEmail = cleanEmail(verificationInput);
-
     const isPhoneMatch = inputCleanPhone.length === 10 && storedPhone === inputCleanPhone;
     const isEmailMatch = inputCleanEmail.length > 3 && storedEmail === inputCleanEmail;
-
     if (!isPhoneMatch && !isEmailMatch) {
-      return {
-        statusCode: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'The provided phone number or email does not match this order. Please verify and try again.' }),
-      };
+      return { statusCode: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'The provided phone number or email does not match this order.' }) };
     }
 
-    let awbNumber = f['AWB Number'] ? String(f['AWB Number']).trim() : null;
-    const innofulfillOrderId = f['Innofulfill Order ID'] ? String(f['Innofulfill Order ID']).trim() : null;
-    const courierName = f['Carrier Display Name'] ? String(f['Carrier Display Name']) : (f['Courier'] ? String(f['Courier']) : 'Shreemaruti');
-    let shipmentStatus = f['Shipment Status'] ? String(f['Shipment Status']) : (awbNumber ? 'AWB_ASSIGNED' : innofulfillOrderId ? 'AWB_PENDING' : 'NOT_CREATED');
+    let awbNumber = sanitizeAwb(f['AWB Number'] ? String(f['AWB Number']) : undefined) || null;
+    const storedTrackingId = sanitizeAwb(f['Tracking ID'] ? String(f['Tracking ID']) : undefined);
+    if (!awbNumber && storedTrackingId) awbNumber = storedTrackingId;
 
-    // If AWB is pending/missing but we have an Innofulfill Order ID, poll Innofulfill to see if courier has assigned the AWB
-    if ((!awbNumber || shipmentStatus === 'AWB_PENDING') && innofulfillOrderId) {
+    if (isFakeAwb(f['AWB Number'] ? String(f['AWB Number']) : undefined)) {
+      console.warn(`[TrackOrder] Clearing fake AWB for ${targetOrderId}`);
+      awbNumber = null;
+      await patchAirtableRecord(baseId, table, token, recordId, {
+        'AWB Number': '',
+        'Tracking ID': '',
+        'Shipment Status': SHIPMENT_STATUS.AWB_PENDING,
+      });
+    }
+
+    const innofulfillOrderId = f['Innofulfill Order ID'] ? String(f['Innofulfill Order ID']).trim() : null;
+    let courierName = f['Carrier Display Name'] ? String(f['Carrier Display Name']) : (f.Courier ? String(f.Courier) : null);
+    let shipmentStatus = f['Shipment Status'] ? String(f['Shipment Status']) : (innofulfillOrderId ? SHIPMENT_STATUS.AWB_PENDING : SHIPMENT_STATUS.NOT_CREATED);
+    const provider = f['Courier Provider'] ? String(f['Courier Provider']) : 'Innofulfill';
+
+    if ((!awbNumber || shipmentStatus === SHIPMENT_STATUS.AWB_PENDING) && innofulfillOrderId) {
       try {
         const innoToken = await getInnofulfillToken();
         if (innoToken) {
-          // Attempt to retrieve order details by Innofulfill Order ID
           const orderCheckRes = await fetch(
             `${getInnofulfillBase()}/gateway/booking-service/orders?orderId=${encodeURIComponent(innofulfillOrderId)}`,
             { headers: innofulfillHeaders(innoToken) },
           );
           if (orderCheckRes.ok) {
-            const orderCheckJson: any = await orderCheckRes.json();
-            const orderData = orderCheckJson?.data?.[0] || orderCheckJson?.data || orderCheckJson;
-            const assignedAwb =
-              orderData?.shipments?.[0]?.awbNumber ||
-              orderData?.awbNumber ||
-              orderData?.shipments?.[0]?.trackingNumber;
-
-            if (assignedAwb && String(assignedAwb).trim() !== '') {
-              awbNumber = String(assignedAwb).trim();
-              shipmentStatus = 'AWB_ASSIGNED';
-              console.log(`[Innofulfill] AWB retrieved and saved: ${awbNumber}`);
-
-              // Update Airtable with real assigned AWB
-              const updatePayload = {
+            const orderCheckJson: { data?: Array<Record<string, unknown>> | Record<string, unknown> } = await orderCheckRes.json();
+            const orderData = Array.isArray(orderCheckJson?.data) ? orderCheckJson.data[0] : orderCheckJson?.data || orderCheckJson;
+            const shipment = (orderData?.shipments as Array<Record<string, unknown>> | undefined)?.[0] || orderData || {};
+            const assignedAwb = sanitizeAwb(
+              (shipment?.awbNumber as string | undefined) ||
+              (orderData?.awbNumber as string | undefined) ||
+              (shipment?.trackingNumber as string | undefined),
+            );
+            if (assignedAwb) {
+              awbNumber = assignedAwb;
+              shipmentStatus = SHIPMENT_STATUS.AWB_ASSIGNED;
+              courierName =
+                (typeof shipment?.carrierDisplayName === 'string' && shipment.carrierDisplayName) ||
+                (typeof orderData?.carrierDisplayName === 'string' && orderData.carrierDisplayName) ||
+                courierName;
+              await patchAirtableRecord(baseId, table, token, recordId, {
                 'AWB Number': awbNumber,
                 'Tracking ID': awbNumber,
-                'Shipment Status': 'AWB_ASSIGNED',
-              };
-              await fetch(
-                `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}/${recordId}`,
-                {
-                  method: 'PATCH',
-                  headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ fields: updatePayload, typecast: true }),
-                },
-              ).catch(() => null);
+                'Shipment Status': SHIPMENT_STATUS.AWB_ASSIGNED,
+                ...(courierName ? { 'Carrier Display Name': courierName, Courier: courierName } : {}),
+              });
             }
           }
         }
       } catch (pollErr) {
-        console.warn('[Innofulfill] AWB poll attempt non-critical error:', pollErr);
+        console.warn('[TrackOrder] AWB poll error:', pollErr);
       }
     }
 
-    const provider = f['Courier Provider'] ? String(f['Courier Provider']) : 'Innofulfill';
-
-    // Try to fetch live tracking timeline from Innofulfill or Shiprocket if we have an assigned AWB
     let trackingStatus: string | null = null;
-    let trackingTimeline: any[] | null = null;
-    let trackingUrl: string | null = null;
+    let trackingTimeline: Array<{ status?: string; date?: string; location?: string }> | null = null;
+    let trackingUrl = f['Tracking URL'] ? String(f['Tracking URL']) : null;
 
     if (awbNumber) {
       if (provider === 'Shiprocket') {
@@ -234,23 +172,23 @@ export const handler = async (event) => {
           const email = (process.env.SHIPROCKET_EMAIL || process.env.VITE_SHIPROCKET_EMAIL || '').trim();
           const password = (process.env.SHIPROCKET_PASSWORD || process.env.VITE_SHIPROCKET_PASSWORD || '').trim();
           if (email && password) {
-            const srAuth = await fetch('https://apiv2.shiprocket.in/v1/external/auth/login', {
+            const srAuth: { token?: string } = await fetch('https://apiv2.shiprocket.in/v1/external/auth/login', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ email, password }),
-            }).then((r) => r.json()).catch(() => null);
-            
+            }).then((r) => r.json()).catch(() => ({}));
             if (srAuth?.token) {
               const trackRes = await fetch(
                 `https://apiv2.shiprocket.in/v1/external/courier/track/awb/${encodeURIComponent(awbNumber)}`,
                 { headers: { Authorization: `Bearer ${srAuth.token}` } },
               );
               if (trackRes.ok) {
-                const trackJson: any = await trackRes.json();
+                const trackJson: { tracking_data?: Record<string, unknown> } = await trackRes.json();
                 const trackData = trackJson?.tracking_data || trackJson;
-                trackingStatus = trackData?.current_status || trackData?.shipment_track?.[0]?.current_status || null;
-                trackingTimeline = Array.isArray(trackData?.shipment_track_activities)
-                  ? trackData.shipment_track_activities.map((act: any) => ({
+                trackingStatus = (trackData?.current_status as string | undefined) || null;
+                const activities = trackData?.shipment_track_activities;
+                trackingTimeline = Array.isArray(activities)
+                  ? activities.map((act: { activity?: string; status?: string; date?: string; location?: string }) => ({
                       status: act.activity || act.status,
                       date: act.date,
                       location: act.location,
@@ -261,7 +199,7 @@ export const handler = async (event) => {
             }
           }
         } catch (srErr) {
-          console.warn('[Shiprocket] Tracking fetch non-critical error:', srErr);
+          console.warn('[TrackOrder] Shiprocket tracking error:', srErr);
         }
       } else {
         try {
@@ -272,18 +210,26 @@ export const handler = async (event) => {
               { headers: innofulfillHeaders(innoToken) },
             );
             if (trackRes.ok) {
-              const trackJson: any = await trackRes.json();
+              const trackJson: { data?: Record<string, unknown> } = await trackRes.json();
               const trackData = trackJson?.data || trackJson;
-              trackingStatus = trackData?.status || trackData?.shipmentStatus || null;
-              trackingTimeline = Array.isArray(trackData?.trackingHistory) ? trackData.trackingHistory : null;
+              trackingStatus = (trackData?.status as string | undefined) || (trackData?.shipmentStatus as string | undefined) || null;
+              trackingTimeline = Array.isArray(trackData?.trackingHistory)
+                ? (trackData.trackingHistory as Array<{ status?: string; date?: string; location?: string; timestamp?: string }>).map((event) => ({
+                    status: event.status,
+                    date: event.date || event.timestamp,
+                    location: event.location,
+                  }))
+                : null;
               if (trackData?.trackingUrl) trackingUrl = String(trackData.trackingUrl);
             }
           }
         } catch {
-          // Tracking history fetch is non-critical
+          // non-critical
         }
       }
     }
+
+    const statusMessage = shipmentMessage(shipmentStatus, awbNumber, innofulfillOrderId);
 
     return {
       statusCode: 200,
@@ -291,18 +237,22 @@ export const handler = async (event) => {
       body: JSON.stringify({
         success: true,
         order: {
-          orderId: String(f['orderID'] || targetOrderId),
-          orderDate: f['Created'] ? String(f['Created']) : null,
-          status: f['Status'] ? String(f['Status']) : 'Processing',
-          items: f['Items'] ? String(f['Items']) : null,
+          orderId: String(f.orderID || targetOrderId),
+          documentNumber: String(f.orderID || targetOrderId),
+          orderDate: f.Created ? String(f.Created) : null,
+          status: f.Status ? String(f.Status) : 'Processing',
+          paymentStatus: f['Payment Status'] ? String(f['Payment Status']) : null,
+          items: f.Items ? String(f.Items) : null,
           total: f['Total (₹)'] ? Number(f['Total (₹)']) : null,
-          payment: f['Payment'] ? String(f['Payment']) : null,
-          delivery: f['Delivery'] ? String(f['Delivery']) : null,
-          name: f['Name'] ? String(f['Name']) : null,
+          payment: f.Payment ? String(f.Payment) : null,
+          delivery: f.Delivery ? String(f.Delivery) : null,
+          name: f.Name ? String(f.Name) : null,
           awbNumber,
+          awbDisplay: awbNumber || (innofulfillOrderId ? 'Awaiting shipment assignment' : null),
           courierName,
           innofulfillOrderId,
           shipmentStatus,
+          statusMessage,
           trackingStatus,
           trackingTimeline,
           trackingUrl,

@@ -22,7 +22,8 @@ async function saveOrder(fields: Record<string, unknown>, screenshot?: { content
   total?: number;
   deliveryCharge?: number;
   codCharge?: number;
-}): Promise<{ recordId: string | null; orderId: string | null; innofulfillOrderId: string | null; awbNumber: string | null; innofulfillWarning: string | null; carrierDisplayName?: string | null }> {
+  skipLogistics?: boolean;
+}): Promise<{ recordId: string | null; orderId: string | null; innofulfillOrderId: string | null; awbNumber: string | null; innofulfillWarning: string | null; carrierDisplayName?: string | null; paymentStatus?: string | null; paymentSessionExpiresAt?: string | null }> {
   const res = await fetch('/.netlify/functions/create-order', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -41,7 +42,35 @@ async function saveOrder(fields: Record<string, unknown>, screenshot?: { content
     awbNumber: json.awbNumber || null,
     innofulfillWarning: json.innofulfillWarning || null,
     carrierDisplayName: json.carrierDisplayName || (json.logisticsProvider === 'Shiprocket' ? 'Shiprocket' : 'Innofulfill'),
+    paymentStatus: json.paymentStatus || null,
+    paymentSessionExpiresAt: json.paymentSessionExpiresAt || null,
   };
+}
+
+async function confirmPayment(payload: Record<string, unknown>) {
+  const res = await fetch('/.netlify/functions/confirm-payment', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const json = await res.json().catch(() => null);
+  if (!res.ok || !json?.success) {
+    throw new Error(json?.error || `Payment confirmation failed (HTTP ${res.status})`);
+  }
+  return json;
+}
+
+async function submitPaymentProof(payload: Record<string, unknown>) {
+  const res = await fetch('/.netlify/functions/submit-payment-proof', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const json = await res.json().catch(() => null);
+  if (!res.ok || !json?.success) {
+    throw new Error(json?.error || `Payment proof submission failed (HTTP ${res.status})`);
+  }
+  return json;
 }
 
 async function fileToBase64(file: File): Promise<string> {
@@ -185,6 +214,8 @@ export default function CheckoutPage() {
   const [whatsappUrl, setWhatsappUrl] = useState('');
   const [orderSent,   setOrderSent]   = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
+  const [paymentSession, setPaymentSession] = useState<{ recordId: string; orderId: string; expiresAt: string | null } | null>(null);
+  const [startingPayment, setStartingPayment] = useState(false);
   const [submitError,   setSubmitError]   = useState<string | null>(null); // fatal: order not saved
   const [notifyWarning, setNotifyWarning] = useState<string | null>(null); // order saved, confirmations failed
   const [orderSnapshot, setOrderSnapshot] = useState<{
@@ -322,7 +353,7 @@ export default function CheckoutPage() {
         'Payment':   snapPaymentMethod === 'cod' ? 'COD' : 'UPI/Prepay',
         'Delivery':  snapFormData.delivery_option === 'fast' ? 'Express' : 'Standard',
         'Referral':  snapFormData.referral_source,
-        'Status':    'New',
+        'Status':    'ORDER_CREATED',
         'Created':   new Date().toISOString().slice(0, 10),
       }, undefined, {
         cartItems: cartSnapshot.map(i => ({
@@ -407,6 +438,69 @@ export default function CheckoutPage() {
     }
   };
 
+  const buildOrderPayload = (snapFormData: OrderFormData, snapTotal: number, snapDeliveryCharge: number, snapCodCharge: number, snapPaymentMethod: 'prepay' | 'cod', itemsSummary: string, skipLogistics = false) => ({
+    fields: {
+      'Name': snapFormData.customer_name,
+      'Email': snapFormData.customer_email,
+      'Phone': snapFormData.customer_phone,
+      'Address': `${snapFormData.shipping_address}, ${snapFormData.city}, ${snapFormData.state}, PIN: ${snapFormData.pincode}`,
+      'Items': itemsSummary,
+      'Total (₹)': snapTotal,
+      'Payment': snapPaymentMethod === 'cod' ? 'COD' : 'UPI/Prepay',
+      'Delivery': snapFormData.delivery_option === 'fast' ? 'Express' : 'Standard',
+      'Referral': snapFormData.referral_source,
+      'Status': 'ORDER_CREATED',
+      'Created': new Date().toISOString().slice(0, 10),
+    },
+    extra: {
+      cartItems: cart.map(item => ({
+        name: item.product.name,
+        variant: item.variant.vial_configuration || `${item.variant.dosage_mg}mg`,
+        quantity: item.quantity,
+        unitPrice: item.variant.price_inr,
+      })),
+      customer: {
+        name: snapFormData.customer_name,
+        email: snapFormData.customer_email,
+        phone: snapFormData.customer_phone,
+        address: snapFormData.shipping_address,
+        city: snapFormData.city,
+        state: snapFormData.state,
+        pincode: snapFormData.pincode,
+      },
+      paymentMethod: snapPaymentMethod,
+      deliveryOption: snapFormData.delivery_option,
+      total: snapTotal,
+      deliveryCharge: snapDeliveryCharge,
+      codCharge: snapCodCharge,
+      skipLogistics,
+    },
+  });
+
+  const handleOpenQrModal = async () => {
+    if (startingPayment) return;
+    setStartingPayment(true);
+    setSubmitError(null);
+    try {
+      const itemsSummary = cart
+        .map(i => `${i.product.name} ${i.variant.dosage_mg}mg x${i.quantity} = ₹${(i.variant.price_inr * i.quantity).toLocaleString('en-IN')}`)
+        .join('\n');
+      const payload = buildOrderPayload(formData, grandTotal, deliveryCharge, 0, 'prepay', itemsSummary, true);
+      const result = await saveOrder(payload.fields, undefined, payload.extra);
+      if (!result.recordId || !result.orderId) throw new Error('Failed to start payment session');
+      setPaymentSession({
+        recordId: result.recordId,
+        orderId: result.orderId,
+        expiresAt: result.paymentSessionExpiresAt || null,
+      });
+      setShowQrModal(true);
+    } catch (err) {
+      setSubmitError(`Could not start payment session — ${describeError(err)}`);
+    } finally {
+      setStartingPayment(false);
+    }
+  };
+
   const handleQrPaymentConfirmed = async (txnRef: string, screenshot: File | null) => {
     if (orderSaving.current) return;
     orderSaving.current = true;
@@ -419,9 +513,6 @@ export default function CheckoutPage() {
     const snapDeliveryCharge = deliveryCharge;
     const snapFormData = { ...formData };
 
-    const itemsSummary = cartSnapshot
-      .map(i => `${i.product.name} ${i.variant.dosage_mg}mg x${i.quantity} = ₹${(i.variant.price_inr * i.quantity).toLocaleString('en-IN')}`)
-      .join('\n');
     const itemsSummaryFlat = cartSnapshot
       .map(i => `${i.product.name} ${i.variant.dosage_mg}mg x${i.quantity}`)
       .join(', ');
@@ -432,22 +523,16 @@ export default function CheckoutPage() {
       screenshotPayload = { contentType: screenshot.type, filename: screenshot.name, base64 };
     }
 
+    if (!paymentSession?.recordId) {
+      throw new Error('Payment session expired. Please restart checkout.');
+    }
+
     try {
-      // Critical: the order record must exist before we show success
-      const { orderId, innofulfillOrderId, awbNumber, innofulfillWarning } = await saveOrder({
-        'Name':        snapFormData.customer_name,
-        'Email':       snapFormData.customer_email,
-        'Phone':       snapFormData.customer_phone,
-        'Address':     `${snapFormData.shipping_address}, ${snapFormData.city}, ${snapFormData.state}, PIN: ${snapFormData.pincode}`,
-        'Items':       itemsSummary,
-        'Total (₹)':   snapTotal,
-        'Payment':     'UPI QR',
-        'Delivery':    snapFormData.delivery_option === 'fast' ? 'Express' : 'Standard',
-        'Referral':    snapFormData.referral_source,
-        'Transaction': txnRef,
-        'Status':      'Paid',
-        'Created':     new Date().toISOString().slice(0, 10),
-      }, screenshotPayload, {
+      const confirmed = await confirmPayment({
+        recordId: paymentSession.recordId,
+        orderId: paymentSession.orderId,
+        transaction: txnRef,
+        screenshot: screenshotPayload,
         cartItems: cartSnapshot.map(i => ({
           name: i.product.name,
           variant: i.variant.vial_configuration || `${i.variant.dosage_mg}mg`,
@@ -470,8 +555,7 @@ export default function CheckoutPage() {
         codCharge: 0,
       });
 
-      if (!orderId) throw new Error('Server did not return an order ID');
-      const finalOrderId = orderId;
+      const finalOrderId = confirmed.orderId || paymentSession.orderId;
 
       // Non-critical: customer email — surface failures without blocking
       const snapSubtotal = cartSnapshot.reduce((s, i) => s + i.variant.price_inr * i.quantity, 0);
@@ -502,17 +586,17 @@ export default function CheckoutPage() {
       if (!emailResult.success) {
         setNotifyWarning(`Email: ${emailResult.error}`);
       }
-      if (!innofulfillOrderId && innofulfillWarning) {
-        setNotifyWarning(prev => prev ? `${prev}; Innofulfill: ${innofulfillWarning}` : `Innofulfill: ${innofulfillWarning}`);
+      if (!confirmed.innofulfillOrderId && confirmed.innofulfillWarning) {
+        setNotifyWarning(prev => prev ? `${prev}; Logistics: ${confirmed.innofulfillWarning}` : `Logistics: ${confirmed.innofulfillWarning}`);
       }
 
       setOrderSnapshot({
         items: itemsSummaryFlat,
         total: snapTotal,
         orderId: finalOrderId,
-        awbNumber: awbNumber || null,
-        innofulfillOrderId: innofulfillOrderId || null,
-        innofulfillWarning: innofulfillWarning || null,
+        awbNumber: confirmed.awbNumber || null,
+        innofulfillOrderId: confirmed.innofulfillOrderId || null,
+        innofulfillWarning: confirmed.innofulfillWarning || null,
         cartItems: cartSnapshot.map(i => ({ name: i.product.name, config: i.variant.vial_configuration || `${i.variant.dosage_mg}mg`, qty: i.quantity, price: i.variant.price_inr })),
         deliveryOption: snapFormData.delivery_option,
         paymentMethod: 'prepay',
@@ -520,6 +604,7 @@ export default function CheckoutPage() {
         codCharge: 0,
       });
       clearCart();
+      setPaymentSession(null);
       setShowQrModal(false);
       setOrderSent(true);
     } catch (err) {
@@ -528,6 +613,55 @@ export default function CheckoutPage() {
     } finally {
       orderSaving.current = false;
     }
+  };
+
+  const handleSubmitPaymentProof = async (payload: {
+    orderDocumentNumber: string;
+    amountPaid: number;
+    transaction: string;
+    paymentDateTime: string;
+    screenshot: File;
+  }) => {
+    const itemsSummary = cart
+      .map(i => `${i.product.name} ${i.variant.dosage_mg}mg x${i.quantity} = ₹${(i.variant.price_inr * i.quantity).toLocaleString('en-IN')}`)
+      .join('\n');
+    const base64 = await fileToBase64(payload.screenshot);
+    await submitPaymentProof({
+      orderDocumentNumber: payload.orderDocumentNumber || paymentSession?.orderId || '',
+      amountPaid: payload.amountPaid,
+      transaction: payload.transaction,
+      paymentDateTime: payload.paymentDateTime,
+      screenshot: { contentType: payload.screenshot.type, filename: payload.screenshot.name, base64 },
+      fields: {
+        Name: formData.customer_name,
+        Email: formData.customer_email,
+        Phone: formData.customer_phone,
+        Address: `${formData.shipping_address}, ${formData.city}, ${formData.state}, PIN: ${formData.pincode}`,
+        Items: itemsSummary,
+        'Total (₹)': payload.amountPaid,
+        Payment: 'UPI Proof',
+        Delivery: formData.delivery_option === 'fast' ? 'Express' : 'Standard',
+        Referral: formData.referral_source,
+        Created: new Date().toISOString().slice(0, 10),
+      },
+    });
+    clearCart();
+    setPaymentSession(null);
+    setShowQrModal(false);
+    setOrderSnapshot({
+      items: cart.map(i => `${i.product.name} ${i.variant.dosage_mg}mg x${i.quantity}`).join(', '),
+      total: payload.amountPaid,
+      orderId: payload.orderDocumentNumber || paymentSession?.orderId || null,
+      awbNumber: null,
+      innofulfillOrderId: null,
+      innofulfillWarning: null,
+      cartItems: cart.map(i => ({ name: i.product.name, config: i.variant.vial_configuration || `${i.variant.dosage_mg}mg`, qty: i.quantity, price: i.variant.price_inr })),
+      deliveryOption: formData.delivery_option,
+      paymentMethod: 'prepay',
+      deliveryCharge,
+      codCharge: 0,
+    });
+    setOrderSent(true);
   };
 
   /* ── Step 3: order confirmed screen ── */
@@ -582,12 +716,12 @@ export default function CheckoutPage() {
             </div>
           )}
 
-          {/* Order ID */}
+          {/* Document number */}
           {snap?.orderId && (
             <div className="bg-white border border-[#E5E7EB] rounded-2xl p-5 mb-4 text-center shadow-sm">
-              <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-[0.12em] mb-1.5">Your Order ID</p>
+              <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-[0.12em] mb-1.5">Order / Document No</p>
               <p className="text-2xl font-bold text-[#111111] tracking-wide">{snap.orderId}</p>
-              <p className="text-xs text-[#9CA3AF] mt-1">Save this ID for tracking and support</p>
+              <p className="text-xs text-[#9CA3AF] mt-1">Save this document number for tracking and support</p>
             </div>
           )}
 
@@ -600,21 +734,17 @@ export default function CheckoutPage() {
                 </div>
                 <div>
                   <p className="text-sm font-bold text-[#111111]">Shipment Created</p>
-                  <p className="text-xs text-[#9CA3AF]">Your order has been dispatched for fulfillment</p>
+                  <p className="text-xs text-[#9CA3AF]">Courier AWB assigned by Innofulfill</p>
                 </div>
               </div>
               <div className="space-y-2 text-sm bg-[#f8fafc] rounded-xl p-3.5 border border-[#E5E7EB]">
                 <div className="flex justify-between">
-                  <span className="text-[#9CA3AF]">AWB Number</span>
+                  <span className="text-[#9CA3AF]">AWB</span>
                   <span className="font-mono font-bold text-[#111111]">{snap.awbNumber}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[#9CA3AF]">Courier</span>
-                  <span className="font-semibold text-[#374151]">{snap.carrierDisplayName || 'Shiprocket'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[#9CA3AF]">Order Status</span>
-                  <span className="font-semibold text-[#16a34a]">Confirmed</span>
+                  <span className="font-semibold text-[#374151]">{snap.carrierDisplayName || 'Innofulfill'}</span>
                 </div>
               </div>
               <button
@@ -632,8 +762,8 @@ export default function CheckoutPage() {
                   <Truck className="w-5 h-5 text-[#D97706]" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-[#111111]">Shipment Handover in Progress</p>
-                  <p className="text-xs text-[#9CA3AF]">Tracking number will be available once the shipment is handed over to the courier.</p>
+                  <p className="text-sm font-bold text-[#111111]">AWB: Awaiting shipment assignment</p>
+                  <p className="text-xs text-[#9CA3AF]">Your document number is confirmed. The courier AWB will appear once Innofulfill assigns it.</p>
                 </div>
               </div>
               {snap?.orderId && (
@@ -840,8 +970,9 @@ export default function CheckoutPage() {
 
               {/* Primary CTA — opens premium QR modal */}
               <button
-                onClick={() => setShowQrModal(true)}
-                className="group w-full relative overflow-hidden flex items-center justify-between gap-4 p-5 bg-white hover:bg-[#f8fafc] border border-[#E5E7EB] hover:border-[#2563EB]/40 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md"
+                onClick={() => void handleOpenQrModal()}
+                disabled={startingPayment}
+                className="group w-full relative overflow-hidden flex items-center justify-between gap-4 p-5 bg-white hover:bg-[#f8fafc] border border-[#E5E7EB] hover:border-[#2563EB]/40 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md disabled:opacity-60"
               >
                 <div className="flex items-center gap-4">
                   <div className="relative w-14 h-14 bg-[#f8fafc] rounded-xl p-1.5 flex-shrink-0 border border-[#E5E7EB]">
@@ -857,7 +988,7 @@ export default function CheckoutPage() {
                   </div>
                   <div className="text-left">
                     <p className="text-sm font-bold text-[#111111]">Pay via UPI QR</p>
-                    <p className="text-xs text-[#9CA3AF] mt-0.5">Scan & pay · 3-min window</p>
+                    <p className="text-xs text-[#9CA3AF] mt-0.5">Scan & pay · 5-min window</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 text-[#2563EB] group-hover:translate-x-1 transition-transform">
@@ -899,7 +1030,9 @@ export default function CheckoutPage() {
             isOpen={showQrModal}
             onClose={() => setShowQrModal(false)}
             amount={grandTotal}
+            orderId={paymentSession?.orderId}
             onConfirm={handleQrPaymentConfirmed}
+            onSubmitPaymentProof={handleSubmitPaymentProof}
             whatsappUrl={whatsappUrl}
           />
 
