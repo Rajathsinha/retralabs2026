@@ -44,10 +44,27 @@ export interface AdminFilters {
   search: string;
   status: string;
   payment: string;
+  paymentStatus: string;
   delivery: string;
   referral: string;
   customer: string;
   trackingId: string;
+  datePreset: string;
   dateFrom: string;
   dateTo: string;
+  product: string;
+  minAmount: string;
+  maxAmount: string;
+  city: string;
+  customerType: string; // 'all' | 'first' | 'repeat'
+  fulfillmentStatus: string; // 'all' | 'needs_action' | 'unfulfilled' | 'fulfilled' | 'in_transit'
 }
+
+export interface SenderConfig {
+  name: string;
+  phone: string;
+  addressLines: string[];
+  returnNotice: string;
+}
+
+export type AnalyticsTimeframe = '7d' | '15d' | '30d' | 'quarter' | 'ytd' | 'all' | 'custom';

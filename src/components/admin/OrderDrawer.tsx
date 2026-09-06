@@ -6,6 +6,8 @@ import type { AirtableRecord, AirtableAttachment } from './types';
 interface OrderDrawerProps {
   record: AirtableRecord | null;
   onClose: () => void;
+  onPrintInvoice?: (record: AirtableRecord) => void;
+  onPrintLabel?: (record: AirtableRecord) => void;
 }
 
 const AIRTABLE_URL = 'https://airtable.com/appzoLMmoFxy53cKx/tbly4OWpkoz6E7OW0/viwi9NXrMheloOfuD?blocks=hide';
@@ -50,7 +52,7 @@ function Check({ className }: { className?: string }) {
   );
 }
 
-export function OrderDrawer({ record, onClose }: OrderDrawerProps) {
+export function OrderDrawer({ record, onClose, onPrintInvoice, onPrintLabel }: OrderDrawerProps) {
   const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
@@ -253,10 +255,45 @@ export function OrderDrawer({ record, onClose }: OrderDrawerProps) {
             >
               <Truck className="w-4 h-4" /> Push to Innofulfill
             </button>
-            <button className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition-colors">
+            <button
+              onClick={() => onPrintInvoice?.(record)}
+              className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition-colors"
+            >
               <Printer className="w-4 h-4" /> Print Invoice
             </button>
+            <button
+              onClick={() => onPrintLabel?.(record)}
+              className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 text-sm font-semibold hover:bg-blue-100 transition-colors"
+            >
+              <FileText className="w-4 h-4" /> Print Address Slip
+            </button>
           </div>
+
+          {/* Quick Communication: WhatsApp & Phone */}
+          {phone && (
+            <div className="pt-2 border-t border-slate-200">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Customer Outreach</p>
+              <div className="grid grid-cols-2 gap-2">
+                <a
+                  href={`https://wa.me/91${phone.replace(/\D/g, '')}?text=${encodeURIComponent(
+                    `Hi ${String(f['Name'] ?? 'Customer')}, this is RetraLabs regarding your order #${String(f['orderID'] ?? '')}. Everything is confirmed and being prepared for dispatch!`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold hover:bg-emerald-100 transition-colors"
+                >
+                  💬 WhatsApp Customer
+                </a>
+                <a
+                  href={`tel:+91${phone.replace(/\D/g, '')}`}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 transition-colors"
+                >
+                  📞 Call Customer
+                </a>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-3 gap-2">
             <CopyBtn text={address} label="Address" />
             <CopyBtn text={phone} label="Phone" />
