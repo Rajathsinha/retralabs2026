@@ -94,11 +94,6 @@ export function paymentSessionExpiresAt(startedAtIso: string): number {
   return new Date(startedAtIso).getTime() + PAYMENT_SESSION_SECONDS * 1000;
 }
 
-export function isPaymentSessionExpired(expiresAtIso: string | null | undefined): boolean {
-  if (!expiresAtIso) return true;
-  return Date.now() > new Date(expiresAtIso).getTime();
-}
-
 /**
  * Generate internal document number: RETR0000000035
  * Scans Airtable for the highest existing RETR sequence.

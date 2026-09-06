@@ -2,7 +2,6 @@ import {
   PAYMENT_STATUS,
   corsHeaders,
   getAirtableConfig,
-  isPaymentSessionExpired,
   patchAirtableRecord,
   processLogistics,
   type CartLineItem,
@@ -80,15 +79,6 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
 
     if (existingPaymentStatus === PAYMENT_STATUS.PROOF_SUBMITTED) {
       return { statusCode: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Payment proof is awaiting admin verification' }) };
-    }
-
-    const expiresAt = fields['Payment Session Expires At'];
-    if (isPaymentSessionExpired(expiresAt)) {
-      await patchAirtableRecord(baseId, table, token, body.recordId, {
-        'Payment Status': PAYMENT_STATUS.EXPIRED,
-        Status: 'PAYMENT_EXPIRED',
-      });
-      return { statusCode: 410, headers: { ...corsHeaders, 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Payment session expired. Please restart checkout.' }) };
     }
 
     if (existingTxn && existingTxn !== body.transaction.trim()) {
