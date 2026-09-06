@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Star, ShoppingCart, Check, ArrowRight } from 'lucide-react';
+import { ShoppingCart, Check, ArrowRight } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { ProductWithVariants } from '../types';
 import { getProductImageUrl } from '../utils/imageUrl';
@@ -67,20 +67,6 @@ export default function ProductCard({ product }: ProductCardProps) {
         <h3 className="text-[#101828] text-[14px] font-semibold leading-snug tracking-[-0.01em] line-clamp-2 min-h-[2.6em]">
           {productDisplayName(product)}
         </h3>
-
-        {/* Stars + rating */}
-        <div className="flex items-center gap-1">
-          <div className="flex items-center gap-px">
-            {[1, 2, 3, 4, 5].map(i => (
-              <Star
-                key={i}
-                className={`w-[12px] h-[12px] ${i <= 4 ? 'fill-[#F79009] text-[#F79009]' : 'fill-[#EAECF0] text-[#EAECF0]'}`}
-                strokeWidth={0}
-              />
-            ))}
-          </div>
-          <span className="text-[#667085] text-[11px] font-medium ml-0.5">4.5</span>
-        </div>
 
         {/* Price row */}
         <div className="flex items-baseline justify-between mt-auto pt-1">

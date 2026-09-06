@@ -13,7 +13,7 @@ import { CATEGORIES as SEO_CATEGORIES } from '../data/seoData';
 import ProductModal from '../components/ProductModal';
 import { productDisplayName } from '../utils/productDisplayName';
 import {
-  Star, ShoppingCart, ChevronRight, Shield, Microscope,
+  ShoppingCart, ChevronRight, Shield, Microscope,
   FlaskConical, Package, CheckCircle, Search, SlidersHorizontal,
   Check,
 } from 'lucide-react';
@@ -25,29 +25,28 @@ type ProductCfg = {
   tagColor: string;
   tagBg: string;
   category: string;
-  reviews: number;
 };
 
 const PRODUCT_CFG: Record<string, ProductCfg> = {
-  'Retatrutide':                        { tag: 'Metabolic',    tagColor: '#2563EB', tagBg: '#EFF6FF', category: 'metabolic',  reviews: 41 },
-  'Tirzepatide':                        { tag: 'Metabolic',    tagColor: '#1D4ED8', tagBg: '#EFF6FF', category: 'metabolic',  reviews: 27 },
-  'CJC-1295 (No DAC) + Ipamorelin Stack':{ tag: 'Research',   tagColor: '#7C3AED', tagBg: '#F5F3FF', category: 'research',    reviews: 32 },
-  'MOT-C':                              { tag: 'Research',     tagColor: '#0D9488', tagBg: '#F0FDFA', category: 'research',    reviews: 16 },
-  'GHK-Cu':                             { tag: 'Anti-Aging',   tagColor: '#1D4ED8', tagBg: '#EFF6FF', category: 'anti-aging',  reviews: 39 },
-  'BPC-157':                            { tag: 'Recovery',     tagColor: '#7C3AED', tagBg: '#F5F3FF', category: 'recovery',    reviews: 31 },
-  'TB-500':                             { tag: 'Recovery',     tagColor: '#EA580C', tagBg: '#FFF7ED', category: 'recovery',    reviews: 19 },
-  'Selank':                             { tag: 'Research',     tagColor: '#DB2777', tagBg: '#FDF2F8', category: 'research',    reviews: 22 },
-  'Semax':                              { tag: 'Research',     tagColor: '#4338CA', tagBg: '#EEF2FF', category: 'research',    reviews: 18 },
-  'Tesamorelin':                        { tag: 'Research',     tagColor: '#059669', tagBg: '#F0FDF4', category: 'research',    reviews: 12 },
-  'NAD+':                               { tag: 'Anti-Aging',   tagColor: '#7C3AED', tagBg: '#F5F3FF', category: 'anti-aging',  reviews: 14 },
-  'SS-31':                              { tag: 'Anti-Aging',   tagColor: '#DB2777', tagBg: '#FDF2F8', category: 'anti-aging',  reviews: 13 },
-  'Kisspeptin-10':                      { tag: 'Research',     tagColor: '#EC4899', tagBg: '#FDF2F8', category: 'research',    reviews: 7  },
-  'AOD 9604':                           { tag: 'Metabolic',    tagColor: '#EA580C', tagBg: '#FFF7ED', category: 'metabolic',  reviews: 11 },
-  'Cagrilintide':                       { tag: 'Metabolic',    tagColor: '#16A34A', tagBg: '#F0FDF4', category: 'metabolic',  reviews: 6  },
-  'Klow Blend':                         { tag: 'Healing',      tagColor: '#0891B2', tagBg: '#ECFEFF', category: 'healing',     reviews: 8  },
-  'The Wolverine Stack':                { tag: 'Recovery',     tagColor: '#6B21A8', tagBg: '#F5F3FF', category: 'recovery',    reviews: 29 },
-  'Epithalon':                          { tag: 'Anti-Aging',   tagColor: '#2563EB', tagBg: '#EFF6FF', category: 'anti-aging',  reviews: 9  },
-  'Bacteriostatic Water (Pharma Grade)':{ tag: 'Supplies',     tagColor: '#6B7280', tagBg: '#F9FAFB', category: 'other',       reviews: 54 },
+  'Retatrutide':                        { tag: 'Metabolic',    tagColor: '#2563EB', tagBg: '#EFF6FF', category: 'metabolic' },
+  'Tirzepatide':                        { tag: 'Metabolic',    tagColor: '#1D4ED8', tagBg: '#EFF6FF', category: 'metabolic' },
+  'CJC-1295 (No DAC) + Ipamorelin Stack':{ tag: 'Research',   tagColor: '#7C3AED', tagBg: '#F5F3FF', category: 'research' },
+  'MOT-C':                              { tag: 'Research',     tagColor: '#0D9488', tagBg: '#F0FDFA', category: 'research' },
+  'GHK-Cu':                             { tag: 'Anti-Aging',   tagColor: '#1D4ED8', tagBg: '#EFF6FF', category: 'anti-aging' },
+  'BPC-157':                            { tag: 'Recovery',     tagColor: '#7C3AED', tagBg: '#F5F3FF', category: 'recovery' },
+  'TB-500':                             { tag: 'Recovery',     tagColor: '#EA580C', tagBg: '#FFF7ED', category: 'recovery' },
+  'Selank':                             { tag: 'Research',     tagColor: '#DB2777', tagBg: '#FDF2F8', category: 'research' },
+  'Semax':                              { tag: 'Research',     tagColor: '#4338CA', tagBg: '#EEF2FF', category: 'research' },
+  'Tesamorelin':                        { tag: 'Research',     tagColor: '#059669', tagBg: '#F0FDF4', category: 'research' },
+  'NAD+':                               { tag: 'Anti-Aging',   tagColor: '#7C3AED', tagBg: '#F5F3FF', category: 'anti-aging' },
+  'SS-31':                              { tag: 'Anti-Aging',   tagColor: '#DB2777', tagBg: '#FDF2F8', category: 'anti-aging' },
+  'Kisspeptin-10':                      { tag: 'Research',     tagColor: '#EC4899', tagBg: '#FDF2F8', category: 'research' },
+  'AOD 9604':                           { tag: 'Metabolic',    tagColor: '#EA580C', tagBg: '#FFF7ED', category: 'metabolic' },
+  'Cagrilintide':                       { tag: 'Metabolic',    tagColor: '#16A34A', tagBg: '#F0FDF4', category: 'metabolic' },
+  'Klow Blend':                         { tag: 'Healing',      tagColor: '#0891B2', tagBg: '#ECFEFF', category: 'healing' },
+  'The Wolverine Stack':                { tag: 'Recovery',     tagColor: '#6B21A8', tagBg: '#F5F3FF', category: 'recovery' },
+  'Epithalon':                          { tag: 'Anti-Aging',   tagColor: '#2563EB', tagBg: '#EFF6FF', category: 'anti-aging' },
+  'Bacteriostatic Water (Pharma Grade)':{ tag: 'Supplies',     tagColor: '#6B7280', tagBg: '#F9FAFB', category: 'other' },
 };
 
 const CATEGORIES = [
@@ -119,17 +118,6 @@ function ProductCard({ product, onAddToCart, addedVariantId, onNavigate }: CardP
           {productDisplayName(product)}
         </h3>
 
-        {/* Stars + reviews */}
-        <div className="flex items-center gap-1.5">
-          <div className="flex items-center gap-0.5">
-            {[1,2,3,4,5].map(i => (
-              <Star key={i} className="w-3 h-3 fill-[#F59E0B] text-[#F59E0B]" strokeWidth={0} />
-            ))}
-          </div>
-          <span className="text-[#9CA3AF] text-[11px] font-medium">
-            ({cfg?.reviews ?? 0})
-          </span>
-        </div>
 
         {/* Price */}
         <div className="flex items-baseline gap-1.5">

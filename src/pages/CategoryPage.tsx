@@ -4,7 +4,7 @@ import { useSEO } from '../hooks/useSEO';
 import { getCategoryBySlug, getCategoryProducts, CATEGORIES } from '../data/seoData';
 import { getCategorySchema } from '../utils/seoSchemas';
 import { useCurrency } from '../context/CurrencyContext';
-import { ChevronRight, Star, ArrowRight, Check } from 'lucide-react';
+import { ChevronRight, ArrowRight, Check } from 'lucide-react';
 import { productDisplayName } from '../utils/productDisplayName';
 import { productPath } from '../utils/productUrl';
 import { canonicalUrl } from '../utils/siteUrl';
@@ -84,11 +84,6 @@ export default function CategoryPage() {
                   <h2 className="text-[#111111] text-[14px] sm:text-[15px] font-semibold leading-snug line-clamp-2 group-hover:text-[#2563EB] transition-colors">
                     {productDisplayName(product)}
                   </h2>
-                  <div className="flex items-center gap-1.5">
-                    <div className="flex items-center gap-0.5">
-                      {[1,2,3,4,5].map(i => <Star key={i} className="w-3 h-3 fill-[#F59E0B] text-[#F59E0B]" strokeWidth={0} />)}
-                    </div>
-                  </div>
                   <div className="flex items-baseline gap-1.5">
                     <span className="text-[#111111] text-[15px] sm:text-[16px] font-bold">{format(lowestPrice)}</span>
                     <span className="text-[#9CA3AF] text-[11px]">onwards</span>

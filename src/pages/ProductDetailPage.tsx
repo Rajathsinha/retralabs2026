@@ -55,27 +55,6 @@ const PURITY_MAP: Record<string, string> = {
   'Kisspeptin-10': '99.1', 'SS-31': '99.0', 'Cagrilintide': '99.1',
 };
 
-const REVIEWS_MAP: Record<string, { count: number; avg: number }> = {
-  'Retatrutide': { count: 41, avg: 4.9 },
-  'Tirzepatide': { count: 27, avg: 4.8 },
-  'GHK-Cu': { count: 39, avg: 4.9 },
-  'Semax': { count: 18, avg: 4.7 },
-  'Selank': { count: 22, avg: 4.8 },
-  'BPC-157': { count: 31, avg: 4.9 },
-  'NAD+': { count: 14, avg: 4.7 },
-  'TB-500': { count: 19, avg: 4.8 },
-  'Tesamorelin': { count: 12, avg: 4.8 },
-  'MOT-C': { count: 16, avg: 4.7 },
-  'Klow Blend': { count: 8, avg: 4.9 },
-  'CJC-1295 (No DAC) + Ipamorelin Stack': { count: 32, avg: 4.8 },
-  'The Wolverine Stack': { count: 29, avg: 4.9 },
-  'AOD 9604': { count: 11, avg: 4.7 },
-  'Epithalon': { count: 9, avg: 4.8 },
-  'Kisspeptin-10': { count: 7, avg: 4.7 },
-  'SS-31': { count: 13, avg: 4.8 },
-  'Cagrilintide': { count: 6, avg: 4.8 },
-};
-
 const SPEC_MAP: Record<string, Record<string, string>> = {
   'Retatrutide': { 'CAS Number': '2381089-83-2', 'Molecular Weight': '~4113.5 Da', 'Purity': '>99.2%', 'Appearance': 'White lyophilised powder', 'Storage': '-20C (lyophilised)', 'Form': 'Lyophilised powder', 'Research Use': 'Metabolic / Obesity' },
   'Tirzepatide': { 'CAS Number': '2023788-19-2', 'Molecular Weight': '~4813.5 Da', 'Purity': '>99.4%', 'Appearance': 'White lyophilised powder', 'Storage': '-20C (lyophilised)', 'Form': 'Lyophilised powder', 'Research Use': 'Metabolic / GLP-1/GIP' },
@@ -118,7 +97,6 @@ export default function ProductDetailPage() {
   const lowestPrice = product ? Math.min(...product.variants.map(v => v.price_inr)) : 0;
   const highestPrice = product ? Math.max(...product.variants.map(v => v.price_inr)) : 0;
   const canonicalUrl = product ? productUrl(product) : toCanonicalUrl(`/product/${id ?? ''}`);
-  const productReviews = product ? REVIEWS_MAP[product.name] : undefined;
   const content = product ? PRODUCT_CONTENT[product.name] : undefined;
 
   const productImage = product
@@ -178,16 +156,6 @@ export default function ProductDetailPage() {
           shippingDetails,
           hasMerchantReturnPolicy: merchantReturnPolicy,
         },
-        ...(productReviews
-          ? {
-              aggregateRating: {
-                '@type': 'AggregateRating',
-                ratingValue: productReviews.avg,
-                reviewCount: productReviews.count,
-                bestRating: 5,
-              },
-            }
-          : {}),
       }
     : undefined;
 
@@ -286,7 +254,6 @@ export default function ProductDetailPage() {
 
   const accent = ACCENT_MAP[product.name] ?? '#2563EB';
   const purity = PURITY_MAP[product.name] ?? '99';
-  const reviews = REVIEWS_MAP[product.name] ?? { count: 12, avg: 4.8 };
   const specs = SPEC_MAP[product.name];
   const isFlagship = product.name === 'Retatrutide' || product.name === 'Tirzepatide';
   const relatedProducts = PRODUCTS.filter(p => p.id !== product.id && !p.name.includes('Bacteriostatic')).slice(0, 4);
@@ -404,15 +371,6 @@ export default function ProductDetailPage() {
                   {selectedVariant.dosage_mg} {isBacWater ? 'ML' : 'MG'}
                 </p>
               )}
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-0.5">
-                  {[1,2,3,4,5].map(i => (
-                    <Star key={i} className="w-4 h-4 fill-[#F59E0B] text-[#F59E0B]" strokeWidth={0} />
-                  ))}
-                </div>
-                <span className="text-[#111111] text-[14px] font-semibold">{reviews.avg}</span>
-                <span className="text-[#9CA3AF] text-[13px]">({reviews.count} Reviews)</span>
-              </div>
             </div>
 
             {/* Price */}
@@ -808,7 +766,6 @@ export default function ProductDetailPage() {
           <h2 className="text-[#111111] text-[22px] font-bold tracking-[-0.02em] mb-8">You May Also Like</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
             {finalRelated.map(rp => {
-              const rpReviews = REVIEWS_MAP[rp.name] ?? { count: 10, avg: 4.7 };
               const rpPrice = Math.min(...rp.variants.map(v => v.price_inr));
               return (
                 <div
@@ -827,10 +784,6 @@ export default function ProductDetailPage() {
                   </div>
                   <div className="p-4">
                     <h3 className="text-[#111111] text-[13px] font-semibold line-clamp-1 mb-1">{productDisplayName(rp)}</h3>
-                    <div className="flex items-center gap-0.5 mb-2">
-                      {[1,2,3,4,5].map(i => <Star key={i} className="w-3 h-3 fill-[#F59E0B] text-[#F59E0B]" strokeWidth={0} />)}
-                      <span className="text-[#9CA3AF] text-[10px] ml-1">({rpReviews.count})</span>
-                    </div>
                     <p className="text-[#111111] text-[14px] font-bold">{format(rpPrice)}</p>
                   </div>
                 </div>
