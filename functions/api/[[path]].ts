@@ -1,3 +1,3 @@
-import { onRequest as netlifyHandler } from '../_routes';
+import { onRequest as apiHandler } from '../_routes';
 
-export const onRequest = netlifyHandler;
+export const onRequest = apiHandler;

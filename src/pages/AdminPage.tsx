@@ -21,7 +21,7 @@ const PASS = import.meta.env.VITE_ADMIN_PASSWORD;
 const EMPTY_FILTERS: AdminFilters = { search: '', status: '', payment: '', delivery: '', referral: '', customer: '', trackingId: '', dateFrom: '', dateTo: '' };
 
 async function fetchOrders(): Promise<AirtableRecord[]> {
-  const res = await fetch('/.netlify/functions/list-orders', { headers: { 'Content-Type': 'application/json' } });
+  const res = await fetch('/api/list-orders', { headers: { 'Content-Type': 'application/json' } });
   if (!res.ok) {
     const json = await res.json().catch(() => null);
     throw new Error(json?.error || `Airtable fetch failed (HTTP ${res.status})`);

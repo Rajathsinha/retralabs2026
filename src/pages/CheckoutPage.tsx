@@ -27,7 +27,7 @@ async function saveOrder(fields: Record<string, unknown>, screenshot?: { content
   codCharge?: number;
   skipLogistics?: boolean;
 }): Promise<{ recordId: string | null; orderId: string | null; innofulfillOrderId: string | null; awbNumber: string | null; innofulfillWarning: string | null; carrierDisplayName?: string | null; paymentStatus?: string | null; paymentSessionExpiresAt?: string | null }> {
-  const res = await fetch('/.netlify/functions/create-order', {
+  const res = await fetch('/api/create-order', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ fields, screenshot, ...extra }),
@@ -51,7 +51,7 @@ async function saveOrder(fields: Record<string, unknown>, screenshot?: { content
 }
 
 async function confirmPayment(payload: Record<string, unknown>) {
-  const res = await fetch('/.netlify/functions/confirm-payment', {
+  const res = await fetch('/api/confirm-payment', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -64,7 +64,7 @@ async function confirmPayment(payload: Record<string, unknown>) {
 }
 
 async function submitPaymentProof(payload: Record<string, unknown>) {
-  const res = await fetch('/.netlify/functions/submit-payment-proof', {
+  const res = await fetch('/api/submit-payment-proof', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),

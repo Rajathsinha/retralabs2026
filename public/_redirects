@@ -42,6 +42,12 @@
 /product/19  /product/cagrilintide/         301
 /product/19/ /product/cagrilintide/         301
 
-# Review shortcuts (previously only in netlify.toml, which Cloudflare ignores)
+# Review shortcuts
 /proof    https://www.trustpilot.com/review/retralabs.in 301
 /reviews  https://www.trustpilot.com/review/retralabs.in 301
+
+# SPA fallback — must stay LAST so every 301 above wins first.
+# Client-only routes (/checkout, /track, /calculator, /admin) have no
+# prerendered file; this serves the app shell for them instead of a 404.
+# Pages Functions run before this, so /api/* is unaffected.
+/*  /index.html  200

@@ -1,0 +1,16 @@
+# Cloudflare Pages headers.
+#
+# The site previously declared these in a config file Cloudflare does not read,
+# so they were never actually applied. Defined here so they take effect.
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Fingerprinted images and fonts are safe to cache hard too.
+/*.webp
+  Cache-Control: public, max-age=2592000
+
+/*
+  X-Frame-Options: SAMEORIGIN
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin

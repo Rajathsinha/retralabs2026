@@ -76,7 +76,7 @@ export function useDeliveryCheck(pincode: string, paymentMethod: 'prepay' | 'cod
       abortRef.current = controller;
 
       try {
-        const res = await fetch('/.netlify/functions/verify-delivery', {
+        const res = await fetch('/api/verify-delivery', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ pincode: pin, paymentMethod }),

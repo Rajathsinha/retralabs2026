@@ -42,7 +42,7 @@ export async function sendOrderConfirmationEmail(
   params: OrderEmailParams,
 ): Promise<{ success: true; messageId?: string } | { success: false, error: string }> {
   try {
-    const res = await fetch('/.netlify/functions/brevo-order-email', {
+    const res = await fetch('/api/brevo-order-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
