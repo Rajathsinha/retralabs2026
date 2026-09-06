@@ -9,11 +9,14 @@ import { getBreadcrumbSchema } from '../utils/localSeoSchemas';
 import { PRODUCTS } from '../data/products';
 import { PRODUCT_CONTENT } from '../data/productContent';
 import { productDisplayName, productDisplayText, productDisplayHeading } from '../utils/productDisplayName';
+import { productPath, productUrl, findProductByParam, isLegacyProductParam } from '../utils/productUrl';
+import { canonicalUrl as toCanonicalUrl } from '../utils/siteUrl';
+import { GUIDES, CATEGORIES } from '../data/seoData';
 import {
   ChevronRight, Star, Check, Package, Truck, Shield,
   ShieldCheck, FlaskConical, FileCheck,
   Clock, ShoppingCart, Minus, Plus, Microscope,
-  Lock,
+  Lock, ArrowRight, BookOpen,
 } from 'lucide-react';
 
 const DEMO_BAC_WATER = PRODUCTS.find(p => p.name.includes('Bacteriostatic'))!;
@@ -114,7 +117,7 @@ export default function ProductDetailPage() {
   const seoPurity = product ? (PURITY_MAP[product.name] ?? '99+') : '99+';
   const lowestPrice = product ? Math.min(...product.variants.map(v => v.price_inr)) : 0;
   const highestPrice = product ? Math.max(...product.variants.map(v => v.price_inr)) : 0;
-  const canonicalUrl = `https://retralabs.in/product/${id}`;
+  const canonicalUrl = product ? productUrl(product) : toCanonicalUrl(`/product/${id ?? ''}`);
   const productReviews = product ? REVIEWS_MAP[product.name] : undefined;
   const content = product ? PRODUCT_CONTENT[product.name] : undefined;
 
@@ -189,7 +192,7 @@ export default function ProductDetailPage() {
     : undefined;
 
   useSEO({
-    title: product ? `Buy ${product.name} India — ${seoPurity}% Pure, COA | From ${format(lowestPrice)}` : 'Research Peptides India | RetraLabs',
+    title: product ? `Buy ${product.name} India — ${seoPurity}% Pure, COA, From ${format(lowestPrice)} | RetraLabs` : 'Research Peptides India | RetraLabs',
     description: product ? `Buy ${product.name} in India — ${seoPurity}% HPLC-verified with COA on every order. From ${format(lowestPrice)}. Cash on Delivery, same-day dispatch & fast India-wide shipping.` : '',
     canonical: canonicalUrl,
     ...(product
@@ -204,7 +207,7 @@ export default function ProductDetailPage() {
             productSchema,
             getBreadcrumbSchema([
               { name: 'Home', url: 'https://retralabs.in/' },
-              { name: 'Catalogue', url: 'https://retralabs.in/catalogue' },
+              { name: 'Catalogue', url: toCanonicalUrl('/catalogue') },
               { name: product.name, url: canonicalUrl },
             ]),
             ...(content && content.faqs.length
@@ -223,11 +226,20 @@ export default function ProductDetailPage() {
       : {}),
   });
 
+  // Legacy `/product/<numeric id>` URLs → canonical slug URL (edge 301 in
+  // public/_redirects handles crawlers; this covers in-app navigation).
+  useEffect(() => {
+    if (isLegacyProductParam(id)) {
+      const p = findProductByParam(id);
+      if (p) navigate(productPath(p), { replace: true });
+    }
+  }, [id, navigate]);
+
   useEffect(() => { if (id) loadProduct(id); }, [id]);
 
-  async function loadProduct(productId: string) {
+  async function loadProduct(productParam: string) {
     setLoading(true);
-    const p = PRODUCTS.find(p => p.id === productId);
+    const p = findProductByParam(productParam);
     if (p) {
       setProduct(p);
       if (p.variants.length) setSelectedVariant(p.variants.find(v => v.in_stock) ?? p.variants[0]);
@@ -268,7 +280,7 @@ export default function ProductDetailPage() {
     <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-4">
       <FlaskConical className="w-12 h-12 text-[#D1D5DB]" />
       <p className="text-[#6B7280] text-[15px]">Product not found</p>
-      <button onClick={() => navigate('/catalogue')} className="text-[#2563EB] text-[14px] font-semibold hover:underline">Back to Shop</button>
+      <button onClick={() => navigate('/catalogue/')} className="text-[#2563EB] text-[14px] font-semibold hover:underline">Back to Shop</button>
     </div>
   );
 
@@ -307,6 +319,13 @@ export default function ProductDetailPage() {
     .slice(0, 4);
   const finalRelated = semanticRelated.length >= 2 ? semanticRelated : relatedProducts;
 
+  // Internal linking: guides that reference this product, plus its categories.
+  // These were previously reachable only from the footer.
+  const relatedGuides = GUIDES.filter(g => g.relatedProductIds.includes(product.id))
+    .sort((a, b) => Number(b.slug.includes(product.slug)) - Number(a.slug.includes(product.slug)))
+    .slice(0, 4);
+  const productCategories = CATEGORIES.filter(c => c.productIds.includes(product.id));
+
   return (
     <>
     <div className="min-h-screen bg-white pb-24 lg:pb-0">
@@ -317,9 +336,9 @@ export default function ProductDetailPage() {
           <nav className="flex items-center gap-1.5 text-[12px] text-[#9CA3AF]">
             <Link to="/" className="hover:text-[#374151] transition-colors">Home</Link>
             <ChevronRight className="w-3 h-3" />
-            <Link to="/catalogue" className="hover:text-[#374151] transition-colors">Shop</Link>
+            <Link to="/catalogue/" className="hover:text-[#374151] transition-colors">Shop</Link>
             <ChevronRight className="w-3 h-3" />
-            <Link to="/catalogue" className="hover:text-[#374151] transition-colors">All Products</Link>
+            <Link to="/catalogue/" className="hover:text-[#374151] transition-colors">All Products</Link>
             <ChevronRight className="w-3 h-3" />
             <span className="text-[#374151] font-medium">{productDisplayName(product)}</span>
           </nav>
@@ -706,6 +725,52 @@ export default function ProductDetailPage() {
         </div>
       )}
 
+      {/* ─── Research guides & categories (internal linking) ─────────────── */}
+      {(relatedGuides.length > 0 || productCategories.length > 0) && (
+        <div className="border-t border-[#E5E7EB] bg-white">
+          <div className="max-w-[820px] mx-auto px-6 py-12">
+            {relatedGuides.length > 0 && (
+              <>
+                <h2 className="text-[#111111] text-[22px] sm:text-[26px] font-bold tracking-[-0.02em] mb-2">
+                  {productDisplayName(product)} Research Guides
+                </h2>
+                <p className="text-[#6B7280] text-[14px] leading-[1.7] mb-6">
+                  Background reading on testing, storage and the research literature before you order.
+                </p>
+                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
+                  {relatedGuides.map(g => (
+                    <li key={g.slug}>
+                      <Link
+                        to={`/guides/${g.slug}/`}
+                        className="group flex items-start gap-3 border border-[#E5E7EB] rounded-[14px] px-4 py-3.5 hover:border-[#111111] hover:bg-[#FAFAFA] transition-all"
+                      >
+                        <BookOpen className="w-4 h-4 text-[#2563EB] flex-shrink-0 mt-0.5" strokeWidth={2} />
+                        <span className="text-[#111111] text-[14px] font-semibold leading-snug group-hover:text-[#2563EB] transition-colors">{g.h1}</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {productCategories.length > 0 && (
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-[#6B7280] text-[13px] font-medium">Browse category:</span>
+                {productCategories.map(cat => (
+                  <Link
+                    key={cat.slug}
+                    to={`/category/${cat.slug}/`}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 border border-[#E5E7EB] rounded-[10px] text-[13px] font-semibold text-[#374151] hover:border-[#111111] hover:bg-[#FAFAFA] transition-all"
+                  >
+                    {cat.label}
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ─── Trust / E-E-A-T signals (always visible → prerendered) ──────── */}
       <div className="border-t border-[#E5E7EB] bg-[#F5F7FA]">
         <div className="max-w-[1000px] mx-auto px-6 py-14">
@@ -750,7 +815,7 @@ export default function ProductDetailPage() {
                   key={rp.id}
                   className="group bg-white border border-[#E5E7EB] overflow-hidden cursor-pointer transition-all duration-300 hover:border-[#D0D0D0] hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
                   style={{ borderRadius: 16 }}
-                  onClick={() => navigate(`/product/${rp.id}`)}
+                  onClick={() => navigate(productPath(rp))}
                 >
                   <div className="aspect-square bg-[#F8F9FA] flex items-center justify-center overflow-hidden">
                     <img

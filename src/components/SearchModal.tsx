@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import { productPath } from '../utils/productUrl';
 import { useNavigate } from 'react-router-dom';
 import { Search, X, ArrowUpRight, Tag, CornerDownLeft, ArrowUpDown } from 'lucide-react';
 import { getProductImageUrl, BAC_WATER_IMAGE_URL } from '../utils/imageUrl';
@@ -104,7 +105,7 @@ function SearchOverlay({ isOpen, onClose }: Props) {
         setCursor((c) => Math.max(c - 1, 0));
       } else if (e.key === 'Enter' && results[cursor]) {
         e.preventDefault();
-        navigate(`/product/${results[cursor].id}`);
+        navigate(productPath(results[cursor]));
         onClose();
       }
     },
@@ -226,7 +227,7 @@ function SearchOverlay({ isOpen, onClose }: Props) {
                         type="button"
                         onMouseEnter={() => setCursor(i)}
                         onClick={() => {
-                          navigate(`/product/${product.id}`);
+                          navigate(productPath(product));
                           onClose();
                         }}
                         className={`group w-full flex items-center gap-4 px-6 py-3.5 text-left transition-all duration-150 ${

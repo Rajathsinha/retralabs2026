@@ -6,6 +6,7 @@ import {
   Microscope, Award, Heart, Lightbulb, Target,
 } from 'lucide-react';
 import { useSEO } from '../hooks/useSEO';
+import { canonicalUrl } from '../utils/siteUrl';
 import { getLocalBusinessSchema, getBreadcrumbSchema } from '../utils/localSeoSchemas';
 import { BUSINESS_NAP } from '../constants/config';
 
@@ -78,12 +79,12 @@ export default function AboutPage() {
   useSEO({
     title: 'About RetraLabs | Research Peptide Supplier in Bengaluru, India',
     description: `About RetraLabs — India's trusted research peptide supplier based in ${BUSINESS_NAP.address.city}, ${BUSINESS_NAP.address.state}. HPLC-verified compounds, COA included, 3000+ orders shipped across India.`,
-    canonical: 'https://retralabs.in/about',
+    canonical: canonicalUrl('/about'),
     schema: [
       getLocalBusinessSchema(),
       getBreadcrumbSchema([
         { name: 'Home', url: 'https://retralabs.in/' },
-        { name: 'About', url: 'https://retralabs.in/about' },
+        { name: 'About', url: canonicalUrl('/about') },
       ]),
     ],
   });

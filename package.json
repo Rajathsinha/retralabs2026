@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && npm run generate-sitemap && npm run prerender",
+    "build:spa": "vite build",
     "preview": "npm run build && wrangler pages dev dist",
     "publish-cf": "npm run build && wrangler pages publish dist --project-name retralabs2026",
     "prerender": "tsx scripts/prerender.mts",

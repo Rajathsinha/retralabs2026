@@ -2,6 +2,16 @@
 
 Copy the block below verbatim as the baseline context for any RetraLabs SEO audit, strategy, or competitor analysis. Fields marked `[NOT PROVIDED]` are genuinely unknown and should not be guessed.
 
+## Site changes shipped on 2026-09-06 (read before interpreting older GSC data)
+
+- Product URLs moved from numeric ids to keyword slugs: `/product/1/` → `/product/retatrutide/`, `/product/2/` → `/product/tirzepatide/`, `/product/3/` → `/product/ghk-cu/`, etc. Old URLs 301-redirect (see `public/_redirects`). GSC page data recorded before this date still shows the numeric URLs.
+- Every canonical, sitemap entry, schema URL and internal link now uses the trailing-slash form (`/about/`, `/catalogue/`, `/product/<slug>/`), matching what Cloudflare Pages serves and what Google had already indexed.
+- Homepage title changed to target "buy peptides india" / "peptides india"; the Retatrutide product page is now the sole target for "retatrutide india" and "retatrutide buy india".
+- New page `/guides/retatrutide-price-india/` targets "retatrutide price in india"; its price table is generated from the product data.
+- Guides and category pages are now linked from the header, homepage and every product page (previously footer-only).
+- `npm run build` now always runs sitemap generation and prerendering.
+- The self-serving LocalBusiness `aggregateRating` (4.8 / 312) was removed from the homepage schema. The site's on-page Trustpilot figure is 4.6; the live figure is NEEDS VERIFICATION.
+
 ```text
 Here is everything you need to know about my business before we start any SEO work. Reference this every time I ask you to run an audit, build a strategy, or analyze competitors. Never ask me for this information again unless I explicitly tell you that something has changed.
 

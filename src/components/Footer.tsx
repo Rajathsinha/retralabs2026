@@ -6,6 +6,7 @@ import Logo from './Logo';
 import TrustpilotWidget from './TrustpilotWidget';
 import { WHATSAPP_NUMBER, BUSINESS_NAP } from '../constants/config';
 import { CATEGORIES } from '../data/seoData';
+import { productPath } from '../utils/productUrl';
 
 const DISCLAIMER_ITEMS = [
   'These products are for research use only — not for personal consumption.',
@@ -106,18 +107,18 @@ const TRUST_BADGES = [
 ];
 
 const COMPANY_LINKS = [
-  { to: '/about', label: 'About Us' },
-  { to: '/contact', label: 'Contact Us' },
-  { to: '/support', label: 'Support' },
+  { to: '/about/', label: 'About Us' },
+  { to: '/contact/', label: 'Contact Us' },
+  { to: '/support/', label: 'Support' },
   { to: '/track', label: 'Track Order' },
-  { to: '/catalogue', label: 'Products' },
-  { to: '/guides', label: 'Research Guides' },
+  { to: '/catalogue/', label: 'Products' },
+  { to: '/guides/', label: 'Research Guides' },
 ];
 
 const LEGAL_LINKS = [
-  { to: '/privacy', label: 'Privacy Policy' },
-  { to: '/terms', label: 'Terms & Conditions' },
-  { to: '/refund', label: 'Refund Policy' },
+  { to: '/privacy/', label: 'Privacy Policy' },
+  { to: '/terms/', label: 'Terms & Conditions' },
+  { to: '/refund/', label: 'Refund Policy' },
 ];
 
 const WA_DEFAULT = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Hi, I have a question about RetraLabs products.')}`;
@@ -279,12 +280,12 @@ export default function Footer() {
               Popular Peptides
             </h4>
             <ul className="space-y-3">
-              <li><FooterLink href="/product/1">Buy Retatrutide India</FooterLink></li>
-              <li><FooterLink href="/product/2">Buy Tirzepatide India</FooterLink></li>
-              <li><FooterLink href="/product/3">Buy GHK-Cu India</FooterLink></li>
-              <li><FooterLink href="/product/7">Buy BPC-157 India</FooterLink></li>
-              <li><FooterLink href="/product/4">Buy Semax India</FooterLink></li>
-              <li><FooterLink href="/catalogue">All Research Peptides</FooterLink></li>
+              <li><FooterLink href={productPath({ slug: 'retatrutide' })}>Buy Retatrutide India</FooterLink></li>
+              <li><FooterLink href={productPath({ slug: 'tirzepatide' })}>Buy Tirzepatide India</FooterLink></li>
+              <li><FooterLink href={productPath({ slug: 'ghk-cu' })}>Buy GHK-Cu India</FooterLink></li>
+              <li><FooterLink href={productPath({ slug: 'bpc-157' })}>Buy BPC-157 India</FooterLink></li>
+              <li><FooterLink href={productPath({ slug: 'semax' })}>Buy Semax India</FooterLink></li>
+              <li><FooterLink href="/catalogue/">All Research Peptides</FooterLink></li>
             </ul>
           </div>
 
@@ -296,7 +297,7 @@ export default function Footer() {
             <ul className="space-y-3">
               {CATEGORIES.map(cat => (
                 <li key={cat.slug}>
-                  <FooterLink href={`/category/${cat.slug}`}>{cat.label}</FooterLink>
+                  <FooterLink href={`/category/${cat.slug}/`}>{cat.label}</FooterLink>
                 </li>
               ))}
             </ul>
@@ -309,7 +310,7 @@ export default function Footer() {
             </h4>
             <ul className="space-y-3">
               <li>
-                <FooterLink href="/support">Support</FooterLink>
+                <FooterLink href="/support/">Support</FooterLink>
               </li>
               <li>
                 <button

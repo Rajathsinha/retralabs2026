@@ -5,6 +5,8 @@ import { ProductWithVariants, ProductVariant } from '../types';
 import { useCart } from '../context/CartContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { useSEO } from '../hooks/useSEO';
+import { canonicalUrl } from '../utils/siteUrl';
+import { productPath, productUrl } from '../utils/productUrl';
 import { getBreadcrumbSchema } from '../utils/localSeoSchemas';
 import { getItemListSchema } from '../utils/seoSchemas';
 import { CATEGORIES as SEO_CATEGORIES } from '../data/seoData';
@@ -73,7 +75,7 @@ type CardProps = {
   product: ProductWithVariants;
   onAddToCart: (p: ProductWithVariants, v: ProductVariant) => void;
   addedVariantId: string | null;
-  onNavigate: (id: string) => void;
+  onNavigate: (slug: string) => void;
 };
 
 function ProductCard({ product, onAddToCart, addedVariantId, onNavigate }: CardProps) {
@@ -86,7 +88,7 @@ function ProductCard({ product, onAddToCart, addedVariantId, onNavigate }: CardP
     <div
       className="group bg-white border border-[#EBEBEB] flex flex-col cursor-pointer transition-all duration-300 hover:border-[#D0D0D0] hover:shadow-[0_8px_32px_rgba(0,0,0,0.10)]"
       style={{ borderRadius: 18 }}
-      onClick={() => onNavigate(product.id)}
+      onClick={() => onNavigate(product.slug)}
     >
       {/* Image area */}
       <div
@@ -168,14 +170,14 @@ export default function CataloguePage() {
   useSEO({
     title: 'Buy Research Peptides India | Full Catalogue — Retatrutide, Tirzepatide, GHK-Cu | RetraLabs',
     description: 'Browse all HPLC-verified research peptides available in India. Retatrutide, Tirzepatide, GHK-Cu, BPC-157, TB-500, Semax, Selank and more. COA included, COD available. Ships from Bengaluru across India.',
-    canonical: 'https://retralabs.in/catalogue',
+    canonical: canonicalUrl('/catalogue'),
     keywords: 'buy peptides india, research peptides catalogue, peptide shop india, buy retatrutide bangalore, tirzepatide india catalogue, buy bpc-157 india, buy ghk-cu india, buy semax india, buy selank india',
     schema: [
       getBreadcrumbSchema([
         { name: 'Home', url: 'https://retralabs.in/' },
-        { name: 'Catalogue', url: 'https://retralabs.in/catalogue' },
+        { name: 'Catalogue', url: canonicalUrl('/catalogue') },
       ]),
-      getItemListSchema(PRODUCTS.map(p => ({ name: p.name, url: `https://retralabs.in/product/${p.id}` }))),
+      getItemListSchema(PRODUCTS.map(p => ({ name: p.name, url: productUrl(p) }))),
     ],
   });
 
@@ -244,7 +246,7 @@ export default function CataloguePage() {
           <nav className="flex items-center gap-1.5 text-[12px] text-[#9CA3AF] mb-5">
             <Link to="/" className="hover:text-[#374151] transition-colors">Home</Link>
             <ChevronRight className="w-3 h-3" />
-            <Link to="/catalogue" className="hover:text-[#374151] transition-colors">Shop</Link>
+            <Link to="/catalogue/" className="hover:text-[#374151] transition-colors">Shop</Link>
             <ChevronRight className="w-3 h-3" />
             <span className="text-[#374151] font-medium">All Products</span>
           </nav>
@@ -261,7 +263,7 @@ export default function CataloguePage() {
             {SEO_CATEGORIES.map(cat => (
               <Link
                 key={cat.slug}
-                to={`/category/${cat.slug}`}
+                to={`/category/${cat.slug}/`}
                 className="inline-flex items-center gap-1 px-3 py-1.5 text-[12px] font-semibold rounded-full border border-[#E5E7EB] bg-white text-[#374151] hover:border-[#111111] hover:bg-[#FAFAFA] transition-all"
               >
                 {cat.label}
@@ -436,7 +438,7 @@ export default function CataloguePage() {
                     product={product}
                     onAddToCart={handleAddToCart}
                     addedVariantId={addedVariantId}
-                    onNavigate={(id) => navigate(`/product/${id}`)}
+                    onNavigate={(slug) => navigate(productPath({ slug }))}
                   />
                 ))}
               </div>

@@ -3,6 +3,7 @@ import { ProductWithVariants } from '../types';
 export const PRODUCTS: ProductWithVariants[] = [
   {
     id: '1',
+    slug: 'retatrutide',
     name: 'Retatrutide',
     display_name: 'GLP-3 R10',
     description: 'Triple agonist peptide targeting GLP-1, GIP, and glucagon receptors for metabolic and obesity research.',
@@ -16,6 +17,7 @@ export const PRODUCTS: ProductWithVariants[] = [
   },
   {
     id: '2',
+    slug: 'tirzepatide',
     name: 'Tirzepatide',
     description: 'Dual GIP and GLP-1 receptor agonist for metabolic research and analytical applications.',
     category: 'research-peptide',
@@ -32,6 +34,7 @@ export const PRODUCTS: ProductWithVariants[] = [
   },
   {
     id: '3',
+    slug: 'ghk-cu',
     name: 'GHK-Cu',
     description: 'Copper peptide complex for skin regeneration, wound healing, and anti-aging research applications.',
     category: 'research-peptide',
@@ -45,6 +48,7 @@ export const PRODUCTS: ProductWithVariants[] = [
   },
   {
     id: '4',
+    slug: 'semax',
     name: 'Semax',
     description: 'Synthetic ACTH analogue nootropic peptide for cognitive function, neuroprotection, and CNS research.',
     category: 'research-peptide',
@@ -58,6 +62,7 @@ export const PRODUCTS: ProductWithVariants[] = [
   },
   {
     id: '5',
+    slug: 'selank',
     name: 'Selank',
     description: 'Anxiolytic and nootropic heptapeptide derived from tuftsin, researched for anti-anxiety and cognitive enhancement.',
     category: 'research-peptide',
@@ -71,6 +76,7 @@ export const PRODUCTS: ProductWithVariants[] = [
   },
   {
     id: '7',
+    slug: 'bpc-157',
     name: 'BPC-157',
     description: 'Body protection compound derived from human gastric juice, researched for tissue repair, gut health, and injury recovery.',
     category: 'research-peptide',
@@ -85,6 +91,7 @@ export const PRODUCTS: ProductWithVariants[] = [
   },
   {
     id: '8',
+    slug: 'nad-plus',
     name: 'NAD+',
     description: 'Nicotinamide adenine dinucleotide coenzyme for cellular energy metabolism, DNA repair, and longevity research.',
     category: 'research-peptide',
@@ -97,6 +104,7 @@ export const PRODUCTS: ProductWithVariants[] = [
   },
   {
     id: '9',
+    slug: 'tb-500',
     name: 'TB-500',
     description: 'Synthetic analogue of Thymosin Beta-4, studied for tissue regeneration, wound healing, and inflammation modulation.',
     category: 'research-peptide',
@@ -111,6 +119,7 @@ export const PRODUCTS: ProductWithVariants[] = [
   },
   {
     id: '10',
+    slug: 'tesamorelin',
     name: 'Tesamorelin',
     description: 'GHRH analogue that stimulates growth hormone release, researched for metabolic regulation and body composition studies.',
     category: 'research-peptide',
@@ -124,6 +133,7 @@ export const PRODUCTS: ProductWithVariants[] = [
   },
   {
     id: '11',
+    slug: 'mots-c',
     name: 'MOT-C',
     description: 'MOTS-c mitochondrial-derived peptide studied for metabolic regulation, insulin sensitivity, and cellular homeostasis.',
     category: 'research-peptide',
@@ -137,6 +147,7 @@ export const PRODUCTS: ProductWithVariants[] = [
   },
   {
     id: '12',
+    slug: 'klow-blend',
     name: 'Klow Blend',
     description: 'Proprietary peptide blend formulated for advanced metabolic and body composition research. HPLC-verified, lyophilised, COA included.',
     category: 'research-peptide',
@@ -149,6 +160,7 @@ export const PRODUCTS: ProductWithVariants[] = [
   },
   {
     id: '13',
+    slug: 'cjc-1295-ipamorelin',
     name: 'CJC-1295 (No DAC) + Ipamorelin Stack',
     description: 'Pre-combined CJC-1295 without DAC and Ipamorelin (5mg each) in a single vial — the gold standard GHRH/GHRP research stack for GH secretion and body composition studies.',
     category: 'research-peptide',
@@ -162,6 +174,7 @@ export const PRODUCTS: ProductWithVariants[] = [
   },
   {
     id: '14',
+    slug: 'wolverine-stack',
     name: 'The Wolverine Stack',
     description: 'BPC-157 + TB-500 pre-combined blend (5mg each) — the ultimate tissue repair and recovery research stack. Lyophilised, COA included.',
     category: 'research-peptide',
@@ -175,6 +188,7 @@ export const PRODUCTS: ProductWithVariants[] = [
   },
   {
     id: '15',
+    slug: 'aod-9604',
     name: 'AOD 9604',
     description: 'Fragment of hGH (176-191) studied for fat metabolism and adipose tissue regulation, without the growth-promoting effects of full growth hormone.',
     category: 'research-peptide',
@@ -187,6 +201,7 @@ export const PRODUCTS: ProductWithVariants[] = [
   },
   {
     id: '16',
+    slug: 'epithalon',
     name: 'Epithalon',
     description: 'Synthetic tetrapeptide derived from the pineal gland, studied for telomere regulation, anti-aging, and longevity research.',
     category: 'research-peptide',
@@ -199,6 +214,7 @@ export const PRODUCTS: ProductWithVariants[] = [
   },
   {
     id: '17',
+    slug: 'kisspeptin-10',
     name: 'Kisspeptin-10',
     description: 'Neuropeptide that regulates GnRH secretion and reproductive hormone pathways, researched for hormonal and metabolic applications.',
     category: 'research-peptide',
@@ -211,6 +227,7 @@ export const PRODUCTS: ProductWithVariants[] = [
   },
   {
     id: '18',
+    slug: 'ss-31',
     name: 'SS-31',
     description: 'Mitochondria-targeting tetrapeptide (Elamipeptide) studied for cellular energy metabolism, oxidative stress reduction, and aging research.',
     category: 'research-peptide',
@@ -223,6 +240,7 @@ export const PRODUCTS: ProductWithVariants[] = [
   },
   {
     id: '19',
+    slug: 'cagrilintide',
     name: 'Cagrilintide',
     description: 'Long-acting amylin analogue studied for appetite suppression, weight regulation, and metabolic research applications.',
     category: 'research-peptide',
@@ -235,6 +253,7 @@ export const PRODUCTS: ProductWithVariants[] = [
   },
   {
     id: '6',
+    slug: 'bacteriostatic-water',
     name: 'Bacteriostatic Water (Pharma Grade)',
     description: 'Pharmaceutical grade bacteriostatic water for reconstituting peptides. Sterile, 0.9% benzyl alcohol.',
     category: 'Medical Supplies',

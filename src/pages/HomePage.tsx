@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState, useMemo } from 'react';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import {
-  ArrowRight, Star, CheckCircle, Zap, Truck, Lock, ShoppingBag,
+  ArrowRight, Star, CheckCircle, Zap, Truck, Lock, ShoppingBag, BookOpen,
   FlaskConical, Shield, Package, Microscope,
   AlertTriangle, Calculator, Beaker, Syringe, Droplets, ChevronDown,
 } from 'lucide-react';
@@ -10,6 +10,9 @@ import ProductCard from '../components/ProductCard';
 import { useSEO } from '../hooks/useSEO';
 import { getLocalBusinessSchema, getServiceAreaSchema } from '../utils/localSeoSchemas';
 import { BUSINESS_NAP } from '../constants/config';
+import { canonicalUrl } from '../utils/siteUrl';
+import { productPath } from '../utils/productUrl';
+import { GUIDES, CATEGORIES } from '../data/seoData';
 import { ParticleField } from '../components/ParticleField';
 import { MagneticButton } from '../components/MagneticButton';
 import { RevealSection, StaggerGroup } from '../components/Reveal';
@@ -158,10 +161,10 @@ export default function HomePage() {
 
 
   useSEO({
-    title: 'Buy Research Peptides India — Retatrutide (Reta), Tirzepatide, GHK-Cu | 99%+ Purity, COA | RetraLabs',
-    description: "India's oldest research peptide supplier since 2019. Buy Retatrutide (Reta), Tirzepatide, GHK-Cu, BPC-157 and more — 99%+ HPLC-verified, COA included. 2,400+ orders shipped India-wide with COD. RetraLabs, Bengaluru.",
+    title: 'Buy Peptides India | Research Peptides, 99%+ HPLC, COA | RetraLabs',
+    description: "India's oldest research peptide supplier since 2019. HPLC-verified research peptides with COA on every order — 2,400+ orders shipped India-wide, COD available. Bengaluru-based, ships to Mumbai, Delhi, Pune and all India.",
     keywords: 'buy peptides india, peptides india, peptide supplier india, research peptides india, oldest peptide company india, buy peptides bangalore, buy peptides bengaluru, peptide supplier bangalore, buy peptides mumbai, peptide supplier mumbai, buy peptides delhi, peptide supplier delhi, buy peptides pune, peptide supplier pune, buy retatrutide india, retatrutide india, reta india, buy reta india, where to buy reta india, buy retatrutide bangalore, buy retatrutide mumbai, buy retatrutide delhi, buy retatrutide pune, buy GHK-Cu india, GHK-Cu india, copper peptide india, buy GHK-Cu bangalore, buy GHK-Cu mumbai, buy GHK-Cu delhi, buy GHK-Cu pune, buy tirzepatide india, tirzepatide india, buy BPC-157 india, BPC-157 india, HPLC verified peptides india, COA peptides india, retralabs, retralabs india, retralabs bangalore, peptide company india since 2019',
-    canonical: 'https://retralabs.in/',
+    canonical: canonicalUrl('/'),
     schema: [getLocalBusinessSchema(), getServiceAreaSchema()],
   });
 
@@ -285,7 +288,7 @@ export default function HomePage() {
               <div>
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-3 w-full sm:w-auto">
                   <MagneticButton
-                    onClick={() => navigate('/catalogue')}
+                    onClick={() => navigate('/catalogue/')}
                     className="group flex items-center justify-center gap-2 rounded-[10px] bg-[#111111] hover:bg-[#1a1a1a] text-white font-semibold px-6 py-3 sm:px-7 sm:py-4 text-[13px] sm:text-[15px] transition-all duration-200 hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.3)] flex-1 sm:flex-none"
                   >
                     Shop the Real Stuff <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -449,7 +452,7 @@ export default function HomePage() {
               </div>
               <button
                 type="button"
-                onClick={() => navigate('/catalogue')}
+                onClick={() => navigate('/catalogue/')}
                 className="group flex items-center gap-1.5 text-[#2563EB] text-[14px] font-semibold hover:text-[#1d4ed8] transition-colors"
               >
                 View all <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
@@ -510,7 +513,7 @@ export default function HomePage() {
                 </span>
                 <button
                   type="button"
-                  onClick={() => navigate('/catalogue')}
+                  onClick={() => navigate('/catalogue/')}
                   className="group text-[#16a34a] text-[14px] font-semibold hover:text-[#15803d] transition-colors flex items-center gap-1.5"
                 >
                   Shop Now <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
@@ -759,7 +762,7 @@ export default function HomePage() {
               </h2>
               <p className="text-[#6B7280] text-[15px] mt-2 max-w-[560px] mx-auto leading-relaxed">
                 Everything researchers ask before ordering research-grade peptides from RetraLabs.
-                Looking for a specific compound? <RouterLink to="/product/1" className="text-[#2563EB] font-semibold hover:underline">Buy Retatrutide in India</RouterLink> or <RouterLink to="/product/2" className="text-[#2563EB] font-semibold hover:underline">Tirzepatide</RouterLink>.
+                Looking for a specific compound? <RouterLink to={productPath({ slug: 'retatrutide' })} className="text-[#2563EB] font-semibold hover:underline">Buy Retatrutide in India</RouterLink> or <RouterLink to={productPath({ slug: 'tirzepatide' })} className="text-[#2563EB] font-semibold hover:underline">Tirzepatide</RouterLink>.
               </p>
             </div>
           </Reveal>
@@ -785,12 +788,63 @@ export default function HomePage() {
             <div className="text-center mt-8">
               <button
                 type="button"
-                onClick={() => navigate('/catalogue')}
+                onClick={() => navigate('/catalogue/')}
                 className="group inline-flex items-center gap-2 bg-[#111111] hover:bg-[#1a1a1a] text-white font-semibold px-6 py-3 rounded-[10px] transition-all duration-200 text-[14px]"
               >
                 Browse the Full Catalogue
                 <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
               </button>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ═══════════════════ RESEARCH GUIDES & CATEGORIES ═══════════════════ */}
+      <section className="border-t border-[#E5E7EB] bg-[#FAFAFA]" style={{ paddingTop: 72, paddingBottom: 72, paddingLeft: 24, paddingRight: 24 }}>
+        <div className="max-w-[1200px] mx-auto">
+          <Reveal>
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
+              <div>
+                <p className="text-[#2563EB] text-[11px] font-bold uppercase tracking-[0.15em] mb-2.5">
+                  Research Guides
+                </p>
+                <h2 className="text-[#111111] text-[28px] sm:text-[32px] font-bold tracking-[-0.02em]">
+                  Before You Order: Testing, Storage &amp; Research
+                </h2>
+              </div>
+              <RouterLink to="/guides/" className="inline-flex items-center gap-1.5 text-[#2563EB] text-[14px] font-semibold hover:underline">
+                All guides
+                <ArrowRight className="w-3.5 h-3.5" />
+              </RouterLink>
+            </div>
+          </Reveal>
+          <Reveal delay={0.1}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {GUIDES.slice(0, 6).map(guide => (
+                <RouterLink
+                  key={guide.slug}
+                  to={`/guides/${guide.slug}/`}
+                  className="group bg-white border border-[#E5E7EB] rounded-[16px] p-6 hover:border-[#D0D0D0] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] transition-all"
+                >
+                  <BookOpen className="w-5 h-5 text-[#2563EB] mb-3" strokeWidth={1.8} />
+                  <h3 className="text-[#111111] text-[16px] font-bold mb-1.5 group-hover:text-[#2563EB] transition-colors">{guide.h1}</h3>
+                  <p className="text-[#6B7280] text-[13px] leading-[1.7] line-clamp-2">{guide.intro}</p>
+                </RouterLink>
+              ))}
+            </div>
+          </Reveal>
+          <Reveal delay={0.15}>
+            <div className="flex flex-wrap items-center gap-3 mt-8">
+              <span className="text-[#6B7280] text-[13px] font-medium">Shop by research area:</span>
+              {CATEGORIES.map(cat => (
+                <RouterLink
+                  key={cat.slug}
+                  to={`/category/${cat.slug}/`}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-[#E5E7EB] rounded-[10px] text-[13px] font-semibold text-[#374151] hover:border-[#111111] transition-all"
+                >
+                  {cat.label}
+                </RouterLink>
+              ))}
             </div>
           </Reveal>
         </div>
@@ -809,7 +863,7 @@ export default function HomePage() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-8">
               <button
                 type="button"
-                onClick={() => navigate('/catalogue')}
+                onClick={() => navigate('/catalogue/')}
                 className="group inline-flex items-center gap-2 bg-white text-[#111111] font-bold px-7 py-4 rounded-[10px] transition-all duration-200 hover:shadow-[0_8px_24px_-4px_rgba(255,255,255,0.2)] text-[15px]"
               >
                 Shop the Catalogue

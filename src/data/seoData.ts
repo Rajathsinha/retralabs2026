@@ -116,6 +116,29 @@ export const CATEGORIES: CategoryDef[] = [
   },
 ];
 
+
+// ── Retatrutide pricing, derived from products.ts so this guide never drifts from the shop ──
+const RETA = PRODUCTS.find(p => p.slug === 'retatrutide');
+const inr = (n: number) => `₹${n.toLocaleString('en-IN')}`;
+const RETA_VARIANTS = (RETA?.variants ?? []).slice().sort((a, b) => a.price_inr - b.price_inr);
+const RETA_STARTER_PRICE = RETA_VARIANTS.length ? inr(RETA_VARIANTS[0].price_inr) : 'UNKNOWN';
+const RETA_PRICE_SUMMARY = RETA_VARIANTS.length
+  ? `${inr(RETA_VARIANTS[0].price_inr)} for a ${RETA_VARIANTS[0].dosage_mg}mg starter vial, up to ${inr(RETA_VARIANTS[RETA_VARIANTS.length - 1].price_inr)} for the ${RETA_VARIANTS[RETA_VARIANTS.length - 1].vial_configuration ?? `${RETA_VARIANTS[RETA_VARIANTS.length - 1].dosage_mg}mg`} pack`
+  : 'prices listed on the product page';
+const RETA_PRICE_LINES: string[] = RETA_VARIANTS.length
+  ? [
+      ...RETA_VARIANTS.map(v => {
+        const perVial = v.vial_configuration && /×|x/i.test(v.vial_configuration)
+          ? ` (${inr(Math.round(v.price_inr / Math.max(1, Math.round(v.dosage_mg / 10))))} per 10mg vial)`
+          : '';
+        const compare = v.compare_at_price_inr ? `, reduced from ${inr(v.compare_at_price_inr)}` : '';
+        const stock = v.in_stock ? '' : ' — currently out of stock';
+        return `${v.vial_configuration ?? `${v.dosage_mg}mg`} (${v.dosage_mg}mg total): ${inr(v.price_inr)}${perVial}${compare}${stock}.`;
+      }),
+      'All prices are in Indian Rupees, include the COA and HPLC report, and include free standard shipping across India. Pricing is updated on the product page whenever it changes.',
+    ]
+  : ['Current pricing is listed on the Retatrutide product page.'];
+
 export const GUIDES: GuideDef[] = [
   {
     slug: 'what-are-research-peptides',
@@ -274,6 +297,49 @@ export const GUIDES: GuideDef[] = [
       { q: 'What is Retatrutide?', a: 'Retatrutide (LY3437943) is a triple receptor agonist targeting GLP-1, GIP, and glucagon receptors, studied in metabolic and obesity research.' },
       { q: 'Where can I buy Retatrutide in India?', a: 'RetraLabs supplies 99.2% HPLC-verified Retatrutide in India with COA, starting at ₹3,600 for 10mg. India-wide shipping with COD.' },
       { q: 'What is the difference between Retatrutide and Tirzepatide?', a: 'Tirzepatide is a dual GIP/GLP-1 agonist. Retatrutide is a triple agonist that also targets the glucagon receptor, studied for broader metabolic effects.' },
+    ],
+    relatedProductIds: ['1', '2', '19'],
+    relatedCategorySlugs: ['metabolic-research'],
+  },
+  {
+    slug: 'retatrutide-price-india',
+    title: 'Retatrutide Price in India (Current Vial Pricing, COA Included) | RetraLabs',
+    description: 'Current Retatrutide price in India from RetraLabs: per-vial and multi-vial pack pricing in INR, what a COA and HPLC report add, and how COD ordering works. Research use only.',
+    keywords: 'retatrutide price in india, retatrutide price, retatrutide cost india, retatrutide 10mg price india, reta price india, buy retatrutide india, retatrutide india',
+    h1: 'Retatrutide Price in India',
+    intro: `Retatrutide (LY3437943) is supplied by RetraLabs in India for laboratory research at ${RETA_PRICE_SUMMARY}. This page lists the current pricing for every vial configuration, explains what is included in the price, and outlines how Cash on Delivery ordering works across India. Prices are in INR and include the Certificate of Analysis and HPLC purity report.`,
+    sections: [
+      {
+        heading: 'Current Retatrutide Pricing (INR)',
+        body: RETA_PRICE_LINES,
+      },
+      {
+        heading: 'What the Price Includes',
+        body: [
+          'Every Retatrutide order from RetraLabs ships with a Certificate of Analysis documenting the HPLC purity result (99.2%), batch number and identity confirmation. The full HPLC trace for the batch can be requested at any time.',
+          'The vial is a sterile, nitrogen-sealed lyophilised powder sourced from GMP-certified manufacturers. Bacteriostatic water for reconstitution is offered as an add-on at checkout. Shipping across India is free on standard delivery; express delivery to major cities is available for an additional charge.',
+        ],
+      },
+      {
+        heading: 'Why Retatrutide Prices Vary Between Indian Suppliers',
+        body: [
+          'Retatrutide listings in India range widely in price. The main drivers are purity verification (whether a batch-level HPLC report and COA are provided), sourcing (GMP-certified manufacturer versus unverified bulk powder), and vial fill accuracy. A lower headline price without a COA gives no way to confirm what is actually in the vial.',
+          'Multi-vial packs reduce the per-vial cost. RetraLabs prices the 10mg × 2 and 10mg × 5 packs at a lower per-vial rate than the single starter vial for ongoing research programs.',
+        ],
+      },
+      {
+        heading: 'How to Order Retatrutide in India',
+        body: [
+          'Select a vial configuration on the Retatrutide product page, add it to cart, and check out with UPI, bank transfer or Cash on Delivery. Orders placed before 2 PM dispatch the same day from Bengaluru, with delivery to Mumbai, Delhi, Pune, Chennai, Hyderabad and all India.',
+          'Retatrutide is supplied strictly for laboratory and analytical research. It is not for human consumption and RetraLabs does not provide dosing or administration guidance.',
+        ],
+      },
+    ],
+    faqs: [
+      { q: 'What is the price of Retatrutide in India?', a: `At RetraLabs, Retatrutide is priced at ${RETA_PRICE_SUMMARY}. Every configuration includes a Certificate of Analysis and HPLC purity report.` },
+      { q: 'What is the price of a 10mg Retatrutide vial in India?', a: `A single 10mg Retatrutide starter vial costs ${RETA_STARTER_PRICE} at RetraLabs, including COA and free standard India-wide shipping.` },
+      { q: 'Is Cash on Delivery available for Retatrutide?', a: 'Yes. RetraLabs offers Cash on Delivery across India for Retatrutide, alongside UPI and bank transfer.' },
+      { q: 'Does the price include a COA?', a: 'Yes. Every Retatrutide order includes a Certificate of Analysis with the batch HPLC purity result (99.2%), batch number and identity confirmation at no extra cost.' },
     ],
     relatedProductIds: ['1', '2', '19'],
     relatedCategorySlugs: ['metabolic-research'],

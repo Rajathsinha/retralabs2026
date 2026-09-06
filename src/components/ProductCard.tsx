@@ -6,6 +6,7 @@ import { ProductWithVariants } from '../types';
 import { getProductImageUrl } from '../utils/imageUrl';
 import { PRODUCTS } from '../data/products';
 import { productDisplayName } from '../utils/productDisplayName';
+import { productPath } from '../utils/productUrl';
 
 const BAC_WATER = PRODUCTS.find(p => p.name.toLowerCase().includes('bacteriostatic'));
 
@@ -40,7 +41,7 @@ export default function ProductCard({ product }: ProductCardProps) {
     <div
       className="group relative flex flex-col bg-white border border-[#EAECF0] overflow-hidden cursor-pointer transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_20px_48px_-12px_rgba(0,0,0,0.13)] hover:border-[#D0D5DD]"
       style={{ borderRadius: 16 }}
-      onClick={() => navigate(`/product/${product.id}`)}
+      onClick={() => navigate(productPath(product))}
     >
       {/* Image area */}
       <div className="relative w-full aspect-square bg-gradient-to-b from-[#F9FAFB] to-[#F2F4F7] overflow-hidden">

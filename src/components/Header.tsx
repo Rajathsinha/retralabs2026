@@ -17,12 +17,12 @@ const MARQUEE_ITEMS = [
 ];
 
 const NAV_ITEMS: { path: string; label: string; external?: boolean }[] = [
-  { path: '/catalogue',   label: 'Shop' },
-  { path: '/catalogue',   label: 'Peptides' },
-  { path: '/support',     label: 'Resources' },
+  { path: '/catalogue/',  label: 'Shop' },
+  { path: '/guides/',     label: 'Guides' },
+  { path: '/support/',    label: 'Resources' },
   { path: '/track',       label: 'Track Order' },
   { path: BUSINESS_NAP.social.trustpilot, label: 'Reviews', external: true },
-  { path: '/about',       label: 'About Us' },
+  { path: '/about/',      label: 'About Us' },
 ];
 
 export default function Header() {
@@ -74,8 +74,11 @@ export default function Header() {
     return () => document.removeEventListener('mousedown', handler);
   }, [currencyOpen]);
 
-  const active = (path: string) =>
-    path === '/' ? location.pathname === '/' : location.pathname.startsWith(path);
+  const active = (path: string) => {
+    if (path === '/') return location.pathname === '/';
+    const base = path.replace(/\/+$/, '');
+    return location.pathname === base || location.pathname.startsWith(`${base}/`);
+  };
 
 
 
@@ -121,7 +124,7 @@ export default function Header() {
               {/* CENTER — Desktop nav */}
               <nav className="hidden lg:flex items-center gap-1">
                 {NAV_ITEMS.map(({ path, label, external }, i) => {
-                  const isActive = !external && active(path) && label !== 'Peptides' && label !== 'Resources';
+                  const isActive = !external && active(path) && label !== 'Resources';
                   const className = `relative px-4 py-2 text-[14px] font-medium transition-all duration-200 group ${
                     isActive ? 'text-[#111111]' : 'text-[#6B7280] hover:text-[#111111]'
                   }`;
@@ -243,7 +246,7 @@ export default function Header() {
 
                 {NAV_ITEMS.map(({ path, label, external }, i) => {
                   const className = `flex items-center px-4 py-3.5 rounded-[14px] text-[15px] font-medium transition-all ${
-                    !external && active(path) && label !== 'Peptides' && label !== 'Resources'
+                    !external && active(path) && label !== 'Resources'
                       ? 'text-[#111111] bg-[#F5F7FA]'
                       : 'text-[#374151] hover:text-[#111111] hover:bg-[#F5F7FA]'
                   }`;
