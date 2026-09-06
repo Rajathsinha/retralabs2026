@@ -1,4 +1,5 @@
 import { LayoutDashboard, ShoppingBag, BarChart3, Users, Settings, LogOut, X, ExternalLink } from 'lucide-react';
+import Logo from '../Logo';
 
 export type AdminPage = 'dashboard' | 'orders' | 'analytics' | 'customers' | 'settings';
 
@@ -29,12 +30,9 @@ export function Sidebar({ current, onNavigate, onLogout, mobileOpen, onCloseMobi
       >
         {/* Logo */}
         <div className="h-16 flex items-center justify-between px-5 border-b border-white/[0.06]">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#2563EB] to-[#60A5FA] flex items-center justify-center">
-              <span className="text-white font-black text-sm">R</span>
-            </div>
-            <span className="text-white font-bold text-[15px] tracking-tight">RetraLabs</span>
-          </div>
+          <a href="/" className="hover:opacity-90 transition-opacity">
+            <Logo size="md" variant="light" />
+          </a>
           <button onClick={onCloseMobile} className="text-slate-400 lg:hidden">
             <X className="w-5 h-5" />
           </button>

@@ -19,6 +19,7 @@ import { CustomersView } from '../components/admin/CustomersView';
 import { SettingsView } from '../components/admin/SettingsView';
 import type { AirtableRecord, AdminFilters, StatCardData } from '../components/admin/types';
 import { adminFetch, adminLogin, getAdminToken, clearAdminToken } from '../utils/adminAuth';
+import Logo from '../components/Logo';
 
 const EMPTY_FILTERS: AdminFilters = {
   search: '',
@@ -81,12 +82,9 @@ function PasswordGate({ onAuth }: { onAuth: () => void }) {
   return (
     <div className="min-h-screen bg-[#0B1220] flex items-center justify-center px-4">
       <div className="w-full max-w-sm bg-white/[0.04] border border-white/10 rounded-2xl p-8">
-        <div className="text-center mb-7">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#2563EB] to-[#60A5FA] flex items-center justify-center mx-auto mb-3">
-            <span className="text-white font-black">R</span>
-          </div>
-          <span className="text-white font-bold text-lg">RetraLabs</span>
-          <p className="text-slate-500 text-xs mt-1">Admin Dashboard</p>
+        <div className="flex flex-col items-center mb-7">
+          <Logo size="lg" variant="light" />
+          <p className="text-slate-500 text-xs mt-2.5">Admin Dashboard</p>
         </div>
         <input
           type="password"

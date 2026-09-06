@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Printer, X, FileText, CheckCircle2, ShieldCheck } from 'lucide-react';
 import type { AirtableRecord } from './types';
+import Logo from '../Logo';
 
 interface OrderInvoiceModalProps {
   records: AirtableRecord[];
@@ -34,11 +35,8 @@ function InvoiceSheet({ record }: { record: AirtableRecord }) {
         {/* Top Header */}
         <div className="flex items-start justify-between border-b-2 border-slate-900 pb-4 mb-5">
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-8 h-8 rounded-lg bg-blue-600 text-white font-black flex items-center justify-center text-sm">
-                R
-              </div>
-              <span className="text-xl font-black text-slate-900 tracking-tight">RetraLabs</span>
+            <div className="mb-1.5">
+              <Logo size="md" variant="dark" />
             </div>
             <p className="text-xs text-slate-500 font-medium">Premium Research Peptides & Biomolecules</p>
             <p className="text-[10px] text-slate-400 mt-0.5">Bengaluru, Karnataka, India · support@retralabs.com</p>
