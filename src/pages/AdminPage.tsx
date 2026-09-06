@@ -16,12 +16,12 @@ import { AnalyticsView } from '../components/admin/AnalyticsView';
 import { CustomersView } from '../components/admin/CustomersView';
 import { SettingsView } from '../components/admin/SettingsView';
 import type { AirtableRecord, AdminFilters, StatCardData } from '../components/admin/types';
+import { adminFetch, adminLogin, getAdminToken, clearAdminToken } from '../utils/adminAuth';
 
-const PASS = import.meta.env.VITE_ADMIN_PASSWORD;
 const EMPTY_FILTERS: AdminFilters = { search: '', status: '', payment: '', delivery: '', referral: '', customer: '', trackingId: '', dateFrom: '', dateTo: '' };
 
 async function fetchOrders(): Promise<AirtableRecord[]> {
-  const res = await fetch('/.netlify/functions/list-orders', { headers: { 'Content-Type': 'application/json' } });
+  const res = await adminFetch('/api/list-orders');
   if (!res.ok) {
     const json = await res.json().catch(() => null);
     throw new Error(json?.error || `Airtable fetch failed (HTTP ${res.status})`);
@@ -49,8 +49,13 @@ function spark(seed: number): number[] {
 function PasswordGate({ onAuth }: { onAuth: () => void }) {
   const [input, setInput] = useState('');
   const [err, setErr] = useState(false);
-  const submit = () => {
-    if (input === PASS) { sessionStorage.setItem('admin_auth', '1'); onAuth(); }
+  const [busy, setBusy] = useState(false);
+  const submit = async () => {
+    if (busy || !input) return;
+    setBusy(true);
+    const ok = await adminLogin(input);
+    setBusy(false);
+    if (ok) onAuth();
     else { setErr(true); setTimeout(() => setErr(false), 2000); }
   };
   return (
@@ -83,7 +88,7 @@ function PasswordGate({ onAuth }: { onAuth: () => void }) {
 
 // ── Main dashboard ──────────────────────────────────────────────────────────
 export default function AdminPage() {
-  const [authed, setAuthed] = useState(() => sessionStorage.getItem('admin_auth') === '1');
+  const [authed, setAuthed] = useState(() => Boolean(getAdminToken()));
   useSEO({ title: 'Admin | RetraLabs', description: 'Internal dashboard.', noindex: true });
 
   const [page, setPage] = useState<AdminPageId>('orders');
@@ -229,7 +234,7 @@ export default function AdminPage() {
       <Sidebar
         current={page}
         onNavigate={(p) => { setPage(p); setMobileNav(false); }}
-        onLogout={() => { sessionStorage.removeItem('admin_auth'); setAuthed(false); }}
+        onLogout={() => { clearAdminToken(); setAuthed(false); }}
         mobileOpen={mobileNav}
         onCloseMobile={() => setMobileNav(false)}
       />

@@ -1,3 +1,4 @@
+import { requireAdmin } from './admin-auth';
 
 
 const corsHeaders = {
@@ -10,6 +11,10 @@ export const handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers: corsHeaders, body: '' };
   }
+
+  // Admin-only: this route exposes or mutates order data.
+  const denied = await requireAdmin(event);
+  if (denied) return denied;
 
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, headers: corsHeaders, body: JSON.stringify({ error: 'Method not allowed' }) };
