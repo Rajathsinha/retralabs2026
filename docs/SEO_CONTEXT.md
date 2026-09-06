@@ -10,7 +10,7 @@ Copy the block below verbatim as the baseline context for any RetraLabs SEO audi
 - New page `/guides/retatrutide-price-india/` targets "retatrutide price in india"; its price table is generated from the product data.
 - Guides and category pages are now linked from the header, homepage and every product page (previously footer-only).
 - `npm run build` now always runs sitemap generation and prerendering.
-- The self-serving LocalBusiness `aggregateRating` (4.8 / 312) was removed from the homepage schema. The site's on-page Trustpilot figure is 4.6; the live figure is NEEDS VERIFICATION.
+- The self-serving LocalBusiness `aggregateRating` (4.8 / 312) was removed from the homepage schema. Live Trustpilot verified on 2026-09-06: TrustScore 4.6 / 5 from 58 reviews, claimed profile since February 2026. The homepage tile (4.6) and llms.txt match this.
 
 ```text
 Here is everything you need to know about my business before we start any SEO work. Reference this every time I ask you to run an audit, build a strategy, or analyze competitors. Never ask me for this information again unless I explicitly tell you that something has changed.
@@ -119,7 +119,7 @@ Google reviews:
 No Google Business Profile currently.
 
 Trustpilot:
-Previously recorded at approximately 4.6/5 with 58 reviews.
+Verified 2026-09-06: TrustScore 4.6/5 with 58 reviews (claimed profile, February 2026).
 This is time-sensitive and should be rechecked before using it as current data.
 
 New reviews per month:
