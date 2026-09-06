@@ -1,6 +1,6 @@
 import { useSEO } from '../hooks/useSEO';
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { ShoppingBag, IndianRupee, Clock, Package, Truck, CheckCircle2, Banknote, CreditCard, Zap, X, FileText, Printer, Copy, Check } from 'lucide-react';
+import { ShoppingBag, IndianRupee, Clock, Package, Truck, CheckCircle2, Banknote, CreditCard, Zap, X, FileText, Printer, Copy, Check, Plus } from 'lucide-react';
 import { Sidebar } from '../components/admin/Sidebar';
 import type { AdminPage as AdminPageId } from '../components/admin/Sidebar';
 import { Topbar } from '../components/admin/Topbar';
@@ -11,14 +11,15 @@ import { OrderDrawer } from '../components/admin/OrderDrawer';
 import { QuickActions } from '../components/admin/QuickActions';
 import { BulkAddressLabelModal } from '../components/admin/BulkAddressLabelModal';
 import { OrderInvoiceModal } from '../components/admin/OrderInvoiceModal';
+import { ManualOrderModal } from '../components/admin/ManualOrderModal';
 import { SkeletonTable } from '../components/admin/SkeletonTable';
 import { DashboardView } from '../components/admin/DashboardView';
 import { AnalyticsView } from '../components/admin/AnalyticsView';
 import { CustomersView } from '../components/admin/CustomersView';
 import { SettingsView } from '../components/admin/SettingsView';
 import type { AirtableRecord, AdminFilters, StatCardData } from '../components/admin/types';
+import { adminFetch, adminLogin, getAdminToken, clearAdminToken } from '../utils/adminAuth';
 
-const PASS = import.meta.env.VITE_ADMIN_PASSWORD;
 const EMPTY_FILTERS: AdminFilters = {
   search: '',
   status: '',
@@ -40,7 +41,7 @@ const EMPTY_FILTERS: AdminFilters = {
 };
 
 async function fetchOrders(): Promise<AirtableRecord[]> {
-  const res = await fetch('/.netlify/functions/list-orders', { headers: { 'Content-Type': 'application/json' } });
+  const res = await adminFetch('/api/list-orders');
   if (!res.ok) {
     const json = await res.json().catch(() => null);
     throw new Error(json?.error || `Airtable fetch failed (HTTP ${res.status})`);
@@ -68,8 +69,13 @@ function spark(seed: number): number[] {
 function PasswordGate({ onAuth }: { onAuth: () => void }) {
   const [input, setInput] = useState('');
   const [err, setErr] = useState(false);
-  const submit = () => {
-    if (input === PASS) { sessionStorage.setItem('admin_auth', '1'); onAuth(); }
+  const [busy, setBusy] = useState(false);
+  const submit = async () => {
+    if (busy || !input) return;
+    setBusy(true);
+    const ok = await adminLogin(input);
+    setBusy(false);
+    if (ok) onAuth();
     else { setErr(true); setTimeout(() => setErr(false), 2000); }
   };
   return (
@@ -102,7 +108,7 @@ function PasswordGate({ onAuth }: { onAuth: () => void }) {
 
 // ── Main dashboard ──────────────────────────────────────────────────────────
 export default function AdminPage() {
-  const [authed, setAuthed] = useState(() => sessionStorage.getItem('admin_auth') === '1');
+  const [authed, setAuthed] = useState(() => Boolean(getAdminToken()));
   useSEO({ title: 'Admin | RetraLabs', description: 'Internal dashboard.', noindex: true });
 
   const [page, setPage] = useState<AdminPageId>('orders');
@@ -119,6 +125,7 @@ export default function AdminPage() {
   const [viewRecord, setViewRecord] = useState<AirtableRecord | null>(null);
   const [showBulkLabels, setShowBulkLabels] = useState(false);
   const [invoiceModalRecords, setInvoiceModalRecords] = useState<AirtableRecord[] | null>(null);
+  const [showManualModal, setShowManualModal] = useState(false);
   const [pageNum, setPageNum] = useState(1);
   const [mobileNav, setMobileNav] = useState(false);
   const [copiedPhones, setCopiedPhones] = useState(false);
@@ -351,7 +358,7 @@ export default function AdminPage() {
       <Sidebar
         current={page}
         onNavigate={(p) => { setPage(p); setMobileNav(false); }}
-        onLogout={() => { sessionStorage.removeItem('admin_auth'); setAuthed(false); }}
+        onLogout={() => { clearAdminToken(); setAuthed(false); }}
         mobileOpen={mobileNav}
         onCloseMobile={() => setMobileNav(false)}
       />
@@ -462,6 +469,14 @@ export default function AdminPage() {
                     className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors"
                   >
                     Export CSV
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowManualModal(true)}
+                    className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs transition-all hover:bg-blue-700"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Paste / Create Orders
                   </button>
                 </div>
               </div>
@@ -617,7 +632,20 @@ export default function AdminPage() {
         />
       )}
 
-      <QuickActions onRefresh={load} />
+      {showManualModal && (
+        <ManualOrderModal
+          onClose={() => setShowManualModal(false)}
+          onOrdersCreated={() => {
+            load();
+          }}
+        />
+      )}
+
+      <QuickActions
+        onRefresh={load}
+        onCreateOrder={() => setShowManualModal(true)}
+        onPrintLabels={() => setShowBulkLabels(true)}
+      />
     </div>
   );
 }

@@ -94,11 +94,6 @@ export function paymentSessionExpiresAt(startedAtIso: string): number {
   return new Date(startedAtIso).getTime() + PAYMENT_SESSION_SECONDS * 1000;
 }
 
-export function isPaymentSessionExpired(expiresAtIso: string | null | undefined): boolean {
-  if (!expiresAtIso) return true;
-  return Date.now() > new Date(expiresAtIso).getTime();
-}
-
 /**
  * Generate internal document number: RETR0000000035
  * Scans Airtable for the highest existing RETR sequence.
@@ -503,8 +498,28 @@ export async function processLogistics(
     warning: null,
   };
 
+  // Ask Innofulfill whether it serves this PIN before trying to book with it.
+  // Previously we always attempted Innofulfill and only reached Shiprocket if
+  // the call threw, so PINs Innofulfill simply does not cover could end up
+  // with neither carrier. Routing is now decided up front.
+  let routing: { expressAvailable: boolean; provider: 'Innofulfill' | 'Shiprocket'; indeterminate: boolean; reason?: string };
   try {
-    const innoToken = await getInnofulfillToken();
+    // Dynamic import: delivery-shared imports getInnofulfillToken from this
+    // module, so a static import here would be circular.
+    const { routeShipment } = await import('./delivery-shared');
+    routing = await routeShipment(body.customer?.pincode || '', body.paymentMethod);
+  } catch (routeErr) {
+    console.warn('[Logistics] Routing check failed, will try Innofulfill first:', routeErr);
+    routing = { expressAvailable: true, provider: 'Innofulfill', indeterminate: true };
+  }
+
+  if (routing.provider === 'Shiprocket' && !routing.indeterminate) {
+    console.log(`[Logistics] ${orderId}: Innofulfill does not serve ${body.customer?.pincode} — routing to Shiprocket`);
+    warning = routing.reason ? `Innofulfill unserviceable: ${routing.reason}` : 'Innofulfill does not serve this PIN code';
+  }
+
+  try {
+    const innoToken = routing.provider === 'Innofulfill' ? await getInnofulfillToken() : null;
     if (innoToken) {
       const inno = await createInnofulfillOrder(
         innoToken,
@@ -529,7 +544,7 @@ export async function processLogistics(
       await applyLogisticsPatch(baseId, table, token, recordId, result, 'Innofulfill');
       return result;
     }
-    warning = 'Innofulfill credentials not configured';
+    if (routing.provider === 'Innofulfill') warning = 'Innofulfill credentials not configured';
   } catch (innoErr) {
     warning = innoErr instanceof Error ? innoErr.message : String(innoErr);
     console.warn(`[Logistics] Innofulfill failed for ${orderId}: ${warning}`);
@@ -539,15 +554,18 @@ export async function processLogistics(
     const srToken = await getShiprocketToken();
     if (srToken) {
       const sr = await createShiprocketOrder(srToken, orderId, body.customer, body.cartItems, body.total, body.paymentMethod);
+      // Shiprocket adhoc orders land in the Shiprocket dashboard; an AWB is
+      // assigned there, not returned here. Absence of an AWB is expected and
+      // is not an error.
       result = {
         innofulfillOrderId: sr.shiprocketOrderId,
         innofulfillInternalId: sr.shiprocketShipmentId,
         carrierName: sr.courierName,
-        carrierDisplayName: `Shiprocket (${sr.courierName || 'Partner'})`,
+        carrierDisplayName: sr.awbNumber ? `Shiprocket (${sr.courierName || 'Partner'})` : 'Shiprocket',
         awbNumber: sr.awbNumber,
         shipmentStatus: sr.shipmentStatus,
         shipmentProvider: 'Shiprocket',
-        warning: warning ? `Innofulfill failed: ${warning}` : null,
+        warning,
       };
       await applyLogisticsPatch(baseId, table, token, recordId, result, 'Shiprocket');
       return result;

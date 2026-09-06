@@ -1,3 +1,4 @@
+import { adminFetch } from '../../utils/adminAuth';
 import { X, Copy, Printer, ExternalLink, Truck, FileText, MapPin, CreditCard, User, Clock, StickyNote } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { StatusBadge, DeliveryBadge, PaymentBadge, PaymentStatusBadge } from './badges';
@@ -77,7 +78,7 @@ export function OrderDrawer({ record, onClose, onPrintInvoice, onPrintLabel }: O
     if (!window.confirm('Confirm that payment proof has been verified for this order?')) return;
     setVerifying(true);
     try {
-      const res = await fetch('/.netlify/functions/verify-payment', {
+      const res = await adminFetch('/api/verify-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ recordId: record.id }),
@@ -210,7 +211,7 @@ export function OrderDrawer({ record, onClose, onPrintInvoice, onPrintLabel }: O
                 btn.innerHTML = `<span class="animate-pulse">Pushing...</span>`;
                 btn.disabled = true;
                 try {
-                  const res = await fetch('/.netlify/functions/push-to-shiprocket', {
+                  const res = await adminFetch('/api/push-to-shiprocket', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ recordId: record.id })
@@ -236,7 +237,7 @@ export function OrderDrawer({ record, onClose, onPrintInvoice, onPrintLabel }: O
                 btn.innerHTML = `<span class="animate-pulse">Pushing...</span>`;
                 btn.disabled = true;
                 try {
-                  const res = await fetch('/.netlify/functions/push-to-innofulfill', {
+                  const res = await adminFetch('/api/push-to-innofulfill', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ recordId: record.id })

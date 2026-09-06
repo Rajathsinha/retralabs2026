@@ -1,3 +1,4 @@
+import { requireAdmin } from './admin-auth';
 import {
   PAYMENT_STATUS,
   corsHeaders,
@@ -28,10 +29,14 @@ interface VerifyPaymentBody {
   codCharge?: number;
 }
 
-export const handler = async (event: { httpMethod?: string; body?: string }) => {
+export const handler = async (event: { httpMethod?: string; body?: string; headers?: Record<string, string> }) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers: corsHeaders, body: '' };
   }
+
+  // Admin-only: this route exposes or mutates order data.
+  const denied = await requireAdmin(event);
+  if (denied) return denied;
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Method not allowed' }) };
   }

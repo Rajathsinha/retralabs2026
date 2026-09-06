@@ -1,17 +1,18 @@
 import { useState } from 'react';
-import { Plus, X, FileText, Truck, RefreshCw } from 'lucide-react';
+import { Plus, X, FileText, RefreshCw } from 'lucide-react';
 
 interface QuickActionsProps {
   onRefresh: () => void;
+  onCreateOrder?: () => void;
+  onPrintLabels?: () => void;
 }
 
-export function QuickActions({ onRefresh }: QuickActionsProps) {
+export function QuickActions({ onRefresh, onCreateOrder, onPrintLabels }: QuickActionsProps) {
   const [open, setOpen] = useState(false);
 
   const actions = [
-    { label: 'Generate Shipping Label', icon: FileText },
-    { label: 'Add Tracking', icon: Truck },
-    { label: 'Create Order', icon: Plus },
+    { label: 'Paste / Create Order', icon: Plus, onClick: onCreateOrder },
+    { label: 'Generate Shipping Label', icon: FileText, onClick: onPrintLabels },
     { label: 'Refresh Orders', icon: RefreshCw, onClick: onRefresh },
   ];
 

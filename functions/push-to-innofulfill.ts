@@ -1,3 +1,4 @@
+import { requireAdmin } from './admin-auth';
 import {
   corsHeaders,
   createInnofulfillOrder,
@@ -11,10 +12,14 @@ export { getInnofulfillToken, createInnofulfillOrder };
 
 const cors = corsHeaders;
 
-export const handler = async (event: { httpMethod?: string; body?: string }) => {
+export const handler = async (event: { httpMethod?: string; body?: string; headers?: Record<string, string> }) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers: cors, body: '' };
   }
+
+  // Admin-only: this route exposes or mutates order data.
+  const denied = await requireAdmin(event);
+  if (denied) return denied;
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, headers: cors, body: JSON.stringify({ error: 'Method not allowed' }) };
   }

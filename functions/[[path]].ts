@@ -1,6 +1,11 @@
-import { onRequest as netlifyHandler, onRequestPost as netlifyPost, onRequestGet as netlifyGet, onRequestOptions as netlifyOptions } from './_routes';
+import {
+  onRequest as apiHandler,
+  onRequestPost as apiPost,
+  onRequestGet as apiGet,
+  onRequestOptions as apiOptions,
+} from './_routes';
 
-export const onRequest = netlifyHandler;
-export const onRequestPost = netlifyPost;
-export const onRequestGet = netlifyGet;
-export const onRequestOptions = netlifyOptions;
+export const onRequest = apiHandler;
+export const onRequestPost = apiPost;
+export const onRequestGet = apiGet;
+export const onRequestOptions = apiOptions;

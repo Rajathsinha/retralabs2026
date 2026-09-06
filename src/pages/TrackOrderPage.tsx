@@ -76,7 +76,7 @@ export default function TrackOrderPage() {
     setOrder(null);
 
     try {
-      const res = await fetch('/.netlify/functions/track-order', {
+      const res = await fetch('/api/track-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

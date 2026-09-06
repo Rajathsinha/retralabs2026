@@ -1,3 +1,4 @@
+import { isValidPincodeFormat, canonicalRegion } from './delivery-shared';
 import {
   PAYMENT_STATUS,
   SHIPMENT_STATUS,
@@ -32,6 +33,29 @@ interface CreateOrderBody {
   deliveryCharge: number;
   codCharge: number;
   skipLogistics?: boolean;
+}
+
+/**
+ * Validates the destination server-side.
+ *
+ * Every Indian PIN is deliverable, so this never refuses an order on delivery
+ * grounds. It only rejects input that is structurally wrong — a malformed PIN
+ * or a state outside the official list — because those break carrier booking.
+ * Which carrier actually ships is decided in processLogistics, never here and
+ * never by the client.
+ */
+function validateDestination(
+  customer: CreateOrderBody['customer'],
+): { state?: string; error?: string } {
+  const pincode = String(customer?.pincode ?? '').trim();
+  if (!isValidPincodeFormat(pincode)) {
+    return { error: 'Please enter a valid 6-digit PIN code.' };
+  }
+  const state = canonicalRegion(customer?.state);
+  if (!state) {
+    return { error: 'Please select a valid Indian state or union territory.' };
+  }
+  return { state };
 }
 
 async function uploadScreenshot(
@@ -81,6 +105,22 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
     const body = JSON.parse(event.body || '{}') as CreateOrderBody;
     if (!body.fields?.Name || !body.fields?.Email) {
       return { statusCode: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Missing required order fields' }) };
+    }
+
+    // Validate the destination before anything is persisted.
+    let verifiedState = body.customer?.state ?? '';
+    const verifiedCity = body.customer?.city ?? '';
+
+    if (body.customer?.pincode) {
+      const destination = validateDestination(body.customer);
+      if (destination.error || !destination.state) {
+        return {
+          statusCode: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ error: destination.error || 'Invalid delivery address.' }),
+        };
+      }
+      verifiedState = destination.state;
     }
 
     const orderId = await generateOrderId(baseId, table, token);
@@ -151,7 +191,8 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
     if (shouldProcessLogistics) {
       const result = await processLogistics(baseId, table, token, recordId, orderId, {
         cartItems: body.cartItems!,
-        customer: body.customer,
+        // Verified server-side above — never the client's state/city.
+        customer: { ...body.customer, state: verifiedState, city: verifiedCity },
         paymentMethod: body.paymentMethod,
         deliveryOption: body.deliveryOption,
         total: body.total,
