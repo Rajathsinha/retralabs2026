@@ -1,6 +1,6 @@
 import { useSEO } from '../hooks/useSEO';
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { ShoppingBag, IndianRupee, Clock, Package, Truck, CheckCircle2, Banknote, CreditCard, Zap, X, FileText } from 'lucide-react';
+import { ShoppingBag, IndianRupee, Clock, Package, Truck, CheckCircle2, Banknote, CreditCard, Zap, X, FileText, Plus } from 'lucide-react';
 import { Sidebar } from '../components/admin/Sidebar';
 import type { AdminPage as AdminPageId } from '../components/admin/Sidebar';
 import { Topbar } from '../components/admin/Topbar';
@@ -10,6 +10,7 @@ import { OrdersTable, type SortDir } from '../components/admin/OrdersTable';
 import { OrderDrawer } from '../components/admin/OrderDrawer';
 import { QuickActions } from '../components/admin/QuickActions';
 import { PrepaidLabelsModal } from '../components/admin/PrepaidLabelsModal';
+import { ManualOrderModal } from '../components/admin/ManualOrderModal';
 import { SkeletonTable } from '../components/admin/SkeletonTable';
 import { DashboardView } from '../components/admin/DashboardView';
 import { AnalyticsView } from '../components/admin/AnalyticsView';
@@ -104,6 +105,7 @@ export default function AdminPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [viewRecord, setViewRecord] = useState<AirtableRecord | null>(null);
   const [showLabels, setShowLabels] = useState(false);
+  const [showManualModal, setShowManualModal] = useState(false);
   const [pageNum, setPageNum] = useState(1);
   const [mobileNav, setMobileNav] = useState(false);
   const pageSize = 12;
@@ -301,6 +303,14 @@ export default function AdminPage() {
                     <span className="rounded-md bg-white/15 px-1.5 py-0.5 text-xs">{prepaidLabelRecords.length > 0 ? prepaidLabelRecords.length : sorted.length}</span>
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={() => setShowManualModal(true)}
+                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-blue-500/20 transition-all hover:bg-blue-700 ml-auto sm:ml-0"
+                >
+                  <Plus className="h-4 w-4" />
+                  Paste / Create Orders
+                </button>
               </div>
 
               <FilterBar
@@ -388,7 +398,19 @@ export default function AdminPage() {
 
       <OrderDrawer record={viewRecord} onClose={() => setViewRecord(null)} />
       {showLabels && <PrepaidLabelsModal records={labelRecords} onClose={() => setShowLabels(false)} />}
-      <QuickActions onRefresh={load} />
+      {showManualModal && (
+        <ManualOrderModal
+          onClose={() => setShowManualModal(false)}
+          onOrdersCreated={() => {
+            load();
+          }}
+        />
+      )}
+      <QuickActions
+        onRefresh={load}
+        onCreateOrder={() => setShowManualModal(true)}
+        onPrintLabels={() => setShowLabels(true)}
+      />
     </div>
   );
 }
