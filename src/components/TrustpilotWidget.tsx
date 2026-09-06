@@ -1,5 +1,18 @@
 import { useEffect, useRef } from 'react';
 
+/**
+ * Trustpilot TrustBox embed.
+ *
+ * NOT CURRENTLY USED. TrustBox widgets render only when the Trustpilot plan
+ * on the account covers the requested template; otherwise they degrade to a
+ * bare "Trustpilot" text link. Every RetraLabs surface therefore renders the
+ * score in-house via TrustpilotRating.tsx, which needs no plan and no network.
+ *
+ * Kept for the day a plan is in place. It loads the Trustpilot bootstrap
+ * script on demand, so it works standalone — nothing needs adding to
+ * index.html to re-enable it.
+ */
+
 const BUSINESS_UNIT_ID = '6979766a0f4152620862a8e6';
 const TRUSTPILOT_URL   = 'https://www.trustpilot.com/review/retralabs.in';
 const SCRIPT_SRC       = '//widget.trustpilot.com/bootstrap/v5/tp.widget.bootstrap.min.js';
@@ -40,16 +53,26 @@ function initWidget(el: HTMLDivElement) {
     return;
   }
 
-  // Script not ready yet — attach a one-time load listener to the existing tag
+  const onLoad = () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).Trustpilot?.loadFromElement(el, true);
+  };
+
+  // Reuse an in-flight/loaded tag if one exists, otherwise inject it ourselves
+  // so this component carries its own dependency.
   const existing = document.querySelector<HTMLScriptElement>(
     `script[src="${SCRIPT_SRC}"], script[src="https:${SCRIPT_SRC}"], script[src="http:${SCRIPT_SRC}"]`
   );
   if (existing) {
-    existing.addEventListener('load', () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (window as any).Trustpilot?.loadFromElement(el, true);
-    }, { once: true });
+    existing.addEventListener('load', onLoad, { once: true });
+    return;
   }
+
+  const script = document.createElement('script');
+  script.src = `https:${SCRIPT_SRC}`;
+  script.async = true;
+  script.addEventListener('load', onLoad, { once: true });
+  document.head.appendChild(script);
 }
 
 export default function TrustpilotWidget({

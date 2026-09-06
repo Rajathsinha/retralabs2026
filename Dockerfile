@@ -12,7 +12,8 @@ RUN npm ci
 # Copy source files
 COPY . .
 
-# Build the app
+# Build the app (no headless Chrome in this image → skip prerender step)
+ENV PRERENDER_SKIP=1
 RUN npm run build
 
 # Production stage

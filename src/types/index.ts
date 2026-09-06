@@ -1,5 +1,7 @@
 export interface Product {
   id: string;
+  /** URL slug used for the public product page (`/product/<slug>/`). */
+  slug: string;
   name: string;
   display_name?: string;
   description: string;

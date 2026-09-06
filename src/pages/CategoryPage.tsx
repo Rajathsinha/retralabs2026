@@ -4,8 +4,10 @@ import { useSEO } from '../hooks/useSEO';
 import { getCategoryBySlug, getCategoryProducts, CATEGORIES } from '../data/seoData';
 import { getCategorySchema } from '../utils/seoSchemas';
 import { useCurrency } from '../context/CurrencyContext';
-import { ChevronRight, Star, ArrowRight, Check } from 'lucide-react';
+import { ChevronRight, ArrowRight, Check } from 'lucide-react';
 import { productDisplayName } from '../utils/productDisplayName';
+import { productPath } from '../utils/productUrl';
+import { canonicalUrl } from '../utils/siteUrl';
 
 export default function CategoryPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -19,7 +21,7 @@ export default function CategoryPage() {
   useSEO({
     title: category?.title ?? 'Research Peptides India | RetraLabs',
     description: category?.description ?? '',
-    canonical: `https://retralabs.in/category/${slug}`,
+    canonical: canonicalUrl(`/category/${slug}`),
     keywords: category?.keywords,
     schema: category ? getCategorySchema(slug!) : undefined,
   });
@@ -28,7 +30,7 @@ export default function CategoryPage() {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-4">
         <p className="text-[#6B7280] text-[15px]">Category not found</p>
-        <Link to="/catalogue" className="text-[#2563EB] text-[14px] font-semibold hover:underline">Back to Shop</Link>
+        <Link to="/catalogue/" className="text-[#2563EB] text-[14px] font-semibold hover:underline">Back to Shop</Link>
       </div>
     );
   }
@@ -41,7 +43,7 @@ export default function CategoryPage() {
           <nav className="flex items-center gap-1.5 text-[12px] text-[#9CA3AF]">
             <Link to="/" className="hover:text-[#374151] transition-colors">Home</Link>
             <ChevronRight className="w-3 h-3" />
-            <Link to="/catalogue" className="hover:text-[#374151] transition-colors">Shop</Link>
+            <Link to="/catalogue/" className="hover:text-[#374151] transition-colors">Shop</Link>
             <ChevronRight className="w-3 h-3" />
             <span className="text-[#374151] font-medium">{category.label}</span>
           </nav>
@@ -72,7 +74,7 @@ export default function CategoryPage() {
                 key={product.id}
                 className="group bg-white border border-[#EBEBEB] flex flex-col cursor-pointer transition-all duration-300 hover:border-[#D0D0D0] hover:shadow-[0_8px_32px_rgba(0,0,0,0.10)]"
                 style={{ borderRadius: 18 }}
-                onClick={() => navigate(`/product/${product.id}`)}
+                onClick={() => navigate(productPath(product))}
               >
                 <div className="relative overflow-hidden bg-[#F8F9FA] flex items-center justify-center" style={{ borderRadius: '18px 18px 0 0', aspectRatio: '1 / 1' }}>
                   <img src={product.image_url} alt={`${product.name} research peptide in India`} className="w-full h-full object-contain p-4 sm:p-6 transition-transform duration-500 group-hover:scale-[1.04]" loading="lazy" />
@@ -82,11 +84,6 @@ export default function CategoryPage() {
                   <h2 className="text-[#111111] text-[14px] sm:text-[15px] font-semibold leading-snug line-clamp-2 group-hover:text-[#2563EB] transition-colors">
                     {productDisplayName(product)}
                   </h2>
-                  <div className="flex items-center gap-1.5">
-                    <div className="flex items-center gap-0.5">
-                      {[1,2,3,4,5].map(i => <Star key={i} className="w-3 h-3 fill-[#F59E0B] text-[#F59E0B]" strokeWidth={0} />)}
-                    </div>
-                  </div>
                   <div className="flex items-baseline gap-1.5">
                     <span className="text-[#111111] text-[15px] sm:text-[16px] font-bold">{format(lowestPrice)}</span>
                     <span className="text-[#9CA3AF] text-[11px]">onwards</span>
@@ -126,7 +123,7 @@ export default function CategoryPage() {
             {CATEGORIES.filter(c => c.slug !== slug).map(cat => (
               <Link
                 key={cat.slug}
-                to={`/category/${cat.slug}`}
+                to={`/category/${cat.slug}/`}
                 className="inline-flex items-center gap-2 px-5 py-3 border border-[#E5E7EB] rounded-[12px] text-[14px] font-semibold text-[#374151] hover:border-[#111111] hover:bg-[#FAFAFA] transition-all"
               >
                 {cat.label}

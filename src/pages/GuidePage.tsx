@@ -8,6 +8,8 @@ import { PRODUCTS } from '../data/products';
 import { useCurrency } from '../context/CurrencyContext';
 import { ChevronRight, ArrowRight, FlaskConical } from 'lucide-react';
 import { productDisplayName } from '../utils/productDisplayName';
+import { productPath } from '../utils/productUrl';
+import { canonicalUrl as toCanonicalUrl } from '../utils/siteUrl';
 
 export default function GuidePage() {
   const { slug } = useParams<{ slug: string }>();
@@ -17,7 +19,7 @@ export default function GuidePage() {
 
   const guide = slug ? getGuideBySlug(slug) : undefined;
 
-  const canonicalUrl = `https://retralabs.in/guides/${slug}`;
+  const canonicalUrl = toCanonicalUrl(`/guides/${slug}`);
   const pubDate = '2025-01-01';
 
   useSEO({
@@ -35,7 +37,7 @@ export default function GuidePage() {
       }),
       getBreadcrumbSchema([
         { name: 'Home', url: 'https://retralabs.in/' },
-        { name: 'Guides', url: 'https://retralabs.in/guides' },
+        { name: 'Guides', url: toCanonicalUrl('/guides') },
         { name: guide.h1, url: canonicalUrl },
       ]),
       ...(guide.faqs.length ? [{
@@ -55,7 +57,7 @@ export default function GuidePage() {
       <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-4">
         <FlaskConical className="w-12 h-12 text-[#D1D5DB]" />
         <p className="text-[#6B7280] text-[15px]">Guide not found</p>
-        <Link to="/guides" className="text-[#2563EB] text-[14px] font-semibold hover:underline">Back to Guides</Link>
+        <Link to="/guides/" className="text-[#2563EB] text-[14px] font-semibold hover:underline">Back to Guides</Link>
       </div>
     );
   }
@@ -74,7 +76,7 @@ export default function GuidePage() {
           <nav className="flex items-center gap-1.5 text-[12px] text-[#9CA3AF]">
             <Link to="/" className="hover:text-[#374151] transition-colors">Home</Link>
             <ChevronRight className="w-3 h-3" />
-            <Link to="/guides" className="hover:text-[#374151] transition-colors">Guides</Link>
+            <Link to="/guides/" className="hover:text-[#374151] transition-colors">Guides</Link>
             <ChevronRight className="w-3 h-3" />
             <span className="text-[#374151] font-medium line-clamp-1">{guide.h1}</span>
           </nav>
@@ -134,7 +136,7 @@ export default function GuidePage() {
               {relatedProducts.map(rp => {
                 const rpPrice = Math.min(...rp.variants.map(v => v.price_inr));
                 return (
-                  <div key={rp.id} className="group bg-white border border-[#E5E7EB] overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)]" style={{ borderRadius: 16 }} onClick={() => navigate(`/product/${rp.id}`)}>
+                  <div key={rp.id} className="group bg-white border border-[#E5E7EB] overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)]" style={{ borderRadius: 16 }} onClick={() => navigate(productPath(rp))}>
                     <div className="aspect-square bg-[#F8F9FA] flex items-center justify-center overflow-hidden">
                       <img src={rp.image_url} alt={`${rp.name} research peptide in India`} className="w-full h-full object-contain p-5 transition-transform duration-500 group-hover:scale-[1.04]" loading="lazy" />
                     </div>
@@ -157,7 +159,7 @@ export default function GuidePage() {
             <h2 className="text-[#111111] text-[18px] font-bold mb-4">Explore Categories</h2>
             <div className="flex flex-wrap gap-3">
               {relatedCategories.map(cat => (
-                <Link key={cat.slug} to={`/category/${cat.slug}`} className="inline-flex items-center gap-2 px-5 py-3 border border-[#E5E7EB] rounded-[12px] text-[14px] font-semibold text-[#374151] hover:border-[#111111] hover:bg-[#FAFAFA] transition-all">
+                <Link key={cat.slug} to={`/category/${cat.slug}/`} className="inline-flex items-center gap-2 px-5 py-3 border border-[#E5E7EB] rounded-[12px] text-[14px] font-semibold text-[#374151] hover:border-[#111111] hover:bg-[#FAFAFA] transition-all">
                   {cat.label}
                   <ArrowRight className="w-3.5 h-3.5" />
                 </Link>

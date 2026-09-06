@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Mail, MessageSquare, Clock, AlertTriangle, Send, CheckCircle2 } from 'lucide-react';
 import { useSEO } from '../hooks/useSEO';
+import { canonicalUrl } from '../utils/siteUrl';
 import { getLocalBusinessSchema, getBreadcrumbSchema } from '../utils/localSeoSchemas';
 import { BUSINESS_NAP } from '../constants/config';
 
@@ -16,12 +17,12 @@ export default function ContactPage() {
   useSEO({
     title: `Contact RetraLabs | Research Peptide Support | ${BUSINESS_NAP.address.city}, India`,
     description: `Contact RetraLabs for research peptide inquiries. WhatsApp: ${BUSINESS_NAP.phone}, Email: ${BUSINESS_NAP.email}. Based in ${BUSINESS_NAP.address.city}, ${BUSINESS_NAP.address.state}. ${BUSINESS_NAP.hours.display}.`,
-    canonical: 'https://retralabs.in/contact',
+    canonical: canonicalUrl('/contact'),
     schema: [
       getLocalBusinessSchema(),
       getBreadcrumbSchema([
         { name: 'Home', url: 'https://retralabs.in/' },
-        { name: 'Contact', url: 'https://retralabs.in/contact' },
+        { name: 'Contact', url: canonicalUrl('/contact') },
       ]),
     ],
   });

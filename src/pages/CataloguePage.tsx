@@ -1,17 +1,19 @@
-import { useState, useMemo, useCallback } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { PRODUCTS } from '../data/products';
 import { ProductWithVariants, ProductVariant } from '../types';
 import { useCart } from '../context/CartContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { useSEO } from '../hooks/useSEO';
+import { canonicalUrl } from '../utils/siteUrl';
+import { productPath, productUrl } from '../utils/productUrl';
 import { getBreadcrumbSchema } from '../utils/localSeoSchemas';
 import { getItemListSchema } from '../utils/seoSchemas';
 import { CATEGORIES as SEO_CATEGORIES } from '../data/seoData';
 import ProductModal from '../components/ProductModal';
 import { productDisplayName } from '../utils/productDisplayName';
 import {
-  Star, ShoppingCart, ChevronRight, Shield, Microscope,
+  ShoppingCart, ChevronRight, Shield, Microscope,
   FlaskConical, Package, CheckCircle, Search, SlidersHorizontal,
   Check,
 } from 'lucide-react';
@@ -23,29 +25,28 @@ type ProductCfg = {
   tagColor: string;
   tagBg: string;
   category: string;
-  reviews: number;
 };
 
 const PRODUCT_CFG: Record<string, ProductCfg> = {
-  'Retatrutide':                        { tag: 'Metabolic',    tagColor: '#2563EB', tagBg: '#EFF6FF', category: 'metabolic',  reviews: 41 },
-  'Tirzepatide':                        { tag: 'Metabolic',    tagColor: '#1D4ED8', tagBg: '#EFF6FF', category: 'metabolic',  reviews: 27 },
-  'CJC-1295 (No DAC) + Ipamorelin Stack':{ tag: 'Research',   tagColor: '#7C3AED', tagBg: '#F5F3FF', category: 'research',    reviews: 32 },
-  'MOT-C':                              { tag: 'Research',     tagColor: '#0D9488', tagBg: '#F0FDFA', category: 'research',    reviews: 16 },
-  'GHK-Cu':                             { tag: 'Anti-Aging',   tagColor: '#1D4ED8', tagBg: '#EFF6FF', category: 'anti-aging',  reviews: 39 },
-  'BPC-157':                            { tag: 'Recovery',     tagColor: '#7C3AED', tagBg: '#F5F3FF', category: 'recovery',    reviews: 31 },
-  'TB-500':                             { tag: 'Recovery',     tagColor: '#EA580C', tagBg: '#FFF7ED', category: 'recovery',    reviews: 19 },
-  'Selank':                             { tag: 'Research',     tagColor: '#DB2777', tagBg: '#FDF2F8', category: 'research',    reviews: 22 },
-  'Semax':                              { tag: 'Research',     tagColor: '#4338CA', tagBg: '#EEF2FF', category: 'research',    reviews: 18 },
-  'Tesamorelin':                        { tag: 'Research',     tagColor: '#059669', tagBg: '#F0FDF4', category: 'research',    reviews: 12 },
-  'NAD+':                               { tag: 'Anti-Aging',   tagColor: '#7C3AED', tagBg: '#F5F3FF', category: 'anti-aging',  reviews: 14 },
-  'SS-31':                              { tag: 'Anti-Aging',   tagColor: '#DB2777', tagBg: '#FDF2F8', category: 'anti-aging',  reviews: 13 },
-  'Kisspeptin-10':                      { tag: 'Research',     tagColor: '#EC4899', tagBg: '#FDF2F8', category: 'research',    reviews: 7  },
-  'AOD 9604':                           { tag: 'Metabolic',    tagColor: '#EA580C', tagBg: '#FFF7ED', category: 'metabolic',  reviews: 11 },
-  'Cagrilintide':                       { tag: 'Metabolic',    tagColor: '#16A34A', tagBg: '#F0FDF4', category: 'metabolic',  reviews: 6  },
-  'Klow Blend':                         { tag: 'Healing',      tagColor: '#0891B2', tagBg: '#ECFEFF', category: 'healing',     reviews: 8  },
-  'The Wolverine Stack':                { tag: 'Recovery',     tagColor: '#6B21A8', tagBg: '#F5F3FF', category: 'recovery',    reviews: 29 },
-  'Epithalon':                          { tag: 'Anti-Aging',   tagColor: '#2563EB', tagBg: '#EFF6FF', category: 'anti-aging',  reviews: 9  },
-  'Bacteriostatic Water (Pharma Grade)':{ tag: 'Supplies',     tagColor: '#6B7280', tagBg: '#F9FAFB', category: 'other',       reviews: 54 },
+  'Retatrutide':                        { tag: 'Metabolic',    tagColor: '#2563EB', tagBg: '#EFF6FF', category: 'metabolic' },
+  'Tirzepatide':                        { tag: 'Metabolic',    tagColor: '#1D4ED8', tagBg: '#EFF6FF', category: 'metabolic' },
+  'CJC-1295 (No DAC) + Ipamorelin Stack':{ tag: 'Research',   tagColor: '#7C3AED', tagBg: '#F5F3FF', category: 'research' },
+  'MOT-C':                              { tag: 'Research',     tagColor: '#0D9488', tagBg: '#F0FDFA', category: 'research' },
+  'GHK-Cu':                             { tag: 'Anti-Aging',   tagColor: '#1D4ED8', tagBg: '#EFF6FF', category: 'anti-aging' },
+  'BPC-157':                            { tag: 'Recovery',     tagColor: '#7C3AED', tagBg: '#F5F3FF', category: 'recovery' },
+  'TB-500':                             { tag: 'Recovery',     tagColor: '#EA580C', tagBg: '#FFF7ED', category: 'recovery' },
+  'Selank':                             { tag: 'Research',     tagColor: '#DB2777', tagBg: '#FDF2F8', category: 'research' },
+  'Semax':                              { tag: 'Research',     tagColor: '#4338CA', tagBg: '#EEF2FF', category: 'research' },
+  'Tesamorelin':                        { tag: 'Research',     tagColor: '#059669', tagBg: '#F0FDF4', category: 'research' },
+  'NAD+':                               { tag: 'Anti-Aging',   tagColor: '#7C3AED', tagBg: '#F5F3FF', category: 'anti-aging' },
+  'SS-31':                              { tag: 'Anti-Aging',   tagColor: '#DB2777', tagBg: '#FDF2F8', category: 'anti-aging' },
+  'Kisspeptin-10':                      { tag: 'Research',     tagColor: '#EC4899', tagBg: '#FDF2F8', category: 'research' },
+  'AOD 9604':                           { tag: 'Metabolic',    tagColor: '#EA580C', tagBg: '#FFF7ED', category: 'metabolic' },
+  'Cagrilintide':                       { tag: 'Metabolic',    tagColor: '#16A34A', tagBg: '#F0FDF4', category: 'metabolic' },
+  'Klow Blend':                         { tag: 'Healing',      tagColor: '#0891B2', tagBg: '#ECFEFF', category: 'healing' },
+  'The Wolverine Stack':                { tag: 'Recovery',     tagColor: '#6B21A8', tagBg: '#F5F3FF', category: 'recovery' },
+  'Epithalon':                          { tag: 'Anti-Aging',   tagColor: '#2563EB', tagBg: '#EFF6FF', category: 'anti-aging' },
+  'Bacteriostatic Water (Pharma Grade)':{ tag: 'Supplies',     tagColor: '#6B7280', tagBg: '#F9FAFB', category: 'other' },
 };
 
 const CATEGORIES = [
@@ -73,7 +74,7 @@ type CardProps = {
   product: ProductWithVariants;
   onAddToCart: (p: ProductWithVariants, v: ProductVariant) => void;
   addedVariantId: string | null;
-  onNavigate: (id: string) => void;
+  onNavigate: (slug: string) => void;
 };
 
 function ProductCard({ product, onAddToCart, addedVariantId, onNavigate }: CardProps) {
@@ -86,7 +87,7 @@ function ProductCard({ product, onAddToCart, addedVariantId, onNavigate }: CardP
     <div
       className="group bg-white border border-[#EBEBEB] flex flex-col cursor-pointer transition-all duration-300 hover:border-[#D0D0D0] hover:shadow-[0_8px_32px_rgba(0,0,0,0.10)]"
       style={{ borderRadius: 18 }}
-      onClick={() => onNavigate(product.id)}
+      onClick={() => onNavigate(product.slug)}
     >
       {/* Image area */}
       <div
@@ -117,17 +118,6 @@ function ProductCard({ product, onAddToCart, addedVariantId, onNavigate }: CardP
           {productDisplayName(product)}
         </h3>
 
-        {/* Stars + reviews */}
-        <div className="flex items-center gap-1.5">
-          <div className="flex items-center gap-0.5">
-            {[1,2,3,4,5].map(i => (
-              <Star key={i} className="w-3 h-3 fill-[#F59E0B] text-[#F59E0B]" strokeWidth={0} />
-            ))}
-          </div>
-          <span className="text-[#9CA3AF] text-[11px] font-medium">
-            ({cfg?.reviews ?? 0})
-          </span>
-        </div>
 
         {/* Price */}
         <div className="flex items-baseline gap-1.5">
@@ -168,25 +158,47 @@ export default function CataloguePage() {
   useSEO({
     title: 'Buy Research Peptides India | Full Catalogue — Retatrutide, Tirzepatide, GHK-Cu | RetraLabs',
     description: 'Browse all HPLC-verified research peptides available in India. Retatrutide, Tirzepatide, GHK-Cu, BPC-157, TB-500, Semax, Selank and more. COA included, COD available. Ships from Bengaluru across India.',
-    canonical: 'https://retralabs.in/catalogue',
+    canonical: canonicalUrl('/catalogue'),
     keywords: 'buy peptides india, research peptides catalogue, peptide shop india, buy retatrutide bangalore, tirzepatide india catalogue, buy bpc-157 india, buy ghk-cu india, buy semax india, buy selank india',
     schema: [
       getBreadcrumbSchema([
         { name: 'Home', url: 'https://retralabs.in/' },
-        { name: 'Catalogue', url: 'https://retralabs.in/catalogue' },
+        { name: 'Catalogue', url: canonicalUrl('/catalogue') },
       ]),
-      getItemListSchema(PRODUCTS.map(p => ({ name: p.name, url: `https://retralabs.in/product/${p.id}` }))),
+      getItemListSchema(PRODUCTS.map(p => ({ name: p.name, url: productUrl(p) }))),
     ],
   });
 
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { addToCart, openCart } = useCart();
 
   const [activeCategory, setActiveCategory] = useState('all');
   const [sortBy, setSortBy]                 = useState<SortKey>('default');
-  const [search, setSearch]                 = useState('');
+  const [search, setSearch]                 = useState(() => searchParams.get('q') ?? '');
   const [selectedProduct, setSelectedProduct] = useState<ProductWithVariants | null>(null);
   const [addedVariantId, setAddedVariantId] = useState<string | null>(null);
+
+  // Keep ?q= and the search box in sync. The WebSite SearchAction in index.html
+  // advertises /catalogue/?q={search_term_string} to Google, so that URL has to
+  // actually run the search — both on first load and when shared.
+  useEffect(() => {
+    const q = searchParams.get('q') ?? '';
+    setSearch(prev => (prev === q ? prev : q));
+  }, [searchParams]);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearch(value);
+    setSearchParams(
+      prev => {
+        const next = new URLSearchParams(prev);
+        if (value.trim()) next.set('q', value);
+        else next.delete('q');
+        return next;
+      },
+      { replace: true },
+    );
+  }, [setSearchParams]);
 
   const handleAddToCart = useCallback((product: ProductWithVariants, variant: ProductVariant) => {
     addToCart(product, variant);
@@ -244,7 +256,7 @@ export default function CataloguePage() {
           <nav className="flex items-center gap-1.5 text-[12px] text-[#9CA3AF] mb-5">
             <Link to="/" className="hover:text-[#374151] transition-colors">Home</Link>
             <ChevronRight className="w-3 h-3" />
-            <Link to="/catalogue" className="hover:text-[#374151] transition-colors">Shop</Link>
+            <Link to="/catalogue/" className="hover:text-[#374151] transition-colors">Shop</Link>
             <ChevronRight className="w-3 h-3" />
             <span className="text-[#374151] font-medium">All Products</span>
           </nav>
@@ -261,7 +273,7 @@ export default function CataloguePage() {
             {SEO_CATEGORIES.map(cat => (
               <Link
                 key={cat.slug}
-                to={`/category/${cat.slug}`}
+                to={`/category/${cat.slug}/`}
                 className="inline-flex items-center gap-1 px-3 py-1.5 text-[12px] font-semibold rounded-full border border-[#E5E7EB] bg-white text-[#374151] hover:border-[#111111] hover:bg-[#FAFAFA] transition-all"
               >
                 {cat.label}
@@ -365,7 +377,7 @@ export default function CataloguePage() {
                     type="text"
                     placeholder="Search peptides..."
                     value={search}
-                    onChange={e => setSearch(e.target.value)}
+                    onChange={e => handleSearchChange(e.target.value)}
                     className="w-full pl-9 pr-4 py-2.5 border border-[#E5E7EB] text-[13px] text-[#111111] placeholder-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10 transition-all bg-white"
                     style={{ borderRadius: 10 }}
                   />
@@ -422,7 +434,7 @@ export default function CataloguePage() {
                 <p className="text-[#9CA3AF] text-[14px]">Try adjusting your search or filter</p>
                 <button
                   type="button"
-                  onClick={() => { setSearch(''); setActiveCategory('all'); }}
+                  onClick={() => { handleSearchChange(''); setActiveCategory('all'); }}
                   className="mt-4 text-[#2563EB] text-[14px] font-semibold hover:underline"
                 >
                   Clear filters
@@ -436,7 +448,7 @@ export default function CataloguePage() {
                     product={product}
                     onAddToCart={handleAddToCart}
                     addedVariantId={addedVariantId}
-                    onNavigate={(id) => navigate(`/product/${id}`)}
+                    onNavigate={(slug) => navigate(productPath({ slug }))}
                   />
                 ))}
               </div>

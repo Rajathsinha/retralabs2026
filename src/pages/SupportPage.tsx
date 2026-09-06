@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSEO } from '../hooks/useSEO';
+import { canonicalUrl } from '../utils/siteUrl';
 import { getBreadcrumbSchema } from '../utils/localSeoSchemas';
 import {
   Mail,
@@ -127,7 +128,7 @@ export default function SupportPage() {
   useSEO({
     title: 'Support & FAQ | Research Peptides India | RetraLabs',
     description: 'RetraLabs support — shipping timelines, peptide storage, documentation (COA), and order help. Research peptide support across India via WhatsApp and email.',
-    canonical: 'https://retralabs.in/support',
+    canonical: canonicalUrl('/support'),
     schema: [
       {
         '@context': 'https://schema.org',
@@ -140,7 +141,7 @@ export default function SupportPage() {
       },
       getBreadcrumbSchema([
         { name: 'Home', url: 'https://retralabs.in/' },
-        { name: 'Support', url: 'https://retralabs.in/support' },
+        { name: 'Support', url: canonicalUrl('/support') },
       ]),
     ],
   });

@@ -1,0 +1,47 @@
+# Cloudflare Pages redirects (copied into dist/ by Vite).
+# Product URLs moved from numeric ids to keyword slugs — permanent redirects
+# keep the ranking signals Google already attached to the old URLs.
+# Both slash forms are listed because the old URLs were indexed both ways.
+
+/product/1   /product/retatrutide/          301
+/product/1/  /product/retatrutide/          301
+/product/2   /product/tirzepatide/          301
+/product/2/  /product/tirzepatide/          301
+/product/3   /product/ghk-cu/               301
+/product/3/  /product/ghk-cu/               301
+/product/4   /product/semax/                301
+/product/4/  /product/semax/                301
+/product/5   /product/selank/               301
+/product/5/  /product/selank/               301
+/product/6   /product/bacteriostatic-water/ 301
+/product/6/  /product/bacteriostatic-water/ 301
+/product/7   /product/bpc-157/              301
+/product/7/  /product/bpc-157/              301
+/product/8   /product/nad-plus/             301
+/product/8/  /product/nad-plus/             301
+/product/9   /product/tb-500/               301
+/product/9/  /product/tb-500/               301
+/product/10  /product/tesamorelin/          301
+/product/10/ /product/tesamorelin/          301
+/product/11  /product/mots-c/               301
+/product/11/ /product/mots-c/               301
+/product/12  /product/klow-blend/           301
+/product/12/ /product/klow-blend/           301
+/product/13  /product/cjc-1295-ipamorelin/  301
+/product/13/ /product/cjc-1295-ipamorelin/  301
+/product/14  /product/wolverine-stack/      301
+/product/14/ /product/wolverine-stack/      301
+/product/15  /product/aod-9604/             301
+/product/15/ /product/aod-9604/             301
+/product/16  /product/epithalon/            301
+/product/16/ /product/epithalon/            301
+/product/17  /product/kisspeptin-10/        301
+/product/17/ /product/kisspeptin-10/        301
+/product/18  /product/ss-31/                301
+/product/18/ /product/ss-31/                301
+/product/19  /product/cagrilintide/         301
+/product/19/ /product/cagrilintide/         301
+
+# Review shortcuts (previously only in netlify.toml, which Cloudflare ignores)
+/proof    https://www.trustpilot.com/review/retralabs.in 301
+/reviews  https://www.trustpilot.com/review/retralabs.in 301

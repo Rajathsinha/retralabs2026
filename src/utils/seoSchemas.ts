@@ -1,5 +1,8 @@
 import { getBreadcrumbSchema } from '../utils/localSeoSchemas';
 import { CATEGORIES } from '../data/seoData';
+import { PRODUCTS } from '../data/products';
+import { productUrl } from './productUrl';
+import { canonicalUrl } from './siteUrl';
 
 export function getItemListSchema(items: { name: string; url: string }[]) {
   return {
@@ -56,7 +59,7 @@ export function getWebSiteSchema() {
     name: 'RetraLabs',
     potentialAction: {
       '@type': 'SearchAction',
-      target: 'https://retralabs.in/catalogue?q={search_term_string}',
+      target: `${canonicalUrl('/catalogue')}?q={search_term_string}`,
       'query-input': 'required name=search_term_string',
     },
   };
@@ -65,19 +68,19 @@ export function getWebSiteSchema() {
 export function getCategorySchema(slug: string) {
   const cat = CATEGORIES.find(c => c.slug === slug);
   if (!cat) return undefined;
-  const url = `https://retralabs.in/category/${slug}`;
+  const url = canonicalUrl(`/category/${slug}`);
   return [
     getCollectionPageSchema(cat.h1, url, cat.description),
     getBreadcrumbSchema([
       { name: 'Home', url: 'https://retralabs.in/' },
-      { name: 'Catalogue', url: 'https://retralabs.in/catalogue' },
+      { name: 'Catalogue', url: canonicalUrl('/catalogue') },
       { name: cat.label, url },
     ]),
     getItemListSchema(
-      cat.productIds.map((id) => ({
-        name: `Product ${id}`,
-        url: `https://retralabs.in/product/${id}`,
-      }))
+      cat.productIds
+        .map((id) => PRODUCTS.find((p) => p.id === id))
+        .filter((p): p is NonNullable<typeof p> => Boolean(p))
+        .map((p) => ({ name: p.name, url: productUrl(p) }))
     ),
   ];
 }

@@ -2,17 +2,18 @@ import { Link } from 'react-router-dom';
 import { useSEO } from '../hooks/useSEO';
 import { getBreadcrumbSchema } from '../utils/localSeoSchemas';
 import { GUIDES } from '../data/seoData';
+import { canonicalUrl } from '../utils/siteUrl';
 import { ChevronRight, FlaskConical, ArrowRight } from 'lucide-react';
 
 export default function GuidesIndexPage() {
   useSEO({
     title: 'Research Peptide Guides India — Peptide Storage, HPLC Testing, Purity | RetraLabs',
     description: 'Educational guides on research peptides: what they are, storage and handling, HPLC purity testing, COA interpretation, and compound-specific research overviews. By RetraLabs.',
-    canonical: 'https://retralabs.in/guides',
+    canonical: canonicalUrl('/guides'),
     keywords: 'research peptide guides india, peptide storage guide, hplc testing guide, what are research peptides, retatrutide research, ghk-cu research, bpc-157 research',
     schema: getBreadcrumbSchema([
       { name: 'Home', url: 'https://retralabs.in/' },
-      { name: 'Guides', url: 'https://retralabs.in/guides' },
+      { name: 'Guides', url: canonicalUrl('/guides') },
     ]),
   });
 
@@ -53,7 +54,7 @@ export default function GuidesIndexPage() {
           {GUIDES.map(guide => (
             <Link
               key={guide.slug}
-              to={`/guides/${guide.slug}`}
+              to={`/guides/${guide.slug}/`}
               className="group bg-white border border-[#E5E7EB] rounded-[16px] p-7 hover:border-[#D0D0D0] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] transition-all"
             >
               <h2 className="text-[#111111] text-[18px] font-bold mb-2 group-hover:text-[#2563EB] transition-colors">

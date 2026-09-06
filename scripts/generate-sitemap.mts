@@ -7,8 +7,8 @@ import { writeFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SEO_ROUTES } from './seo-routes.mts';
+import { canonicalUrl } from '../src/utils/siteUrl';
 
-const SITE = 'https://retralabs.in';
 const DIST = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist');
 const lastmod = new Date().toISOString().slice(0, 10);
 
@@ -28,7 +28,7 @@ function changefreqFor(route: string): string {
 }
 
 const entries = SEO_ROUTES.map(route => `  <url>
-    <loc>${SITE}${route === '/' ? '/' : route}</loc>
+    <loc>${canonicalUrl(route)}</loc>
     <lastmod>${lastmod}</lastmod>
     <changefreq>${changefreqFor(route)}</changefreq>
     <priority>${priorityFor(route)}</priority>

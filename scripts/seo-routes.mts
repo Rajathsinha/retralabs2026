@@ -20,6 +20,6 @@ export const STATIC_ROUTES = [
 
 export const CATEGORY_ROUTES = CATEGORIES.map(c => `/category/${c.slug}`);
 export const GUIDE_ROUTES = GUIDES.map(g => `/guides/${g.slug}`);
-export const PRODUCT_ROUTES = PRODUCTS.map(p => `/product/${p.id}`);
+export const PRODUCT_ROUTES = PRODUCTS.map(p => `/product/${p.slug}`);
 
 export const SEO_ROUTES = [...STATIC_ROUTES, ...CATEGORY_ROUTES, ...GUIDE_ROUTES, ...PRODUCT_ROUTES];

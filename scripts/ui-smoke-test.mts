@@ -28,7 +28,7 @@ async function main() {
   await screenshot(page, 'track-order-page-form');
 
   // Checkout payment UI flow (stay in same SPA session so cart persists)
-  await page.goto(`${BASE}/product/1`, { waitUntil: 'networkidle2', timeout: 30000 });
+  await page.goto(`${BASE}/product/retatrutide/`, { waitUntil: 'networkidle2', timeout: 30000 });
   await page.evaluate(() => {
     const btn = Array.from(document.querySelectorAll('button')).find((b) => b.textContent?.includes('Add to Cart'));
     btn?.click();

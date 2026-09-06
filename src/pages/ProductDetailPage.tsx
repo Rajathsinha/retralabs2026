@@ -8,12 +8,16 @@ import { useSEO } from '../hooks/useSEO';
 import { getBreadcrumbSchema } from '../utils/localSeoSchemas';
 import { PRODUCTS } from '../data/products';
 import { PRODUCT_CONTENT } from '../data/productContent';
-import { productDisplayName, productDisplayText, productDisplayHeading } from '../utils/productDisplayName';
+import { productDisplayName } from '../utils/productDisplayName';
+import { productPath, productUrl, findProductByParam, isLegacyProductParam } from '../utils/productUrl';
+import { canonicalUrl as toCanonicalUrl } from '../utils/siteUrl';
+import { GUIDES, CATEGORIES } from '../data/seoData';
+import TrustpilotRating from '../components/TrustpilotRating';
 import {
   ChevronRight, Star, Check, Package, Truck, Shield,
   ShieldCheck, FlaskConical, FileCheck,
   Clock, ShoppingCart, Minus, Plus, Microscope,
-  Lock,
+  Lock, ArrowRight, BookOpen,
 } from 'lucide-react';
 
 const DEMO_BAC_WATER = PRODUCTS.find(p => p.name.includes('Bacteriostatic'))!;
@@ -50,27 +54,6 @@ const PURITY_MAP: Record<string, string> = {
   'The Wolverine Stack': '99.1',
   'AOD 9604': '99.1', 'Epithalon': '99.2',
   'Kisspeptin-10': '99.1', 'SS-31': '99.0', 'Cagrilintide': '99.1',
-};
-
-const REVIEWS_MAP: Record<string, { count: number; avg: number }> = {
-  'Retatrutide': { count: 41, avg: 4.9 },
-  'Tirzepatide': { count: 27, avg: 4.8 },
-  'GHK-Cu': { count: 39, avg: 4.9 },
-  'Semax': { count: 18, avg: 4.7 },
-  'Selank': { count: 22, avg: 4.8 },
-  'BPC-157': { count: 31, avg: 4.9 },
-  'NAD+': { count: 14, avg: 4.7 },
-  'TB-500': { count: 19, avg: 4.8 },
-  'Tesamorelin': { count: 12, avg: 4.8 },
-  'MOT-C': { count: 16, avg: 4.7 },
-  'Klow Blend': { count: 8, avg: 4.9 },
-  'CJC-1295 (No DAC) + Ipamorelin Stack': { count: 32, avg: 4.8 },
-  'The Wolverine Stack': { count: 29, avg: 4.9 },
-  'AOD 9604': { count: 11, avg: 4.7 },
-  'Epithalon': { count: 9, avg: 4.8 },
-  'Kisspeptin-10': { count: 7, avg: 4.7 },
-  'SS-31': { count: 13, avg: 4.8 },
-  'Cagrilintide': { count: 6, avg: 4.8 },
 };
 
 const SPEC_MAP: Record<string, Record<string, string>> = {
@@ -114,8 +97,7 @@ export default function ProductDetailPage() {
   const seoPurity = product ? (PURITY_MAP[product.name] ?? '99+') : '99+';
   const lowestPrice = product ? Math.min(...product.variants.map(v => v.price_inr)) : 0;
   const highestPrice = product ? Math.max(...product.variants.map(v => v.price_inr)) : 0;
-  const canonicalUrl = `https://retralabs.in/product/${id}`;
-  const productReviews = product ? REVIEWS_MAP[product.name] : undefined;
+  const canonicalUrl = product ? productUrl(product) : toCanonicalUrl(`/product/${id ?? ''}`);
   const content = product ? PRODUCT_CONTENT[product.name] : undefined;
 
   const productImage = product
@@ -175,21 +157,11 @@ export default function ProductDetailPage() {
           shippingDetails,
           hasMerchantReturnPolicy: merchantReturnPolicy,
         },
-        ...(productReviews
-          ? {
-              aggregateRating: {
-                '@type': 'AggregateRating',
-                ratingValue: productReviews.avg,
-                reviewCount: productReviews.count,
-                bestRating: 5,
-              },
-            }
-          : {}),
       }
     : undefined;
 
   useSEO({
-    title: product ? `Buy ${product.name} India — ${seoPurity}% Pure, COA | From ${format(lowestPrice)}` : 'Research Peptides India | RetraLabs',
+    title: product ? `Buy ${product.name} India — ${seoPurity}% Pure, COA, From ${format(lowestPrice)} | RetraLabs` : 'Research Peptides India | RetraLabs',
     description: product ? `Buy ${product.name} in India — ${seoPurity}% HPLC-verified with COA on every order. From ${format(lowestPrice)}. Cash on Delivery, same-day dispatch & fast India-wide shipping.` : '',
     canonical: canonicalUrl,
     ...(product
@@ -204,7 +176,7 @@ export default function ProductDetailPage() {
             productSchema,
             getBreadcrumbSchema([
               { name: 'Home', url: 'https://retralabs.in/' },
-              { name: 'Catalogue', url: 'https://retralabs.in/catalogue' },
+              { name: 'Catalogue', url: toCanonicalUrl('/catalogue') },
               { name: product.name, url: canonicalUrl },
             ]),
             ...(content && content.faqs.length
@@ -223,11 +195,20 @@ export default function ProductDetailPage() {
       : {}),
   });
 
+  // Legacy `/product/<numeric id>` URLs → canonical slug URL (edge 301 in
+  // public/_redirects handles crawlers; this covers in-app navigation).
+  useEffect(() => {
+    if (isLegacyProductParam(id)) {
+      const p = findProductByParam(id);
+      if (p) navigate(productPath(p), { replace: true });
+    }
+  }, [id, navigate]);
+
   useEffect(() => { if (id) loadProduct(id); }, [id]);
 
-  async function loadProduct(productId: string) {
+  async function loadProduct(productParam: string) {
     setLoading(true);
-    const p = PRODUCTS.find(p => p.id === productId);
+    const p = findProductByParam(productParam);
     if (p) {
       setProduct(p);
       if (p.variants.length) setSelectedVariant(p.variants.find(v => v.in_stock) ?? p.variants[0]);
@@ -268,13 +249,12 @@ export default function ProductDetailPage() {
     <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-4">
       <FlaskConical className="w-12 h-12 text-[#D1D5DB]" />
       <p className="text-[#6B7280] text-[15px]">Product not found</p>
-      <button onClick={() => navigate('/catalogue')} className="text-[#2563EB] text-[14px] font-semibold hover:underline">Back to Shop</button>
+      <button onClick={() => navigate('/catalogue/')} className="text-[#2563EB] text-[14px] font-semibold hover:underline">Back to Shop</button>
     </div>
   );
 
   const accent = ACCENT_MAP[product.name] ?? '#2563EB';
   const purity = PURITY_MAP[product.name] ?? '99';
-  const reviews = REVIEWS_MAP[product.name] ?? { count: 12, avg: 4.8 };
   const specs = SPEC_MAP[product.name];
   const isFlagship = product.name === 'Retatrutide' || product.name === 'Tirzepatide';
   const relatedProducts = PRODUCTS.filter(p => p.id !== product.id && !p.name.includes('Bacteriostatic')).slice(0, 4);
@@ -307,6 +287,13 @@ export default function ProductDetailPage() {
     .slice(0, 4);
   const finalRelated = semanticRelated.length >= 2 ? semanticRelated : relatedProducts;
 
+  // Internal linking: guides that reference this product, plus its categories.
+  // These were previously reachable only from the footer.
+  const relatedGuides = GUIDES.filter(g => g.relatedProductIds.includes(product.id))
+    .sort((a, b) => Number(b.slug.includes(product.slug)) - Number(a.slug.includes(product.slug)))
+    .slice(0, 4);
+  const productCategories = CATEGORIES.filter(c => c.productIds.includes(product.id));
+
   return (
     <>
     <div className="min-h-screen bg-white pb-24 lg:pb-0">
@@ -317,9 +304,9 @@ export default function ProductDetailPage() {
           <nav className="flex items-center gap-1.5 text-[12px] text-[#9CA3AF]">
             <Link to="/" className="hover:text-[#374151] transition-colors">Home</Link>
             <ChevronRight className="w-3 h-3" />
-            <Link to="/catalogue" className="hover:text-[#374151] transition-colors">Shop</Link>
+            <Link to="/catalogue/" className="hover:text-[#374151] transition-colors">Shop</Link>
             <ChevronRight className="w-3 h-3" />
-            <Link to="/catalogue" className="hover:text-[#374151] transition-colors">All Products</Link>
+            <Link to="/catalogue/" className="hover:text-[#374151] transition-colors">All Products</Link>
             <ChevronRight className="w-3 h-3" />
             <span className="text-[#374151] font-medium">{productDisplayName(product)}</span>
           </nav>
@@ -343,7 +330,12 @@ export default function ProductDetailPage() {
                 >
                   <img
                     src={getProductImageUrl(product.image_url, product.name)}
-                    alt={`${product.name} research peptide vial`}
+                    alt=""
+                    aria-hidden="true"
+                    width={72}
+                    height={72}
+                    loading="lazy"
+                    decoding="async"
                     className="w-full h-full object-contain p-1.5"
                   />
                 </div>
@@ -358,6 +350,10 @@ export default function ProductDetailPage() {
                 <img
                   src={getProductImageUrl(product.image_url, product.name)}
                   alt={`${product.name} research peptide in India — ${purity}% HPLC verified, COA included`}
+                  width={1200}
+                  height={1200}
+                  fetchPriority="high"
+                  decoding="async"
                   className="w-full h-full object-contain p-8 sm:p-12"
                 />
                 {isFlagship && (
@@ -385,15 +381,9 @@ export default function ProductDetailPage() {
                   {selectedVariant.dosage_mg} {isBacWater ? 'ML' : 'MG'}
                 </p>
               )}
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-0.5">
-                  {[1,2,3,4,5].map(i => (
-                    <Star key={i} className="w-4 h-4 fill-[#F59E0B] text-[#F59E0B]" strokeWidth={0} />
-                  ))}
-                </div>
-                <span className="text-[#111111] text-[14px] font-semibold">{reviews.avg}</span>
-                <span className="text-[#9CA3AF] text-[13px]">({reviews.count} Reviews)</span>
-              </div>
+              {/* RetraLabs' Trustpilot company rating — real, centrally-sourced figures.
+                  Deliberately the company score, not a per-product rating. */}
+              <TrustpilotRating size={16} />
             </div>
 
             {/* Price */}
@@ -609,9 +599,9 @@ export default function ProductDetailPage() {
           <div className="py-8 max-w-3xl">
             {activeTab === 'description' && (
               <div className="space-y-4">
-                <p className="text-[#374151] text-[14px] leading-[1.8]">{productDisplayText(product.name, product.description)}</p>
+                <p className="text-[#374151] text-[14px] leading-[1.8]">{product.description}</p>
                 {content?.intro.map((para, i) => (
-                  <p key={i} className="text-[#374151] text-[14px] leading-[1.8]">{productDisplayText(product.name, para)}</p>
+                  <p key={i} className="text-[#374151] text-[14px] leading-[1.8]">{para}</p>
                 ))}
                 <ul className="space-y-2 text-[#374151] text-[14px]">
                   <li className="flex items-start gap-2.5"><Check className="w-4 h-4 text-[#16a34a] mt-0.5 flex-shrink-0" strokeWidth={2.5} /> HPLC-verified purity of {purity}%</li>
@@ -681,11 +671,11 @@ export default function ProductDetailPage() {
         <div className="border-t border-[#E5E7EB] bg-white">
           <div className="max-w-[820px] mx-auto px-6 py-14">
             <h2 className="text-[#111111] text-[24px] sm:text-[28px] font-bold tracking-[-0.02em] mb-6">
-              {productDisplayHeading(product.name, content.heading ?? `Buy ${product.name} in India`)}
+              {content.heading ?? `Buy ${product.name} in India`}
             </h2>
             <div className="space-y-4 mb-12">
               {content.intro.map((para, i) => (
-                <p key={i} className="text-[#374151] text-[15px] leading-[1.8]">{productDisplayText(product.name, para)}</p>
+                <p key={i} className="text-[#374151] text-[15px] leading-[1.8]">{para}</p>
               ))}
             </div>
             <h2 className="text-[#111111] text-[22px] sm:text-[26px] font-bold tracking-[-0.02em] mb-5">
@@ -695,13 +685,59 @@ export default function ProductDetailPage() {
               {content.faqs.map((faq, i) => (
                 <details key={i} className="group bg-white border border-[#E5E7EB] rounded-[14px] px-5 py-4 open:shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-shadow">
                   <summary className="flex items-center justify-between gap-4 cursor-pointer list-none">
-                    <h3 className="text-[#111111] text-[15px] font-semibold">{productDisplayText(product.name, faq.q)}</h3>
+                    <h3 className="text-[#111111] text-[15px] font-semibold">{faq.q}</h3>
                     <ChevronRight className="w-4 h-4 text-[#9CA3AF] flex-shrink-0 transition-transform group-open:rotate-90" strokeWidth={2} />
                   </summary>
-                  <p className="text-[#6B7280] text-[14px] leading-[1.7] mt-3">{productDisplayText(product.name, faq.a)}</p>
+                  <p className="text-[#6B7280] text-[14px] leading-[1.7] mt-3">{faq.a}</p>
                 </details>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Research guides & categories (internal linking) ─────────────── */}
+      {(relatedGuides.length > 0 || productCategories.length > 0) && (
+        <div className="border-t border-[#E5E7EB] bg-white">
+          <div className="max-w-[820px] mx-auto px-6 py-12">
+            {relatedGuides.length > 0 && (
+              <>
+                <h2 className="text-[#111111] text-[22px] sm:text-[26px] font-bold tracking-[-0.02em] mb-2">
+                  {productDisplayName(product)} Research Guides
+                </h2>
+                <p className="text-[#6B7280] text-[14px] leading-[1.7] mb-6">
+                  Background reading on testing, storage and the research literature before you order.
+                </p>
+                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
+                  {relatedGuides.map(g => (
+                    <li key={g.slug}>
+                      <Link
+                        to={`/guides/${g.slug}/`}
+                        className="group flex items-start gap-3 border border-[#E5E7EB] rounded-[14px] px-4 py-3.5 hover:border-[#111111] hover:bg-[#FAFAFA] transition-all"
+                      >
+                        <BookOpen className="w-4 h-4 text-[#2563EB] flex-shrink-0 mt-0.5" strokeWidth={2} />
+                        <span className="text-[#111111] text-[14px] font-semibold leading-snug group-hover:text-[#2563EB] transition-colors">{g.h1}</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {productCategories.length > 0 && (
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-[#6B7280] text-[13px] font-medium">Browse category:</span>
+                {productCategories.map(cat => (
+                  <Link
+                    key={cat.slug}
+                    to={`/category/${cat.slug}/`}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 border border-[#E5E7EB] rounded-[10px] text-[13px] font-semibold text-[#374151] hover:border-[#111111] hover:bg-[#FAFAFA] transition-all"
+                  >
+                    {cat.label}
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -743,14 +779,13 @@ export default function ProductDetailPage() {
           <h2 className="text-[#111111] text-[22px] font-bold tracking-[-0.02em] mb-8">You May Also Like</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
             {finalRelated.map(rp => {
-              const rpReviews = REVIEWS_MAP[rp.name] ?? { count: 10, avg: 4.7 };
               const rpPrice = Math.min(...rp.variants.map(v => v.price_inr));
               return (
                 <div
                   key={rp.id}
                   className="group bg-white border border-[#E5E7EB] overflow-hidden cursor-pointer transition-all duration-300 hover:border-[#D0D0D0] hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
                   style={{ borderRadius: 16 }}
-                  onClick={() => navigate(`/product/${rp.id}`)}
+                  onClick={() => navigate(productPath(rp))}
                 >
                   <div className="aspect-square bg-[#F8F9FA] flex items-center justify-center overflow-hidden">
                     <img
@@ -762,10 +797,6 @@ export default function ProductDetailPage() {
                   </div>
                   <div className="p-4">
                     <h3 className="text-[#111111] text-[13px] font-semibold line-clamp-1 mb-1">{productDisplayName(rp)}</h3>
-                    <div className="flex items-center gap-0.5 mb-2">
-                      {[1,2,3,4,5].map(i => <Star key={i} className="w-3 h-3 fill-[#F59E0B] text-[#F59E0B]" strokeWidth={0} />)}
-                      <span className="text-[#9CA3AF] text-[10px] ml-1">({rpReviews.count})</span>
-                    </div>
                     <p className="text-[#111111] text-[14px] font-bold">{format(rpPrice)}</p>
                   </div>
                 </div>
