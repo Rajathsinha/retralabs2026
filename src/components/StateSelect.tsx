@@ -129,7 +129,7 @@ export default function StateSelect({ value, onChange, autoFilled, error, id }: 
   const panel = open && anchor && (
     <div
       data-state-panel
-      className="fixed z-[80] sm:absolute"
+      className="fixed z-[80]"
       style={{
         top: anchor.top,
         left: anchor.left,

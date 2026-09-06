@@ -1541,7 +1541,9 @@ export default function CheckoutPage() {
                       <p className="text-[13px] text-emerald-800/90 leading-snug mt-0.5">
                         {expressAvailable
                           ? 'Express and Standard delivery are both available for this PIN code.'
-                          : 'Standard delivery. Express is not available for this PIN code.'}
+                          : delivery.indeterminate
+                            ? "Standard delivery. We couldn't check Express availability just now."
+                            : 'Standard delivery. Express is not available for this PIN code.'}
                       </p>
                     </div>
                   </div>
@@ -1605,6 +1607,7 @@ export default function CheckoutPage() {
                         {!formData.pincode ? 'Enter your PIN code'
                           : delivery.phase === 'checking' ? 'Checking availability…'
                           : expressBlocked ? 'Not available in your region'
+                          : delivery.indeterminate ? "Couldn't check availability"
                           : !expressAvailable ? 'Not available for this PIN code'
                           : '1–2 days · Major cities only'}
                       </p>

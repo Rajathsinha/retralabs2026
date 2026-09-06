@@ -14,6 +14,8 @@ export interface DeliveryState {
   provider: 'Innofulfill' | 'Shiprocket' | null;
   /** True when Innofulfill could not be reached and Express was hidden on a guess. */
   indeterminate: boolean;
+  /** Carrier's stated reason, or our own when the check could not run. */
+  reason: string | null;
   message: string | null;
   /** The exact PIN this result describes, so a stale answer is never trusted. */
   pincode: string | null;
@@ -24,6 +26,7 @@ const IDLE: DeliveryState = {
   expressAvailable: false,
   provider: null,
   indeterminate: false,
+  reason: null,
   message: null,
   pincode: null,
 };
@@ -100,6 +103,7 @@ export function useDeliveryCheck(pincode: string, paymentMethod: 'prepay' | 'cod
           expressAvailable: Boolean(data?.expressAvailable),
           provider: data?.provider ?? 'Shiprocket',
           indeterminate: Boolean(data?.indeterminate),
+          reason: data?.reason ?? null,
           message: null,
           pincode: pin,
         });
@@ -111,6 +115,7 @@ export function useDeliveryCheck(pincode: string, paymentMethod: 'prepay' | 'cod
           expressAvailable: false,
           provider: 'Shiprocket',
           indeterminate: true,
+          reason: 'Could not reach the courier service',
           message: null,
           pincode: pin,
         });

@@ -48,6 +48,10 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
       expressAvailable: routing.expressAvailable,
       provider: routing.provider,
       indeterminate: routing.indeterminate,
+      // Why Express is unavailable. Shown to no one directly, but it is the
+      // difference between "Innofulfill declined this PIN" and "we could not
+      // reach Innofulfill", which must not read the same to a customer.
+      reason: routing.reason ?? null,
     });
   } catch (err) {
     console.error('[verify-delivery]', err);
