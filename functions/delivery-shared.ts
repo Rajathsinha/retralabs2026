@@ -79,6 +79,12 @@ export function isValidPincodeFormat(pincode: unknown): pincode is string {
 
 export type Provider = 'Innofulfill' | 'Shiprocket';
 
+export interface CarrierStatus {
+  name: string;
+  serviceable: boolean;
+  reason?: string;
+}
+
 export interface RoutingDecision {
   /** Innofulfill serves this PIN, so Express may be offered. */
   expressAvailable: boolean;
@@ -87,6 +93,8 @@ export interface RoutingDecision {
   /** True when Innofulfill could not be reached, so this is a fallback guess. */
   indeterminate: boolean;
   reason?: string;
+  /** Every carrier Innofulfill reported, for diagnosing routing decisions. */
+  carriers?: CarrierStatus[];
 }
 
 function innofulfillBase(): string {
@@ -105,9 +113,21 @@ async function innofulfillServiceable(
   token: string,
   toPincode: string,
   paymentMode: 'PREPAID' | 'COD',
-): Promise<{ serviceable: boolean; reason?: string }> {
+): Promise<{ serviceable: boolean; reason?: string; carriers: CarrierStatus[] }> {
   const fromPincode = process.env.INNOFULFILL_PICKUP_PINCODE || '560016';
-  const carrier = process.env.INNOFULFILL_CARRIER_NAME || 'innofulfill_ecomm';
+  // Only narrow to a specific carrier when one is explicitly configured.
+  // Sending a carrier name that matches nothing makes Innofulfill answer with
+  // no serviceable carriers, which then reads to the customer as "we do not
+  // deliver there" even for PIN codes it plainly serves.
+  const carrier = (process.env.INNOFULFILL_CARRIER_NAME || '').trim();
+
+  const payload: Record<string, unknown> = {
+    fromPincode: parseInt(fromPincode, 10),
+    toPincode: parseInt(toPincode, 10),
+    paymentMode,
+    operationType: 'PICKUP_DELIVERY',
+  };
+  if (carrier) payload.carriers = [carrier];
 
   const res = await fetch(`${innofulfillBase()}/gateway/serviceability/ecomm`, {
     method: 'POST',
@@ -116,21 +136,37 @@ async function innofulfillServiceable(
       Authorization: `Bearer ${token}`,
       TenantId: process.env.INNOFULFILL_TENANT_ID || '',
     },
-    body: JSON.stringify({
-      fromPincode: parseInt(fromPincode, 10),
-      toPincode: parseInt(toPincode, 10),
-      paymentMode,
-      operationType: 'PICKUP_DELIVERY',
-      carriers: [carrier],
-    }),
+    body: JSON.stringify(payload),
   });
 
   if (!res.ok) throw new Error(`Innofulfill serviceability HTTP ${res.status}`);
   const json = await res.json();
-  const carrierStatus = json?.data?.[0]?.carriers?.[0];
+
+  // Flatten every carrier across every returned entry. Reading only
+  // data[0].carriers[0] meant a single unserviceable carrier at the head of
+  // the list masked every serviceable one behind it.
+  const entries: Array<Record<string, unknown>> = Array.isArray(json?.data) ? json.data : [];
+  const carriers: CarrierStatus[] = entries.flatMap(entry => {
+    const raw = (entry as { carriers?: unknown }).carriers;
+    const list: Array<Record<string, unknown>> = Array.isArray(raw) ? raw : [];
+    return list.map(c => ({
+      name: String(c.carrierName ?? c.name ?? 'unknown'),
+      serviceable: c.serviceable === true,
+      reason: typeof c.reason === 'string' ? c.reason : undefined,
+    }));
+  });
+
+  const serviceable = carriers.some(c => c.serviceable);
+  console.log(
+    `[routing] ${fromPincode}->${toPincode} ${paymentMode}: ` +
+    `${carriers.length} carrier(s), serviceable=${serviceable} ` +
+    `[${carriers.map(c => `${c.name}:${c.serviceable}`).join(', ')}]`,
+  );
+
   return {
-    serviceable: carrierStatus?.serviceable === true,
-    reason: carrierStatus?.reason || undefined,
+    serviceable,
+    reason: carriers.find(c => !c.serviceable && c.reason)?.reason,
+    carriers,
   };
 }
 
@@ -158,8 +194,8 @@ export async function routeShipment(
     }
     const inno = await innofulfillServiceable(token, pincode.trim(), paymentMode);
     return inno.serviceable
-      ? { expressAvailable: true, provider: 'Innofulfill', indeterminate: false }
-      : { expressAvailable: false, provider: 'Shiprocket', indeterminate: false, reason: inno.reason };
+      ? { expressAvailable: true, provider: 'Innofulfill', indeterminate: false, carriers: inno.carriers }
+      : { expressAvailable: false, provider: 'Shiprocket', indeterminate: false, reason: inno.reason, carriers: inno.carriers };
   } catch (err) {
     // Could not ask. Ship via Shiprocket rather than blocking the sale, and
     // mark it so the caller knows Express was hidden on a guess.

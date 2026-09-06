@@ -29,6 +29,8 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
     const body = JSON.parse(event.body || '{}') as {
       pincode?: string;
       paymentMethod?: 'prepay' | 'cod';
+      /** Echo the carrier list back, for diagnosing routing from the browser. */
+      debug?: boolean;
     };
 
     const pincode = String(body.pincode ?? '').trim();
@@ -52,6 +54,7 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
       // difference between "Innofulfill declined this PIN" and "we could not
       // reach Innofulfill", which must not read the same to a customer.
       reason: routing.reason ?? null,
+      ...(body.debug ? { carriers: routing.carriers ?? [] } : {}),
     });
   } catch (err) {
     console.error('[verify-delivery]', err);
