@@ -1,4 +1,4 @@
-import { resolveDelivery, isValidPincodeFormat } from './delivery-shared';
+import { isValidPincodeFormat, canonicalRegion } from './delivery-shared';
 import {
   PAYMENT_STATUS,
   SHIPMENT_STATUS,
@@ -36,53 +36,26 @@ interface CreateOrderBody {
 }
 
 /**
- * Re-verifies the destination server-side and returns the values fulfillment
- * should actually use.
+ * Validates the destination server-side.
  *
- * The client already ran these checks for its own UI, but a request can be
- * replayed, crafted, or simply stale by the time it lands here. State, city and
- * serviceability are therefore recomputed and the client's versions discarded.
- *
- * A carrier or lookup outage must not block a real sale, so 'unavailable'
- * passes through with a warning; only a PIN we positively know is bad or
- * undeliverable is refused.
+ * Every Indian PIN is deliverable, so this never refuses an order on delivery
+ * grounds. It only rejects input that is structurally wrong — a malformed PIN
+ * or a state outside the official list — because those break carrier booking.
+ * Which carrier actually ships is decided in processLogistics, never here and
+ * never by the client.
  */
-async function verifyDestination(customer: CreateOrderBody['customer']): Promise<
-  | { ok: true; state: string; city: string; provider: 'Innofulfill' | 'Shiprocket' | null; warning: string | null }
-  | { ok: false; status: number; error: string }
-> {
+function validateDestination(
+  customer: CreateOrderBody['customer'],
+): { state?: string; error?: string } {
   const pincode = String(customer?.pincode ?? '').trim();
-
   if (!isValidPincodeFormat(pincode)) {
-    return { ok: false, status: 400, error: 'Please enter a valid 6-digit PIN code.' };
+    return { error: 'Please enter a valid 6-digit PIN code.' };
   }
-
-  const { pin, serviceability } = await resolveDelivery(pincode, 'prepay');
-
-  if (pin.status === 'not_found') {
-    return { ok: false, status: 400, error: "We couldn't verify this PIN code. Please check the number and try again." };
+  const state = canonicalRegion(customer?.state);
+  if (!state) {
+    return { error: 'Please select a valid Indian state or union territory.' };
   }
-  if (pin.status === 'unavailable' || !pin.state) {
-    console.warn(`[create-order] PIN lookup unavailable for ${pincode}; accepting client address.`);
-    return {
-      ok: true,
-      state: customer.state,
-      city: customer.city,
-      provider: null,
-      warning: 'PIN verification unavailable at order time.',
-    };
-  }
-  if (serviceability && !serviceability.indeterminate && !serviceability.serviceable) {
-    return { ok: false, status: 409, error: "We currently don't have delivery availability for this PIN code." };
-  }
-
-  return {
-    ok: true,
-    state: pin.state,
-    city: pin.city || pin.district || customer.city,
-    provider: serviceability?.provider ?? null,
-    warning: serviceability?.indeterminate ? 'Carrier serviceability could not be confirmed at order time.' : null,
-  };
+  return { state };
 }
 
 async function uploadScreenshot(
@@ -134,24 +107,20 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
       return { statusCode: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Missing required order fields' }) };
     }
 
-    // Verify the destination before anything is persisted. Creating an order
-    // we cannot ship is the failure this whole flow exists to prevent.
+    // Validate the destination before anything is persisted.
     let verifiedState = body.customer?.state ?? '';
-    let verifiedCity = body.customer?.city ?? '';
-    let destinationWarning: string | null = null;
+    const verifiedCity = body.customer?.city ?? '';
 
     if (body.customer?.pincode) {
-      const destination = await verifyDestination(body.customer);
-      if (!destination.ok) {
+      const destination = validateDestination(body.customer);
+      if (destination.error || !destination.state) {
         return {
-          statusCode: destination.status,
+          statusCode: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ error: destination.error }),
+          body: JSON.stringify({ error: destination.error || 'Invalid delivery address.' }),
         };
       }
       verifiedState = destination.state;
-      verifiedCity = destination.city;
-      destinationWarning = destination.warning;
     }
 
     const orderId = await generateOrderId(baseId, table, token);
@@ -253,7 +222,7 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
         awbNumber: logistics.awbNumber,
         shipmentStatus: logistics.shipmentStatus,
         carrierDisplayName: logistics.carrierDisplayName,
-        innofulfillWarning: logistics.warning || destinationWarning,
+        innofulfillWarning: logistics.warning,
         screenshotWarning: screenshotWarning || null,
       }),
     };

@@ -2,7 +2,7 @@ import { useSEO } from '../hooks/useSEO';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getProductImageUrl, BAC_WATER_IMAGE_URL } from '../utils/imageUrl';
-import { Minus, Plus, Trash2, Check, MessageCircle, Tag, ShoppingBag, ArrowRight, X, GraduationCap, Zap, Clock, Banknote, Package, Truck, Loader2, MapPin, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Minus, Plus, Trash2, Check, MessageCircle, Tag, ShoppingBag, ArrowRight, X, GraduationCap, Zap, Clock, Banknote, Package, Truck, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { OrderFormData } from '../types';
@@ -167,38 +167,10 @@ export default function CheckoutPage() {
   const [showExpressTerms, setShowExpressTerms] = useState(false);
   const [expressTermsAccepted, setExpressTermsAccepted] = useState(false);
   const [expressBlocked, setExpressBlocked] = useState(false);
-  const [checkingExpress, setCheckingExpress] = useState(false);
 
-  const handleExpressClick = async () => {
-    if (expressBlocked || checkingExpress) return;
-    if (!formData.pincode || formData.pincode.length !== 6) {
-      alert('Please enter your 6-digit Pincode in the Shipping Details above before selecting Express Delivery.');
-      return;
-    }
-
-    setCheckingExpress(true);
-    try {
-      const res = await fetch('/.netlify/functions/check-innofulfill-serviceability', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          toPincode: formData.pincode,
-          paymentMode: paymentMethod
-        })
-      });
-      const data = await res.json();
-      if (data.serviceable) {
-        setShowExpressTerms(true);
-      } else {
-        alert(`Express Delivery is not available for pincode ${formData.pincode}.\nReason: ${data.reason || 'Unserviceable'}`);
-        setFormData(prev => ({ ...prev, delivery_option: 'normal' }));
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Failed to verify express serviceability. Please check your internet connection or try Standard Delivery.');
-    } finally {
-      setCheckingExpress(false);
-    }
+  const handleExpressClick = () => {
+    if (expressDisabled) return;
+    setShowExpressTerms(true);
   };
 
   /* ── Check if express is blocked for the selected state ── */
@@ -211,40 +183,26 @@ export default function CheckoutPage() {
     }
   }, [formData.delivery_option, formData.state]);
 
-  /* ── PIN verification + delivery availability ──────────────────────────
-     Runs as the customer types. Any PIN or payment-method change discards the
-     previous answer, so serviceability is never reused across addresses. */
+  /* ── Delivery options for this PIN ───────────────────────────────────
+     Every PIN is deliverable. This only decides whether Express (Innofulfill)
+     can be offered; otherwise the order ships Standard via Shiprocket. */
   const delivery = useDeliveryCheck(formData.pincode, paymentMethod);
-  const [stateAutoFilled, setStateAutoFilled] = useState(false);
-  const [stateCorrected, setStateCorrected] = useState<string | null>(null);
 
-  /* Populate state / city / district from the verified PIN. If the customer had
-     already picked a different state, correct it and tell them — silently
-     shipping to the wrong state is how orders got lost. */
+  const pinReady = delivery.phase === 'ready' && delivery.pincode === formData.pincode;
+  const expressAvailable = pinReady && delivery.expressAvailable;
+
+  /* Express must not stay selected once we learn Innofulfill does not serve
+     this PIN — otherwise the customer pays for a speed we cannot deliver. */
   useEffect(() => {
-    if (delivery.phase !== 'verified' || !delivery.location) {
-      setStateAutoFilled(false);
-      setStateCorrected(null);
-      return;
+    if (pinReady && !delivery.expressAvailable && formData.delivery_option === 'fast') {
+      setFormData(prev => ({ ...prev, delivery_option: 'normal' }));
+      setExpressTermsAccepted(false);
     }
-    const verifiedState = delivery.location.state;
-    const verifiedCity = delivery.location.city ?? delivery.location.district ?? '';
+  }, [pinReady, delivery.expressAvailable, formData.delivery_option]);
 
-    setFormData(prev => {
-      const prevState = canonicalRegion(prev.state);
-      const mismatch = Boolean(prevState) && prevState !== verifiedState;
-      setStateCorrected(mismatch ? verifiedState : null);
-
-      const nextCity = prev.city.trim() ? prev.city : verifiedCity;
-      if (prev.state === verifiedState && prev.city === nextCity) return prev;
-      return { ...prev, state: verifiedState, city: nextCity };
-    });
-    setStateAutoFilled(true);
-  }, [delivery.phase, delivery.location]);
-
-  /* Delivery must be confirmed for the PIN currently in the form. */
-  const deliveryConfirmed =
-    delivery.phase === 'verified' && delivery.pincode === formData.pincode;
+  /* Express needs Innofulfill to serve the PIN, and is separately barred in
+     southern states by the existing regional rule. */
+  const expressDisabled = !pinReady || !expressAvailable || expressBlocked;
 
   const contactValid =
     formData.customer_name.trim().length > 1 &&
@@ -254,7 +212,8 @@ export default function CheckoutPage() {
   const addressValid =
     formData.shipping_address.trim().length > 8 &&
     Boolean(canonicalRegion(formData.state)) &&
-    formData.city.trim().length > 0;
+    formData.city.trim().length > 0 &&
+    /^[1-9][0-9]{5}$/.test(formData.pincode);
 
   const consentsAccepted =
     formData.disclaimer_accepted && formData.age_confirmed && formData.no_dosing_accepted;
@@ -263,12 +222,14 @@ export default function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false);
 
   /* The pay button stays inert until every precondition holds. */
-  const canPlaceOrder =
-    contactValid && addressValid && deliveryConfirmed && consentsAccepted && !submitting;
+  const canPlaceOrder = contactValid && addressValid && consentsAccepted && !submitting;
   const [confirming, setConfirming] = useState(false);
   const [whatsappUrl, setWhatsappUrl] = useState('');
   const [orderSent,   setOrderSent]   = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
+  /* WhatsApp payers: attach a screenshot instead of scanning the QR. */
+  const [showWhatsappProof, setShowWhatsappProof] = useState(false);
+  const [whatsappProofFile, setWhatsappProofFile] = useState<File | null>(null);
   const [paymentSession, setPaymentSession] = useState<{ recordId: string; orderId: string; expiresAt: string | null } | null>(null);
   const [startingPayment, setStartingPayment] = useState(false);
   const [submitError,   setSubmitError]   = useState<string | null>(null); // fatal: order not saved
@@ -308,24 +269,16 @@ export default function CheckoutPage() {
     if (cart.length === 0) return;
 
     // Belt and braces: the button is disabled in these states, but a stray
-    // Enter key must not slip an unverified address past the check. The server
-    // re-verifies regardless — see functions/delivery-shared.ts.
-    if (!deliveryConfirmed) {
-      alert(
-        delivery.phase === 'rejected'
-          ? "We can't deliver to this PIN code yet. Please check it or contact support."
-          : 'Please enter your PIN code and wait for delivery to be confirmed.',
-      );
+    // Enter key must not skip validation. The server re-checks regardless.
+    if (!/^[1-9][0-9]{5}$/.test(formData.pincode)) {
+      alert('Please enter a valid 6-digit PIN code.');
       return;
     }
     if (!canonicalRegion(formData.state)) {
       alert('Please select your state from the list.');
       return;
     }
-    if (formData.delivery_option === 'fast' && SOUTHERN_STATES.includes((formData.state || '').trim().toLowerCase())) {
-      alert('Express delivery is not available for southern states. Please choose Standard delivery.');
-      return;
-    }
+
     if (!formData.referral_source) {
       document.getElementById('referral-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
@@ -563,6 +516,35 @@ export default function CheckoutPage() {
       setShowQrModal(true);
     } catch (err) {
       setSubmitError(`Could not start payment session — ${describeError(err)}`);
+    } finally {
+      setStartingPayment(false);
+    }
+  };
+
+  /**
+   * For customers who already paid over WhatsApp. Reserves the order so a
+   * payment session exists, then shows the upload panel. No QR to scan.
+   */
+  const handleStartWhatsappProof = async () => {
+    if (startingPayment) return;
+    if (paymentSession) { setShowWhatsappProof(true); return; }
+    setStartingPayment(true);
+    setSubmitError(null);
+    try {
+      const itemsSummary = cart
+        .map(i => `${i.product.name} ${i.variant.dosage_mg}mg x${i.quantity} = ₹${(i.variant.price_inr * i.quantity).toLocaleString('en-IN')}`)
+        .join('\n');
+      const payload = buildOrderPayload(formData, grandTotal, deliveryCharge, 0, 'prepay', itemsSummary, true);
+      const result = await saveOrder(payload.fields, undefined, payload.extra);
+      if (!result.recordId || !result.orderId) throw new Error('Failed to start payment session');
+      setPaymentSession({
+        recordId: result.recordId,
+        orderId: result.orderId,
+        expiresAt: result.paymentSessionExpiresAt || null,
+      });
+      setShowWhatsappProof(true);
+    } catch (err) {
+      setSubmitError(`Could not start your order — ${describeError(err)}`);
     } finally {
       setStartingPayment(false);
     }
@@ -1082,6 +1064,65 @@ export default function CheckoutPage() {
                 </a>
               </div>
 
+              {/* Already paid on WhatsApp — attach proof, nothing to scan */}
+              {!showWhatsappProof ? (
+                <button
+                  onClick={() => void handleStartWhatsappProof()}
+                  disabled={startingPayment}
+                  className="w-full flex items-center justify-between gap-4 p-4 bg-white hover:bg-[#f8fafc] border border-[#E5E7EB] hover:border-[#16a34a]/50 rounded-2xl transition-all duration-200 disabled:opacity-60"
+                >
+                  <div className="flex items-center gap-3 text-left">
+                    <div className="w-11 h-11 rounded-xl bg-[#16a34a]/10 flex items-center justify-center flex-shrink-0">
+                      <MessageCircle className="w-5 h-5 text-[#16a34a]" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-[#111111]">Already paid on WhatsApp?</p>
+                      <p className="text-xs text-[#9CA3AF] mt-0.5">Attach your payment screenshot — no scanning</p>
+                    </div>
+                  </div>
+                  {startingPayment
+                    ? <Loader2 className="w-4 h-4 text-[#16a34a] animate-spin flex-shrink-0" />
+                    : <ArrowRight className="w-4 h-4 text-[#16a34a] flex-shrink-0" />}
+                </button>
+              ) : (
+                <div className="rounded-2xl border border-[#16a34a]/40 bg-[#f0fdf4] p-4">
+                  <p className="text-sm font-bold text-[#14532d]">Attach your payment screenshot</p>
+                  <p className="text-xs text-[#166534]/80 mt-0.5 mb-3">
+                    Order {paymentSession?.orderId} is reserved. We&apos;ll confirm once we&apos;ve checked the payment.
+                  </p>
+
+                  <label className="block">
+                    <span className="sr-only">Payment screenshot</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setWhatsappProofFile(e.target.files?.[0] ?? null)}
+                      className="block w-full text-xs text-[#166534] file:mr-3 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-[#16a34a] file:text-white hover:file:bg-[#15803d] file:cursor-pointer cursor-pointer"
+                    />
+                  </label>
+
+                  {whatsappProofFile && (
+                    <p className="text-xs text-[#166534] mt-2 truncate">Selected: {whatsappProofFile.name}</p>
+                  )}
+
+                  <button
+                    onClick={() => whatsappProofFile && void handleQrPaymentConfirmed('WhatsApp payment', whatsappProofFile)}
+                    disabled={!whatsappProofFile || confirming}
+                    className="mt-3 w-full flex items-center justify-center gap-2 bg-[#16a34a] hover:bg-[#15803d] disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-sm py-3.5 rounded-xl transition-all"
+                  >
+                    {confirming
+                      ? <Loader2 className="w-4 h-4 animate-spin" />
+                      : <><Check className="w-4 h-4" />Submit screenshot</>}
+                  </button>
+                  <button
+                    onClick={() => { setShowWhatsappProof(false); setWhatsappProofFile(null); }}
+                    className="mt-2 w-full text-xs font-semibold text-[#166534]/70 hover:text-[#166534] py-1"
+                  >
+                    Back to payment options
+                  </button>
+                </div>
+              )}
+
               <style>{`
                 @keyframes rl-scan-inline {
                   0% { top: 0%; opacity: 0; }
@@ -1436,42 +1477,25 @@ export default function CheckoutPage() {
                       onChange={(e) => setFormData({ ...formData, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) })}
                       aria-describedby="pin-status"
                       className={`w-full px-4 py-3 pr-11 min-h-[48px] rounded-xl border-2 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-800 transition-colors text-base tracking-[0.18em] font-medium ${
-                        delivery.phase === 'verified' ? 'border-emerald-300'
-                          : delivery.phase === 'rejected' || delivery.phase === 'error' ? 'border-red-300'
+                        pinReady ? 'border-emerald-300'
+                          : delivery.phase === 'invalid' ? 'border-red-300'
                           : 'border-slate-200'
                       }`}
                     />
                     <span className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none">
                       {delivery.phase === 'checking' && <Loader2 className="w-5 h-5 text-slate-400 animate-spin" />}
-                      {delivery.phase === 'verified' && <CheckCircle2 className="w-5 h-5 text-emerald-600" />}
-                      {(delivery.phase === 'rejected' || delivery.phase === 'error') && <AlertCircle className="w-5 h-5 text-red-500" />}
+                      {pinReady && <CheckCircle2 className="w-5 h-5 text-emerald-600" />}
+                      {delivery.phase === 'invalid' && <AlertCircle className="w-5 h-5 text-red-500" />}
                     </span>
                   </div>
 
-                  {/* One live region for every PIN outcome, so screen readers
-                      announce the result without the customer hunting for it. */}
                   <div id="pin-status" aria-live="polite" className="mt-2">
                     {delivery.phase === 'checking' && (
                       <p className="text-[13px] text-slate-500 flex items-center gap-1.5">
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Verifying PIN code…
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Checking delivery options…
                       </p>
                     )}
-
-                    {delivery.phase === 'verified' && delivery.location && (
-                      <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-3">
-                        <p className="flex items-center gap-1.5 text-[13px] font-semibold text-emerald-800">
-                          <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
-                          {[delivery.location.district, delivery.location.state].filter(Boolean).join(', ')}
-                        </p>
-                        {delivery.location.areas.length > 0 && (
-                          <p className="mt-1 text-[12px] text-emerald-700/80 leading-snug">
-                            {delivery.location.areas.slice(0, 4).join(' · ')}
-                          </p>
-                        )}
-                      </div>
-                    )}
-
-                    {(delivery.phase === 'rejected' || delivery.phase === 'error') && delivery.message && (
+                    {delivery.phase === 'invalid' && delivery.message && (
                       <p className="flex items-start gap-1.5 text-[13px] text-red-600">
                         <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
                         <span>{delivery.message}</span>
@@ -1480,36 +1504,21 @@ export default function CheckoutPage() {
                   </div>
                 </div>
 
-                {/* City & District — prefilled from the PIN, still editable */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label htmlFor="city" className="block text-sm font-semibold text-slate-700 mb-1.5">
-                      City <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      id="city"
-                      type="text"
-                      required
-                      autoComplete="address-level2"
-                      placeholder="City"
-                      value={formData.city}
-                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                      className="w-full px-4 py-3 min-h-[48px] rounded-xl border-2 border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-800 transition-colors text-base"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="district" className="block text-sm font-semibold text-slate-700 mb-1.5">
-                      District
-                    </label>
-                    <input
-                      id="district"
-                      type="text"
-                      readOnly
-                      placeholder="From PIN code"
-                      value={delivery.location?.district ?? ''}
-                      className="w-full px-4 py-3 min-h-[48px] rounded-xl border-2 border-slate-200 bg-slate-50 text-slate-600 placeholder:text-slate-400 focus:outline-none text-base"
-                    />
-                  </div>
+                {/* City */}
+                <div>
+                  <label htmlFor="city" className="block text-sm font-semibold text-slate-700 mb-1.5">
+                    City <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="city"
+                    type="text"
+                    required
+                    autoComplete="address-level2"
+                    placeholder="City"
+                    value={formData.city}
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    className="w-full px-4 py-3 min-h-[48px] rounded-xl border-2 border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-800 transition-colors text-base"
+                  />
                 </div>
 
                 {/* State — a closed list, never free text */}
@@ -1520,39 +1529,19 @@ export default function CheckoutPage() {
                   <StateSelect
                     id="state"
                     value={formData.state}
-                    onChange={(next) => { setFormData(prev => ({ ...prev, state: next })); setStateCorrected(null); }}
-                    autoFilled={stateAutoFilled}
+                    onChange={(next) => setFormData(prev => ({ ...prev, state: next }))}
                   />
-                  {stateCorrected && (
-                    <p className="mt-2 flex items-start gap-1.5 text-[13px] text-amber-700">
-                      <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-                      <span>This PIN code belongs to <strong>{stateCorrected}</strong>. We&apos;ve updated the state automatically.</span>
-                    </p>
-                  )}
                 </div>
 
-                {/* Delivery availability — resolved before payment, never after */}
-                {delivery.phase === 'verified' && (
+                {pinReady && (
                   <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3.5">
                     <Truck className="w-5 h-5 text-emerald-700 flex-shrink-0 mt-0.5" strokeWidth={2} />
                     <div className="min-w-0">
-                      <p className="text-sm font-bold text-emerald-900">Delivery available</p>
+                      <p className="text-sm font-bold text-emerald-900">Delivery available to {formData.pincode}</p>
                       <p className="text-[13px] text-emerald-800/90 leading-snug mt-0.5">
-                        {delivery.carrierIndeterminate
-                          ? `We ship to ${formData.pincode}. Your courier is assigned when the order is confirmed.`
-                          : `Shipping available to ${formData.pincode}. Courier assigned automatically.`}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {delivery.phase === 'rejected' && (
-                  <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3.5">
-                    <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" strokeWidth={2} />
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-red-900">We can&apos;t deliver to this PIN code</p>
-                      <p className="text-[13px] text-red-800/90 leading-snug mt-0.5">
-                        Please check the PIN code, or contact support and we&apos;ll look for a way to get it to you.
+                        {expressAvailable
+                          ? 'Express and Standard delivery are both available for this PIN code.'
+                          : 'Standard delivery. Express is not available for this PIN code.'}
                       </p>
                     </div>
                   </div>
@@ -1594,10 +1583,10 @@ export default function CheckoutPage() {
                     {/* Fast delivery */}
                     <button
                       type="button"
-                      disabled={checkingExpress}
+                      disabled={expressDisabled}
                       onClick={handleExpressClick}
-                      className={`relative flex flex-col items-start gap-1.5 p-4 rounded-xl border-2 text-left transition-all ${checkingExpress ? 'opacity-70 pointer-events-none' : ''} ${
-                        expressBlocked
+                      className={`relative flex flex-col items-start gap-1.5 p-4 rounded-xl border-2 text-left transition-all ${
+                        expressDisabled
                           ? 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed'
                           : formData.delivery_option === 'fast'
                             ? 'border-amber-500 bg-amber-500 text-white shadow-lg shadow-amber-500/30'
@@ -1605,20 +1594,24 @@ export default function CheckoutPage() {
                       }`}
                     >
                       <div className="flex items-center gap-2">
-                        {checkingExpress ? (
+                        {delivery.phase === 'checking' ? (
                           <Loader2 className="w-4 h-4 text-amber-500 animate-spin" />
                         ) : (
-                          <Zap className={`w-4 h-4 ${expressBlocked ? 'text-slate-300' : formData.delivery_option === 'fast' ? 'text-white' : 'text-amber-500'}`} />
+                          <Zap className={`w-4 h-4 ${expressDisabled ? 'text-slate-300' : formData.delivery_option === 'fast' ? 'text-white' : 'text-amber-500'}`} />
                         )}
-                        <span className="text-sm font-bold">{checkingExpress ? 'Checking...' : 'Express'}</span>
+                        <span className="text-sm font-bold">Express</span>
                       </div>
-                      <p className={`text-xs ${expressBlocked ? 'text-slate-400' : formData.delivery_option === 'fast' ? 'text-amber-100' : 'text-slate-500'}`}>
-                        {expressBlocked ? 'Not available in your region' : '1–2 days · Major cities only'}
+                      <p className={`text-xs ${expressDisabled ? 'text-slate-400' : formData.delivery_option === 'fast' ? 'text-amber-100' : 'text-slate-500'}`}>
+                        {!formData.pincode ? 'Enter your PIN code'
+                          : delivery.phase === 'checking' ? 'Checking availability…'
+                          : expressBlocked ? 'Not available in your region'
+                          : !expressAvailable ? 'Not available for this PIN code'
+                          : '1–2 days · Major cities only'}
                       </p>
-                      <span className={`text-base font-black ${expressBlocked ? 'text-slate-300' : formData.delivery_option === 'fast' ? 'text-white' : 'text-amber-600'}`}>
+                      <span className={`text-base font-black ${expressDisabled ? 'text-slate-300' : formData.delivery_option === 'fast' ? 'text-white' : 'text-amber-600'}`}>
                         +{format(FAST_DELIVERY_CHARGE)}
                       </span>
-                      {formData.delivery_option === 'fast' && !expressBlocked && (
+                      {formData.delivery_option === 'fast' && !expressDisabled && (
                         <div className="absolute top-2.5 right-2.5 w-5 h-5 bg-white rounded-full flex items-center justify-center">
                           <Check className="w-3 h-3 text-amber-500" />
                         </div>
@@ -1779,12 +1772,7 @@ export default function CheckoutPage() {
                 {!canPlaceOrder && !submitting && (
                   <p className="text-[13px] text-slate-500 text-center -mb-2">
                     {!contactValid ? 'Add your name, email and phone number to continue.'
-                      : !formData.pincode ? 'Enter your PIN code to check delivery.'
-                      : delivery.phase === 'checking' ? 'Checking delivery availability…'
-                      : delivery.phase === 'rejected' ? "We can't deliver to this PIN code."
-                      : delivery.phase === 'error' ? 'Verify your PIN code to continue.'
-                      : !deliveryConfirmed ? 'Enter your PIN code to check delivery.'
-                      : !addressValid ? 'Complete your address, city and state to continue.'
+                      : !addressValid ? 'Complete your address, city, state and PIN code to continue.'
                       : 'Accept the research-use terms below to continue.'}
                   </p>
                 )}

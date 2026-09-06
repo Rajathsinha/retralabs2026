@@ -1,4 +1,4 @@
-import { resolveDelivery } from './delivery-shared';
+import { routeShipment, isValidPincodeFormat } from './delivery-shared';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,14 +7,6 @@ const corsHeaders = {
   'Content-Type': 'application/json',
 };
 
-/** Outcomes the checkout renders. Each maps to one message the customer sees. */
-export type DeliveryOutcome =
-  | 'ok'              // PIN verified and a carrier will deliver
-  | 'invalid_format'  // not six digits
-  | 'not_found'       // well-formed PIN that does not exist
-  | 'unavailable'     // we could not reach the lookup — retryable, not the customer's fault
-  | 'undeliverable';  // PIN is real but no carrier serves it
-
 const json = (statusCode: number, body: unknown) => ({
   statusCode,
   headers: corsHeaders,
@@ -22,11 +14,12 @@ const json = (statusCode: number, body: unknown) => ({
 });
 
 /**
- * Verifies a PIN code and reports whether we can deliver to it.
+ * Reports which delivery options are available for a PIN code.
  *
- * Called from the checkout as the customer types. The same logic runs again in
- * create-order, so this endpoint is a convenience for the UI, never the
- * authority — see delivery-shared.ts.
+ * Every PIN is deliverable, so this never refuses an order. It answers one
+ * question: does Innofulfill serve this PIN, and therefore can Express be
+ * offered? The checkout uses it to show or hide Express. Routing is decided
+ * again server-side at order time — see delivery-shared.ts.
  */
 export const handler = async (event: { httpMethod?: string; body?: string }) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders, body: '' };
@@ -41,61 +34,30 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
     const pincode = String(body.pincode ?? '').trim();
     const paymentMethod = body.paymentMethod === 'cod' ? 'cod' : 'prepay';
 
-    const { pin, serviceability, checkedAt } = await resolveDelivery(pincode, paymentMethod);
-
-    if (pin.status === 'invalid') {
-      return json(200, { outcome: 'invalid_format' satisfies DeliveryOutcome, pincode });
-    }
-    if (pin.status === 'not_found') {
-      return json(200, { outcome: 'not_found' satisfies DeliveryOutcome, pincode });
-    }
-    if (pin.status === 'unavailable') {
-      return json(200, { outcome: 'unavailable' satisfies DeliveryOutcome, pincode });
+    if (!isValidPincodeFormat(pincode)) {
+      return json(200, { outcome: 'invalid_format', pincode });
     }
 
-    const location = {
-      pincode: pin.pincode,
-      state: pin.state,
-      district: pin.district,
-      city: pin.city,
-      areas: pin.areas ?? [],
-    };
-
-    // Carriers unreachable: the address is real, so let the order through and
-    // let server-side routing retry at order time rather than blocking a sale
-    // on our own outage.
-    if (!serviceability || serviceability.indeterminate) {
-      return json(200, {
-        outcome: 'ok' satisfies DeliveryOutcome,
-        location,
-        deliverable: true,
-        provider: null,
-        carrierCheck: 'indeterminate',
-        checkedAt,
-      });
-    }
-
-    if (!serviceability.serviceable) {
-      return json(200, {
-        outcome: 'undeliverable' satisfies DeliveryOutcome,
-        location,
-        deliverable: false,
-        reason: serviceability.reason ?? null,
-        checkedAt,
-      });
-    }
+    const routing = await routeShipment(pincode, paymentMethod);
 
     return json(200, {
-      outcome: 'ok' satisfies DeliveryOutcome,
-      location,
+      outcome: 'ok',
+      pincode,
+      // Always true. Kept explicit so the client never has to infer it.
       deliverable: true,
-      provider: serviceability.provider,
-      carrierCheck: 'confirmed',
-      checkedAt,
+      expressAvailable: routing.expressAvailable,
+      provider: routing.provider,
+      indeterminate: routing.indeterminate,
     });
   } catch (err) {
     console.error('[verify-delivery]', err);
-    // Surface as retryable rather than as a bad PIN.
-    return json(200, { outcome: 'unavailable' satisfies DeliveryOutcome });
+    // Never block checkout on our own failure: standard delivery still applies.
+    return json(200, {
+      outcome: 'ok',
+      deliverable: true,
+      expressAvailable: false,
+      provider: 'Shiprocket',
+      indeterminate: true,
+    });
   }
 };

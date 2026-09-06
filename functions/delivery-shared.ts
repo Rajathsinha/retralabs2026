@@ -1,19 +1,28 @@
 /**
- * Server-side PIN verification and delivery routing.
+ * Shipping routing rules.
  *
- * This module is the source of truth. The checkout calls it for live feedback,
- * and create-order calls it again before an order is written, so a crafted or
- * stale request cannot bypass the routing or buy an undeliverable address.
- * Never accept the client's state, city, serviceability or provider.
+ * Business rules this encodes:
+ *  1. Every Indian PIN code is deliverable. Checkout is never blocked on a PIN.
+ *  2. Innofulfill serviceability decides EXPRESS eligibility only. If Innofulfill
+ *     serves the PIN, Express may be offered and the order books with Innofulfill
+ *     for a real AWB. If not, Express is hidden and the order goes to Shiprocket.
+ *  3. Shiprocket orders land in the Shiprocket dashboard. Shiprocket does not
+ *     return an AWB at that point, so the order carries no AWB until one is
+ *     assigned there — the customer is told Shiprocket is handling it rather
+ *     than shown a blank tracking number.
  *
- * The region list is deliberately duplicated from src/data/indianStates.ts
- * rather than imported: the Pages Functions bundle is built separately from the
- * app, and the server must not depend on client code to decide what is valid.
- * Keep the two lists in step when the official list changes (rare).
+ * There is deliberately no PIN → city/state lookup here. The customer picks the
+ * state from a closed list and types their city.
  */
 
 import { getInnofulfillToken } from './order-shared';
 
+/**
+ * Official states and union territories. Duplicated from
+ * src/data/indianStates.ts on purpose: the Pages Functions bundle is built
+ * separately, and the server must not depend on client code to decide what is
+ * valid. Keep the two in step when the official list changes (rare).
+ */
 const REGION_NAMES: readonly string[] = [
   'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa',
   'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala',
@@ -66,96 +75,16 @@ export function isValidPincodeFormat(pincode: unknown): pincode is string {
   return typeof pincode === 'string' && PINCODE_RE.test(pincode.trim());
 }
 
-export type PinLookupStatus = 'found' | 'not_found' | 'invalid' | 'unavailable';
-
-export interface PinLookup {
-  status: PinLookupStatus;
-  pincode: string;
-  state?: string;
-  district?: string;
-  city?: string;
-  /** Distinct locality names under this PIN, for the customer to recognise. */
-  areas?: string[];
-}
-
-interface PostOffice {
-  Name?: string;
-  District?: string;
-  State?: string;
-  Circle?: string;
-  Block?: string;
-  DeliveryStatus?: string;
-}
-
-/**
- * Looks a PIN up against India Post.
- *
- * 'unavailable' is returned when the upstream is unreachable or malformed, and
- * is deliberately distinct from 'not_found' — telling a customer their real PIN
- * is invalid because an API blipped is worse than asking them to retry.
- */
-export async function lookupPincode(rawPincode: string): Promise<PinLookup> {
-  const pincode = String(rawPincode ?? '').trim();
-  if (!isValidPincodeFormat(pincode)) {
-    return { status: 'invalid', pincode };
-  }
-
-  let json: unknown;
-  try {
-    const res = await fetch(`https://api.postalpincode.in/pincode/${pincode}`, {
-      headers: { Accept: 'application/json' },
-    });
-    if (!res.ok) return { status: 'unavailable', pincode };
-    json = await res.json();
-  } catch {
-    return { status: 'unavailable', pincode };
-  }
-
-  const entry = Array.isArray(json) ? (json[0] as Record<string, unknown>) : undefined;
-  if (!entry) return { status: 'unavailable', pincode };
-
-  const status = String(entry.Status ?? '');
-  const offices = Array.isArray(entry.PostOffice) ? (entry.PostOffice as PostOffice[]) : [];
-
-  if (status !== 'Success' || offices.length === 0) {
-    // India Post answers "Error" / "404" with an empty PostOffice list for a
-    // well-formed PIN that does not exist.
-    return { status: 'not_found', pincode };
-  }
-
-  const first = offices[0];
-  const state = canonicalRegion(first.State ?? first.Circle);
-  if (!state) {
-    // Recognised PIN but an unmappable region name — treat as unavailable so we
-    // never write a state the rest of the system cannot route on.
-    return { status: 'unavailable', pincode };
-  }
-
-  const district = typeof first.District === 'string' ? first.District.trim() : undefined;
-  const areas = Array.from(
-    new Set(offices.map(o => (typeof o.Name === 'string' ? o.Name.trim() : '')).filter(Boolean)),
-  ).slice(0, 8);
-
-  return {
-    status: 'found',
-    pincode,
-    state,
-    district,
-    // India Post has no "city" field; the district is the closest reliable
-    // equivalent and is what couriers expect.
-    city: district,
-    areas,
-  };
-}
-
-/* ── Carrier serviceability ─────────────────────────────────────────────── */
+/* ── Express eligibility / carrier routing ──────────────────────────────── */
 
 export type Provider = 'Innofulfill' | 'Shiprocket';
 
-export interface ServiceabilityResult {
-  serviceable: boolean;
-  provider: Provider | null;
-  /** True when no carrier could be reached, as opposed to both declining. */
+export interface RoutingDecision {
+  /** Innofulfill serves this PIN, so Express may be offered. */
+  expressAvailable: boolean;
+  /** Who should receive the shipment. Never null — Shiprocket is the floor. */
+  provider: Provider;
+  /** True when Innofulfill could not be reached, so this is a fallback guess. */
   indeterminate: boolean;
   reason?: string;
 }
@@ -166,6 +95,12 @@ function innofulfillBase(): string {
   return sandbox ? 'https://sandbox.apis.innofulfill.com' : 'https://apis.innofulfill.com';
 }
 
+/**
+ * Asks Innofulfill whether it serves this PIN.
+ *
+ * Throws on transport or auth failure so the caller can distinguish "Innofulfill
+ * says no" from "we could not ask Innofulfill".
+ */
 async function innofulfillServiceable(
   token: string,
   toPincode: string,
@@ -199,114 +134,41 @@ async function innofulfillServiceable(
   };
 }
 
-let shiprocketToken: { token: string; expiresAt: number } | null = null;
-
-async function getShiprocketToken(): Promise<string | null> {
-  const email = (process.env.SHIPROCKET_EMAIL || process.env.VITE_SHIPROCKET_EMAIL || '').trim();
-  const password = (process.env.SHIPROCKET_PASSWORD || process.env.VITE_SHIPROCKET_PASSWORD || '').trim();
-  if (!email || !password) return null;
-  if (shiprocketToken && Date.now() < shiprocketToken.expiresAt) return shiprocketToken.token;
-
-  const res = await fetch('https://apiv2.shiprocket.in/v1/external/auth/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-  if (!res.ok) throw new Error(`Shiprocket auth HTTP ${res.status}`);
-  const json = await res.json();
-  if (!json?.token) throw new Error('Shiprocket auth returned no token');
-  shiprocketToken = { token: json.token, expiresAt: Date.now() + 9 * 24 * 60 * 60 * 1000 };
-  return json.token;
-}
-
-async function shiprocketServiceable(
-  token: string,
-  toPincode: string,
-  cod: boolean,
-): Promise<{ serviceable: boolean }> {
-  const from = process.env.SHIPROCKET_PICKUP_PINCODE || process.env.INNOFULFILL_PICKUP_PINCODE || '560016';
-  const params = new URLSearchParams({
-    pickup_postcode: from,
-    delivery_postcode: toPincode,
-    weight: '0.5',
-    cod: cod ? '1' : '0',
-  });
-  const res = await fetch(
-    `https://apiv2.shiprocket.in/v1/external/courier/serviceability/?${params.toString()}`,
-    { headers: { Authorization: `Bearer ${token}` } },
-  );
-  // Shiprocket answers 404 for an unserviceable route rather than an error body.
-  if (res.status === 404) return { serviceable: false };
-  if (!res.ok) throw new Error(`Shiprocket serviceability HTTP ${res.status}`);
-  const json = await res.json();
-  const couriers = json?.data?.available_courier_companies;
-  return { serviceable: Array.isArray(couriers) && couriers.length > 0 };
-}
-
 /**
- * Decides whether we can deliver, and by whom. Innofulfill is preferred;
- * Shiprocket is the fallback.
+ * Decides the carrier for a destination.
  *
- * When a carrier call throws we record it as indeterminate rather than
- * unserviceable, so a carrier outage never silently blocks real orders — the
- * caller decides how to present that.
+ * Innofulfill when it serves the PIN, Shiprocket otherwise. A PIN is never
+ * rejected: Shiprocket is always the fallback, so the customer can always
+ * complete the order.
  */
-export async function checkServiceability(
+export async function routeShipment(
   pincode: string,
   paymentMethod: 'prepay' | 'cod',
-): Promise<ServiceabilityResult> {
+): Promise<RoutingDecision> {
+  if (!isValidPincodeFormat(pincode)) {
+    return { expressAvailable: false, provider: 'Shiprocket', indeterminate: true, reason: 'Invalid PIN format' };
+  }
+
   const paymentMode = paymentMethod === 'cod' ? 'COD' : 'PREPAID';
-  let reachedAnyCarrier = false;
-  let reason: string | undefined;
 
   try {
     const token = await getInnofulfillToken();
-    if (token) {
-      const inno = await innofulfillServiceable(token, pincode, paymentMode);
-      reachedAnyCarrier = true;
-      if (inno.serviceable) {
-        return { serviceable: true, provider: 'Innofulfill', indeterminate: false };
-      }
-      reason = inno.reason;
+    if (!token) {
+      return { expressAvailable: false, provider: 'Shiprocket', indeterminate: true, reason: 'Innofulfill not configured' };
     }
+    const inno = await innofulfillServiceable(token, pincode.trim(), paymentMode);
+    return inno.serviceable
+      ? { expressAvailable: true, provider: 'Innofulfill', indeterminate: false }
+      : { expressAvailable: false, provider: 'Shiprocket', indeterminate: false, reason: inno.reason };
   } catch (err) {
-    console.error('[delivery] Innofulfill serviceability failed:', err);
+    // Could not ask. Ship via Shiprocket rather than blocking the sale, and
+    // mark it so the caller knows Express was hidden on a guess.
+    console.error('[routing] Innofulfill serviceability failed:', err);
+    return {
+      expressAvailable: false,
+      provider: 'Shiprocket',
+      indeterminate: true,
+      reason: err instanceof Error ? err.message : String(err),
+    };
   }
-
-  try {
-    const token = await getShiprocketToken();
-    if (token) {
-      const sr = await shiprocketServiceable(token, pincode, paymentMethod === 'cod');
-      reachedAnyCarrier = true;
-      if (sr.serviceable) {
-        return { serviceable: true, provider: 'Shiprocket', indeterminate: false };
-      }
-    }
-  } catch (err) {
-    console.error('[delivery] Shiprocket serviceability failed:', err);
-  }
-
-  return {
-    serviceable: false,
-    provider: null,
-    indeterminate: !reachedAnyCarrier,
-    reason,
-  };
-}
-
-export interface DeliveryResolution {
-  pin: PinLookup;
-  serviceability: ServiceabilityResult | null;
-  checkedAt: string;
-}
-
-/** Full resolution: verify the PIN, then ask the carriers. */
-export async function resolveDelivery(
-  pincode: string,
-  paymentMethod: 'prepay' | 'cod',
-): Promise<DeliveryResolution> {
-  const pin = await lookupPincode(pincode);
-  const serviceability =
-    pin.status === 'found' ? await checkServiceability(pin.pincode, paymentMethod) : null;
-  return { pin, serviceability, checkedAt: new Date().toISOString() };
 }
