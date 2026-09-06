@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Link as RouterLink } from 'react-router-dom';
 import { Mail, ArrowUpRight, MessageCircle, ShieldCheck, Globe, FileCheck, X, MapPin, Phone, Clock } from 'lucide-react';
 import Logo from './Logo';
-import TrustpilotWidget from './TrustpilotWidget';
+import TrustpilotRating from './TrustpilotRating';
 import { WHATSAPP_NUMBER, BUSINESS_NAP } from '../constants/config';
 import { CATEGORIES } from '../data/seoData';
 import { productPath } from '../utils/productUrl';
@@ -173,12 +173,7 @@ export default function Footer() {
 
             {/* Trustpilot star badge */}
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10">
-              <TrustpilotWidget
-                template="microCombo"
-                height="20px"
-                width="140px"
-                theme="dark"
-              />
+              <TrustpilotRating size={14} theme="dark" />
             </div>
           </div>
         </div>

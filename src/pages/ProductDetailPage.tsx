@@ -12,7 +12,7 @@ import { productDisplayName, productDisplayText, productDisplayHeading } from '.
 import { productPath, productUrl, findProductByParam, isLegacyProductParam } from '../utils/productUrl';
 import { canonicalUrl as toCanonicalUrl } from '../utils/siteUrl';
 import { GUIDES, CATEGORIES } from '../data/seoData';
-import TrustpilotWidget from '../components/TrustpilotWidget';
+import TrustpilotRating from '../components/TrustpilotRating';
 import {
   ChevronRight, Star, Check, Package, Truck, Shield,
   ShieldCheck, FlaskConical, FileCheck,
@@ -372,8 +372,9 @@ export default function ProductDetailPage() {
                   {selectedVariant.dosage_mg} {isBacWater ? 'ML' : 'MG'}
                 </p>
               )}
-              {/* Live Trustpilot company rating (stars + review count) — real data, replaces the old hard-coded stars */}
-              <TrustpilotWidget template="microReview" theme="light" height="24px" width="240px" className="-ml-1" />
+              {/* RetraLabs' Trustpilot company rating — real, centrally-sourced figures.
+                  Deliberately the company score, not a per-product rating. */}
+              <TrustpilotRating size={16} />
             </div>
 
             {/* Price */}

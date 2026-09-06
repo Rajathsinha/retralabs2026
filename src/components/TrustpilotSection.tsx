@@ -1,3 +1,6 @@
+import { TrustpilotStar } from './TrustpilotRating';
+import { TRUSTPILOT } from '../constants/config';
+
 const REVIEW_IMAGES = [
   { id: 1, src: '/testimonials/image.png' },
   { id: 2, src: '/testimonials/image copy.png' },
@@ -13,20 +16,6 @@ const REVIEW_IMAGES = [
   { id: 12, src: '/testimonials/image copy 9.png' },
   { id: 13, src: '/testimonials/image copy copy.png' },
 ] as const;
-
-function TrustpilotStar({ size = 18 }: { size?: number }) {
-  return (
-    <span
-      aria-hidden="true"
-      className="inline-flex items-center justify-center bg-[#00B67A] text-white"
-      style={{ width: size, height: size }}
-    >
-      <svg viewBox="0 0 24 24" width={size * 0.68} height={size * 0.68} fill="currentColor">
-        <path d="m12 2.4 2.8 5.7 6.3.9-4.6 4.5 1.1 6.3-5.6-3-5.6 3 1.1-6.3-4.6-4.5 6.3-.9L12 2.4Z" />
-      </svg>
-    </span>
-  );
-}
 
 function ReviewImageCard({ src }: { src: string }) {
   return (
@@ -68,8 +57,8 @@ export default function TrustpilotSection() {
           </div>
 
           <div className="mb-4 flex items-center justify-center gap-1.5">
-            {[1, 2, 3, 4, 5].map(star => (
-              <TrustpilotStar key={star} size={27} />
+            {[0, 1, 2, 3, 4].map(i => (
+              <TrustpilotStar key={i} size={27} fill={TRUSTPILOT.rating - i} />
             ))}
           </div>
 
@@ -80,14 +69,14 @@ export default function TrustpilotSection() {
             Read what customers have shared about their ordering experience with RetraLabs.
           </p>
           <a
-            href="https://www.trustpilot.com/review/retralabs.in"
+            href={TRUSTPILOT.url}
             target="_blank"
             rel="noopener noreferrer"
             className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#0F766E] transition-colors hover:text-[#115E59]"
           >
-            <span className="text-[#0F172A]">4.6</span>
+            <span className="text-[#0F172A]">{TRUSTPILOT.rating}</span>
             <span className="text-[#CBD5E1]">·</span>
-            55 verified reviews on Trustpilot
+            {TRUSTPILOT.reviewCount} reviews on Trustpilot
             <span aria-hidden="true">↗</span>
           </a>
         </div>

@@ -9,7 +9,7 @@ import { PRODUCTS } from '../data/products';
 import ProductCard from '../components/ProductCard';
 import { useSEO } from '../hooks/useSEO';
 import { getLocalBusinessSchema, getServiceAreaSchema } from '../utils/localSeoSchemas';
-import { BUSINESS_NAP } from '../constants/config';
+import { BUSINESS_NAP, TRUSTPILOT } from '../constants/config';
 import { canonicalUrl } from '../utils/siteUrl';
 import { productPath } from '../utils/productUrl';
 import { GUIDES, CATEGORIES } from '../data/seoData';
@@ -25,7 +25,7 @@ const BEST_SELLERS = ['1', '12', '13', '3'].map(
 ).filter(Boolean);
 
 const TRUST_ITEMS = [
-  { icon: Star,  value: '4.6 Rating',          label: 'Trustpilot Verified',   color: '#F59E0B', link: BUSINESS_NAP.social.trustpilot },
+  { icon: Star,  value: `${TRUSTPILOT.rating} Rating`,  label: 'Trustpilot Verified',   color: '#F59E0B', link: TRUSTPILOT.url },
   { icon: Zap,   value: 'Order by 2 PM',       label: 'Same-Day Dispatch',     color: '#2563EB' },
   { icon: Truck, value: 'Fastest Delivery',     label: 'India-Wide 1–2 Days',   color: '#16a34a' },
   { icon: Lock,  value: 'Discreet Packaging',   label: 'Zero Product Markings', color: '#374151' },
