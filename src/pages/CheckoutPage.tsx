@@ -2,11 +2,14 @@ import { useSEO } from '../hooks/useSEO';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getProductImageUrl, BAC_WATER_IMAGE_URL } from '../utils/imageUrl';
-import { Minus, Plus, Trash2, Check, MessageCircle, Tag, ShoppingBag, ArrowRight, X, GraduationCap, Zap, Clock, Banknote, Package, Truck, Loader2 } from 'lucide-react';
+import { Minus, Plus, Trash2, Check, MessageCircle, Tag, ShoppingBag, ArrowRight, X, GraduationCap, Zap, Clock, Banknote, Package, Truck, Loader2, MapPin, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { OrderFormData } from '../types';
 import { productDisplayName } from '../utils/productDisplayName';
+import StateSelect from '../components/StateSelect';
+import { useDeliveryCheck } from '../hooks/useDeliveryCheck';
+import { canonicalRegion } from '../data/indianStates';
 import UpiQrModal from '../components/UpiQrModal';
 
 const FAST_DELIVERY_CHARGE = 800;
@@ -208,8 +211,60 @@ export default function CheckoutPage() {
     }
   }, [formData.delivery_option, formData.state]);
 
+  /* ── PIN verification + delivery availability ──────────────────────────
+     Runs as the customer types. Any PIN or payment-method change discards the
+     previous answer, so serviceability is never reused across addresses. */
+  const delivery = useDeliveryCheck(formData.pincode, paymentMethod);
+  const [stateAutoFilled, setStateAutoFilled] = useState(false);
+  const [stateCorrected, setStateCorrected] = useState<string | null>(null);
+
+  /* Populate state / city / district from the verified PIN. If the customer had
+     already picked a different state, correct it and tell them — silently
+     shipping to the wrong state is how orders got lost. */
+  useEffect(() => {
+    if (delivery.phase !== 'verified' || !delivery.location) {
+      setStateAutoFilled(false);
+      setStateCorrected(null);
+      return;
+    }
+    const verifiedState = delivery.location.state;
+    const verifiedCity = delivery.location.city ?? delivery.location.district ?? '';
+
+    setFormData(prev => {
+      const prevState = canonicalRegion(prev.state);
+      const mismatch = Boolean(prevState) && prevState !== verifiedState;
+      setStateCorrected(mismatch ? verifiedState : null);
+
+      const nextCity = prev.city.trim() ? prev.city : verifiedCity;
+      if (prev.state === verifiedState && prev.city === nextCity) return prev;
+      return { ...prev, state: verifiedState, city: nextCity };
+    });
+    setStateAutoFilled(true);
+  }, [delivery.phase, delivery.location]);
+
+  /* Delivery must be confirmed for the PIN currently in the form. */
+  const deliveryConfirmed =
+    delivery.phase === 'verified' && delivery.pincode === formData.pincode;
+
+  const contactValid =
+    formData.customer_name.trim().length > 1 &&
+    /\S+@\S+\.\S+/.test(formData.customer_email) &&
+    formData.customer_phone.replace(/\D/g, '').length >= 10;
+
+  const addressValid =
+    formData.shipping_address.trim().length > 8 &&
+    Boolean(canonicalRegion(formData.state)) &&
+    formData.city.trim().length > 0;
+
+  const consentsAccepted =
+    formData.disclaimer_accepted && formData.age_confirmed && formData.no_dosing_accepted;
+
   const [orderReady, setOrderReady] = useState(false);   // step 2: review screen
   const [submitting, setSubmitting] = useState(false);
+
+  /* The pay button stays inert until every precondition holds. */
+  const canPlaceOrder =
+    contactValid && addressValid && deliveryConfirmed && consentsAccepted && !submitting;
   const [confirming, setConfirming] = useState(false);
   const [whatsappUrl, setWhatsappUrl] = useState('');
   const [orderSent,   setOrderSent]   = useState(false);
@@ -251,8 +306,20 @@ export default function CheckoutPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (cart.length === 0) return;
-    if (formData.pincode.length !== 6) {
-      alert('Please enter a valid 6-digit PIN code.');
+
+    // Belt and braces: the button is disabled in these states, but a stray
+    // Enter key must not slip an unverified address past the check. The server
+    // re-verifies regardless — see functions/delivery-shared.ts.
+    if (!deliveryConfirmed) {
+      alert(
+        delivery.phase === 'rejected'
+          ? "We can't deliver to this PIN code yet. Please check it or contact support."
+          : 'Please enter your PIN code and wait for delivery to be confirmed.',
+      );
+      return;
+    }
+    if (!canonicalRegion(formData.state)) {
+      alert('Please select your state from the list.');
       return;
     }
     if (formData.delivery_option === 'fast' && SOUTHERN_STATES.includes((formData.state || '').trim().toLowerCase())) {
@@ -1282,10 +1349,12 @@ export default function CheckoutPage() {
               <form onSubmit={handleSubmit} className="space-y-5">
                 {/* Full Name */}
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                  <label htmlFor="customer_name" className="block text-sm font-semibold text-slate-700 mb-1.5">
                     Full Name <span className="text-red-500">*</span>
                   </label>
                   <input
+                    id="customer_name"
+                    autoComplete="name"
                     type="text"
                     required
                     placeholder="Enter your full name"
@@ -1297,10 +1366,12 @@ export default function CheckoutPage() {
 
                 {/* Email */}
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                  <label htmlFor="customer_email" className="block text-sm font-semibold text-slate-700 mb-1.5">
                     Email Address <span className="text-red-500">*</span>
                   </label>
                   <input
+                    id="customer_email"
+                    autoComplete="email"
                     type="email"
                     required
                     placeholder="you@email.com"
@@ -1312,10 +1383,13 @@ export default function CheckoutPage() {
 
                 {/* Phone */}
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                  <label htmlFor="customer_phone" className="block text-sm font-semibold text-slate-700 mb-1.5">
                     Phone Number <span className="text-red-500">*</span>
                   </label>
                   <input
+                    id="customer_phone"
+                    autoComplete="tel"
+                    inputMode="tel"
                     type="tel"
                     required
                     placeholder="+91 XXXXX XXXXX"
@@ -1327,65 +1401,162 @@ export default function CheckoutPage() {
 
                 {/* Shipping Address */}
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-                    Shipping Address <span className="text-red-500">*</span>
+                  <label htmlFor="shipping_address" className="block text-sm font-semibold text-slate-700 mb-1.5">
+                    Address <span className="text-red-500">*</span>
                   </label>
                   <textarea
+                    id="shipping_address"
+                    autoComplete="street-address"
                     required
-                    rows={4}
-                    placeholder="Full shipping address with PIN code"
+                    rows={3}
+                    placeholder="House / Flat no., Building, Street, Area"
                     value={formData.shipping_address}
                     onChange={(e) => setFormData({ ...formData, shipping_address: e.target.value })}
                     className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-800 transition-colors text-base resize-none"
                   />
                 </div>
 
-                {/* City & State */}
+                {/* PIN Code — verified as it is typed. Everything below it is
+                    derived from this, so it comes first. */}
+                <div>
+                  <label htmlFor="pincode" className="block text-sm font-semibold text-slate-700 mb-1.5">
+                    PIN Code <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="pincode"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="postal-code"
+                      pattern="[1-9][0-9]{5}"
+                      maxLength={6}
+                      required
+                      placeholder="560001"
+                      value={formData.pincode}
+                      onChange={(e) => setFormData({ ...formData, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) })}
+                      aria-describedby="pin-status"
+                      className={`w-full px-4 py-3 pr-11 min-h-[48px] rounded-xl border-2 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-800 transition-colors text-base tracking-[0.18em] font-medium ${
+                        delivery.phase === 'verified' ? 'border-emerald-300'
+                          : delivery.phase === 'rejected' || delivery.phase === 'error' ? 'border-red-300'
+                          : 'border-slate-200'
+                      }`}
+                    />
+                    <span className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                      {delivery.phase === 'checking' && <Loader2 className="w-5 h-5 text-slate-400 animate-spin" />}
+                      {delivery.phase === 'verified' && <CheckCircle2 className="w-5 h-5 text-emerald-600" />}
+                      {(delivery.phase === 'rejected' || delivery.phase === 'error') && <AlertCircle className="w-5 h-5 text-red-500" />}
+                    </span>
+                  </div>
+
+                  {/* One live region for every PIN outcome, so screen readers
+                      announce the result without the customer hunting for it. */}
+                  <div id="pin-status" aria-live="polite" className="mt-2">
+                    {delivery.phase === 'checking' && (
+                      <p className="text-[13px] text-slate-500 flex items-center gap-1.5">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Verifying PIN code…
+                      </p>
+                    )}
+
+                    {delivery.phase === 'verified' && delivery.location && (
+                      <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-3">
+                        <p className="flex items-center gap-1.5 text-[13px] font-semibold text-emerald-800">
+                          <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+                          {[delivery.location.district, delivery.location.state].filter(Boolean).join(', ')}
+                        </p>
+                        {delivery.location.areas.length > 0 && (
+                          <p className="mt-1 text-[12px] text-emerald-700/80 leading-snug">
+                            {delivery.location.areas.slice(0, 4).join(' · ')}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {(delivery.phase === 'rejected' || delivery.phase === 'error') && delivery.message && (
+                      <p className="flex items-start gap-1.5 text-[13px] text-red-600">
+                        <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                        <span>{delivery.message}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* City & District — prefilled from the PIN, still editable */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                    <label htmlFor="city" className="block text-sm font-semibold text-slate-700 mb-1.5">
                       City <span className="text-red-500">*</span>
                     </label>
                     <input
+                      id="city"
                       type="text"
                       required
+                      autoComplete="address-level2"
                       placeholder="City"
                       value={formData.city}
                       onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-800 transition-colors text-base"
+                      className="w-full px-4 py-3 min-h-[48px] rounded-xl border-2 border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-800 transition-colors text-base"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-                      State <span className="text-red-500">*</span>
+                    <label htmlFor="district" className="block text-sm font-semibold text-slate-700 mb-1.5">
+                      District
                     </label>
                     <input
+                      id="district"
                       type="text"
-                      required
-                      placeholder="State"
-                      value={formData.state}
-                      onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-800 transition-colors text-base"
+                      readOnly
+                      placeholder="From PIN code"
+                      value={delivery.location?.district ?? ''}
+                      className="w-full px-4 py-3 min-h-[48px] rounded-xl border-2 border-slate-200 bg-slate-50 text-slate-600 placeholder:text-slate-400 focus:outline-none text-base"
                     />
                   </div>
                 </div>
 
-                {/* Pincode */}
+                {/* State — a closed list, never free text */}
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-                    PIN Code <span className="text-red-500">*</span>
+                  <label htmlFor="state" className="block text-sm font-semibold text-slate-700 mb-1.5">
+                    State <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={6}
-                    required
-                    placeholder="6-digit PIN code"
-                    value={formData.pincode}
-                    onChange={(e) => setFormData({ ...formData, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) })}
-                    className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-800 transition-colors text-base"
+                  <StateSelect
+                    id="state"
+                    value={formData.state}
+                    onChange={(next) => { setFormData(prev => ({ ...prev, state: next })); setStateCorrected(null); }}
+                    autoFilled={stateAutoFilled}
                   />
+                  {stateCorrected && (
+                    <p className="mt-2 flex items-start gap-1.5 text-[13px] text-amber-700">
+                      <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                      <span>This PIN code belongs to <strong>{stateCorrected}</strong>. We&apos;ve updated the state automatically.</span>
+                    </p>
+                  )}
                 </div>
+
+                {/* Delivery availability — resolved before payment, never after */}
+                {delivery.phase === 'verified' && (
+                  <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3.5">
+                    <Truck className="w-5 h-5 text-emerald-700 flex-shrink-0 mt-0.5" strokeWidth={2} />
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-emerald-900">Delivery available</p>
+                      <p className="text-[13px] text-emerald-800/90 leading-snug mt-0.5">
+                        {delivery.carrierIndeterminate
+                          ? `We ship to ${formData.pincode}. Your courier is assigned when the order is confirmed.`
+                          : `Shipping available to ${formData.pincode}. Courier assigned automatically.`}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {delivery.phase === 'rejected' && (
+                  <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3.5">
+                    <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" strokeWidth={2} />
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-red-900">We can&apos;t deliver to this PIN code</p>
+                      <p className="text-[13px] text-red-800/90 leading-snug mt-0.5">
+                        Please check the PIN code, or contact support and we&apos;ll look for a way to get it to you.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 {/* ── Delivery Option ── */}
                 <div>
@@ -1605,9 +1776,22 @@ export default function CheckoutPage() {
                   </div>
                 </div>
 
+                {!canPlaceOrder && !submitting && (
+                  <p className="text-[13px] text-slate-500 text-center -mb-2">
+                    {!contactValid ? 'Add your name, email and phone number to continue.'
+                      : !formData.pincode ? 'Enter your PIN code to check delivery.'
+                      : delivery.phase === 'checking' ? 'Checking delivery availability…'
+                      : delivery.phase === 'rejected' ? "We can't deliver to this PIN code."
+                      : delivery.phase === 'error' ? 'Verify your PIN code to continue.'
+                      : !deliveryConfirmed ? 'Enter your PIN code to check delivery.'
+                      : !addressValid ? 'Complete your address, city and state to continue.'
+                      : 'Accept the research-use terms below to continue.'}
+                  </p>
+                )}
+
                 <button
                   type="submit"
-                  disabled={!formData.disclaimer_accepted || !formData.age_confirmed || !formData.no_dosing_accepted || submitting}
+                  disabled={!canPlaceOrder}
                   className="w-full flex items-center justify-center gap-2.5 bg-slate-900 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-base py-4 rounded-xl transition-all duration-200 active:scale-[0.97] hover:shadow-[0_8px_24px_-6px_rgba(15,23,42,0.45)]"
                 >
                   {submitting ? (

@@ -1,3 +1,4 @@
+import { resolveDelivery, isValidPincodeFormat } from './delivery-shared';
 import {
   PAYMENT_STATUS,
   SHIPMENT_STATUS,
@@ -32,6 +33,56 @@ interface CreateOrderBody {
   deliveryCharge: number;
   codCharge: number;
   skipLogistics?: boolean;
+}
+
+/**
+ * Re-verifies the destination server-side and returns the values fulfillment
+ * should actually use.
+ *
+ * The client already ran these checks for its own UI, but a request can be
+ * replayed, crafted, or simply stale by the time it lands here. State, city and
+ * serviceability are therefore recomputed and the client's versions discarded.
+ *
+ * A carrier or lookup outage must not block a real sale, so 'unavailable'
+ * passes through with a warning; only a PIN we positively know is bad or
+ * undeliverable is refused.
+ */
+async function verifyDestination(customer: CreateOrderBody['customer']): Promise<
+  | { ok: true; state: string; city: string; provider: 'Innofulfill' | 'Shiprocket' | null; warning: string | null }
+  | { ok: false; status: number; error: string }
+> {
+  const pincode = String(customer?.pincode ?? '').trim();
+
+  if (!isValidPincodeFormat(pincode)) {
+    return { ok: false, status: 400, error: 'Please enter a valid 6-digit PIN code.' };
+  }
+
+  const { pin, serviceability } = await resolveDelivery(pincode, 'prepay');
+
+  if (pin.status === 'not_found') {
+    return { ok: false, status: 400, error: "We couldn't verify this PIN code. Please check the number and try again." };
+  }
+  if (pin.status === 'unavailable' || !pin.state) {
+    console.warn(`[create-order] PIN lookup unavailable for ${pincode}; accepting client address.`);
+    return {
+      ok: true,
+      state: customer.state,
+      city: customer.city,
+      provider: null,
+      warning: 'PIN verification unavailable at order time.',
+    };
+  }
+  if (serviceability && !serviceability.indeterminate && !serviceability.serviceable) {
+    return { ok: false, status: 409, error: "We currently don't have delivery availability for this PIN code." };
+  }
+
+  return {
+    ok: true,
+    state: pin.state,
+    city: pin.city || pin.district || customer.city,
+    provider: serviceability?.provider ?? null,
+    warning: serviceability?.indeterminate ? 'Carrier serviceability could not be confirmed at order time.' : null,
+  };
 }
 
 async function uploadScreenshot(
@@ -81,6 +132,26 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
     const body = JSON.parse(event.body || '{}') as CreateOrderBody;
     if (!body.fields?.Name || !body.fields?.Email) {
       return { statusCode: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Missing required order fields' }) };
+    }
+
+    // Verify the destination before anything is persisted. Creating an order
+    // we cannot ship is the failure this whole flow exists to prevent.
+    let verifiedState = body.customer?.state ?? '';
+    let verifiedCity = body.customer?.city ?? '';
+    let destinationWarning: string | null = null;
+
+    if (body.customer?.pincode) {
+      const destination = await verifyDestination(body.customer);
+      if (!destination.ok) {
+        return {
+          statusCode: destination.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ error: destination.error }),
+        };
+      }
+      verifiedState = destination.state;
+      verifiedCity = destination.city;
+      destinationWarning = destination.warning;
     }
 
     const orderId = await generateOrderId(baseId, table, token);
@@ -151,7 +222,8 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
     if (shouldProcessLogistics) {
       const result = await processLogistics(baseId, table, token, recordId, orderId, {
         cartItems: body.cartItems!,
-        customer: body.customer,
+        // Verified server-side above — never the client's state/city.
+        customer: { ...body.customer, state: verifiedState, city: verifiedCity },
         paymentMethod: body.paymentMethod,
         deliveryOption: body.deliveryOption,
         total: body.total,
@@ -181,7 +253,7 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
         awbNumber: logistics.awbNumber,
         shipmentStatus: logistics.shipmentStatus,
         carrierDisplayName: logistics.carrierDisplayName,
-        innofulfillWarning: logistics.warning,
+        innofulfillWarning: logistics.warning || destinationWarning,
         screenshotWarning: screenshotWarning || null,
       }),
     };

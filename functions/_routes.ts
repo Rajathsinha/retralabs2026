@@ -8,6 +8,7 @@ import { handler as brevoOrderEmail } from './brevo-order-email';
 import { handler as pushToInnofulfill } from './push-to-innofulfill';
 import { handler as pushToShiprocket } from './push-to-shiprocket';
 import { handler as checkInnofulfillServiceability } from './check-innofulfill-serviceability';
+import { handler as verifyDelivery } from './verify-delivery';
 
 // Polyfill globalThis.process for Node-style env access in Cloudflare edge runtime
 if (typeof globalThis.process === 'undefined') {
@@ -27,6 +28,7 @@ const HANDLERS: Record<string, (event: any, context?: any) => Promise<any>> = {
   'push-to-shiprocket': pushToShiprocket,
   'push-to-innofulfill': pushToInnofulfill,
   'check-innofulfill-serviceability': checkInnofulfillServiceability,
+  'verify-delivery': verifyDelivery,
 };
 
 export const onRequest: PagesFunction<Record<string, string>> = async (context) => {
