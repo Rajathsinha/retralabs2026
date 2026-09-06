@@ -11,6 +11,7 @@
     "publish-cf": "npm run build && wrangler pages publish dist --project-name retralabs2026",
     "prerender": "tsx scripts/prerender.mts",
     "generate-sitemap": "tsx scripts/generate-sitemap.mts",
+    "optimize-images": "tsx scripts/optimize-images.mts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.app.json"
   },
@@ -37,6 +38,7 @@
     "globals": "^15.9.0",
     "postcss": "^8.4.35",
     "puppeteer": "^25.3.0",
+    "sharp": "^0.35.2",
     "tailwindcss": "^3.4.1",
     "tsx": "^4.23.0",
     "typescript": "^5.5.3",

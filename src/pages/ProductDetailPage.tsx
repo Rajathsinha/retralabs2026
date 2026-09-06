@@ -330,7 +330,12 @@ export default function ProductDetailPage() {
                 >
                   <img
                     src={getProductImageUrl(product.image_url, product.name)}
-                    alt={`${product.name} research peptide vial`}
+                    alt=""
+                    aria-hidden="true"
+                    width={72}
+                    height={72}
+                    loading="lazy"
+                    decoding="async"
                     className="w-full h-full object-contain p-1.5"
                   />
                 </div>
@@ -345,6 +350,10 @@ export default function ProductDetailPage() {
                 <img
                   src={getProductImageUrl(product.image_url, product.name)}
                   alt={`${product.name} research peptide in India — ${purity}% HPLC verified, COA included`}
+                  width={1200}
+                  height={1200}
+                  fetchPriority="high"
+                  decoding="async"
                   className="w-full h-full object-contain p-8 sm:p-12"
                 />
                 {isFlagship && (

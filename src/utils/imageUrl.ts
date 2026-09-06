@@ -1,35 +1,38 @@
-import bacWaterImage from '../assets/bac-water.jpg';
+// Served from public/ as WebP alongside the other product shots (see
+// scripts/optimize-images.mts). The original JPEG stays on disk as a fallback
+// for any externally-referenced URL.
+const bacWaterImage = '/bac-water.webp';
 
 export const BAC_WATER_IMAGE_URL = bacWaterImage;
 
 const NAME_TO_LOCAL_IMAGE: Array<[string, string]> = [
   ['bacteriostatic', bacWaterImage],
   ['bac-water',      bacWaterImage],
-  ['retatrutide',    '/reta.png'],
-  ['tirzepatide',    '/TIRZ.png'],
-  ['ghk-cu',         '/GHKCU.png'],
-  ['ghk cu',         '/GHKCU.png'],
-  ['semax',          '/SEMAX.png'],
-  ['selank',         '/SELANK.png'],
-  ['bpc',            '/BPC.png'],
-  ['nad+',           '/NAD+.png'],
-  ['nad ',           '/NAD+.png'],
-  ['tb-500',         '/TB500.png'],
-  ['tb500',          '/TB500.png'],
-  ['tesamorelin',    '/TESA.png'],
-  ['mot-c',          '/MOTSC.png'],
-  ['motc',           '/MOTSC.png'],
-  ['mots-c',         '/MOTSC.png'],
-  ['aod',            '/AOD.png'],
-  ['epithalon',      '/epithnon.png'],
-  ['epithnon',       '/epithnon.png'],
-  ['kisspeptin',     '/Kisspeptin.png'],
-  ['ss-31',          '/SS-31.png'],
-  ['ss31',           '/SS-31.png'],
-  ['klow',           '/KLOW.png'],
-  ['wolverine',      '/Wolverine.png'],
-  ['cjc',            '/CJC+ipa.png'],
-  ['cagrilintide',   '/Cagrilintide.png'],
+  ['retatrutide',    '/reta.webp'],
+  ['tirzepatide',    '/TIRZ.webp'],
+  ['ghk-cu',         '/GHKCU.webp'],
+  ['ghk cu',         '/GHKCU.webp'],
+  ['semax',          '/SEMAX.webp'],
+  ['selank',         '/SELANK.webp'],
+  ['bpc',            '/BPC.webp'],
+  ['nad+',           '/NAD+.webp'],
+  ['nad ',           '/NAD+.webp'],
+  ['tb-500',         '/TB500.webp'],
+  ['tb500',          '/TB500.webp'],
+  ['tesamorelin',    '/TESA.webp'],
+  ['mot-c',          '/MOTSC.webp'],
+  ['motc',           '/MOTSC.webp'],
+  ['mots-c',         '/MOTSC.webp'],
+  ['aod',            '/AOD.webp'],
+  ['epithalon',      '/epithnon.webp'],
+  ['epithnon',       '/epithnon.webp'],
+  ['kisspeptin',     '/Kisspeptin.webp'],
+  ['ss-31',          '/SS-31.webp'],
+  ['ss31',           '/SS-31.webp'],
+  ['klow',           '/KLOW.webp'],
+  ['wolverine',      '/Wolverine.webp'],
+  ['cjc',            '/CJC+ipa.webp'],
+  ['cagrilintide',   '/Cagrilintide.webp'],
 ];
 
 /**

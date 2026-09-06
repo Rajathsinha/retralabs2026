@@ -2,19 +2,19 @@ import { TrustpilotStar } from './TrustpilotRating';
 import { TRUSTPILOT } from '../constants/config';
 
 const REVIEW_IMAGES = [
-  { id: 1, src: '/testimonials/image.png' },
-  { id: 2, src: '/testimonials/image copy.png' },
-  { id: 3, src: '/testimonials/image copy 2.png' },
-  { id: 4, src: '/testimonials/image copy 2 copy.png' },
-  { id: 5, src: '/testimonials/image copy 3.png' },
-  { id: 6, src: '/testimonials/image copy 3 copy.png' },
-  { id: 7, src: '/testimonials/image copy 4.png' },
-  { id: 8, src: '/testimonials/image copy 5.png' },
-  { id: 9, src: '/testimonials/image copy 6.png' },
-  { id: 10, src: '/testimonials/image copy 7.png' },
-  { id: 11, src: '/testimonials/image copy 8.png' },
-  { id: 12, src: '/testimonials/image copy 9.png' },
-  { id: 13, src: '/testimonials/image copy copy.png' },
+  { id: 1, src: '/testimonials/image.webp' },
+  { id: 2, src: '/testimonials/image copy.webp' },
+  { id: 3, src: '/testimonials/image copy 2.webp' },
+  { id: 4, src: '/testimonials/image copy 2 copy.webp' },
+  { id: 5, src: '/testimonials/image copy 3.webp' },
+  { id: 6, src: '/testimonials/image copy 3 copy.webp' },
+  { id: 7, src: '/testimonials/image copy 4.webp' },
+  { id: 8, src: '/testimonials/image copy 5.webp' },
+  { id: 9, src: '/testimonials/image copy 6.webp' },
+  { id: 10, src: '/testimonials/image copy 7.webp' },
+  { id: 11, src: '/testimonials/image copy 8.webp' },
+  { id: 12, src: '/testimonials/image copy 9.webp' },
+  { id: 13, src: '/testimonials/image copy copy.webp' },
 ] as const;
 
 function ReviewImageCard({ src }: { src: string }) {
