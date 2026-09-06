@@ -11,6 +11,7 @@ import { handler as checkInnofulfillServiceability } from './check-innofulfill-s
 import { handler as verifyDelivery } from './verify-delivery';
 import { handler as adminLogin } from './admin-login';
 import { handler as adminCreateManualOrder } from './admin-create-manual-order';
+import { handler as adminDeleteOrders } from './admin-delete-orders';
 
 // Polyfill globalThis.process for Node-style env access in Cloudflare edge runtime
 if (typeof globalThis.process === 'undefined') {
@@ -33,6 +34,7 @@ const HANDLERS: Record<string, (event: any, context?: any) => Promise<any>> = {
   'verify-delivery': verifyDelivery,
   'admin-login': adminLogin,
   'admin-create-manual-order': adminCreateManualOrder,
+  'admin-delete-orders': adminDeleteOrders,
 };
 
 export const onRequest: PagesFunction<Record<string, string>> = async (context) => {

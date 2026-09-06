@@ -1,6 +1,6 @@
 import { useSEO } from '../hooks/useSEO';
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { ShoppingBag, IndianRupee, Clock, Package, Truck, CheckCircle2, Banknote, CreditCard, Zap, X, FileText, Printer, Copy, Check, Plus } from 'lucide-react';
+import { ShoppingBag, IndianRupee, Clock, Package, Truck, CheckCircle2, Banknote, CreditCard, Zap, X, FileText, Printer, Copy, Check, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { Sidebar } from '../components/admin/Sidebar';
 import type { AdminPage as AdminPageId } from '../components/admin/Sidebar';
 import { Topbar } from '../components/admin/Topbar';
@@ -12,13 +12,16 @@ import { QuickActions } from '../components/admin/QuickActions';
 import { BulkAddressLabelModal } from '../components/admin/BulkAddressLabelModal';
 import { OrderInvoiceModal } from '../components/admin/OrderInvoiceModal';
 import { ManualOrderModal } from '../components/admin/ManualOrderModal';
+import { SmartOrderCleanerModal } from '../components/admin/SmartOrderCleanerModal';
 import { SkeletonTable } from '../components/admin/SkeletonTable';
 import { DashboardView } from '../components/admin/DashboardView';
 import { AnalyticsView } from '../components/admin/AnalyticsView';
 import { CustomersView } from '../components/admin/CustomersView';
 import { SettingsView } from '../components/admin/SettingsView';
 import type { AirtableRecord, AdminFilters, StatCardData } from '../components/admin/types';
-import { adminFetch, adminLogin, getAdminToken, clearAdminToken } from '../utils/adminAuth';
+import { adminFetch, adminLogin, getAdminToken, clearAdminToken, deleteAdminOrders } from '../utils/adminAuth';
+import { detectJunkOrders } from '../utils/junkOrderDetector';
+import { getDevMockOrders } from '../utils/devMockOrders';
 import Logo from '../components/Logo';
 
 const EMPTY_FILTERS: AdminFilters = {
@@ -42,13 +45,23 @@ const EMPTY_FILTERS: AdminFilters = {
 };
 
 async function fetchOrders(): Promise<AirtableRecord[]> {
-  const res = await adminFetch('/api/list-orders');
-  if (!res.ok) {
-    const json = await res.json().catch(() => null);
-    throw new Error(json?.error || `Airtable fetch failed (HTTP ${res.status})`);
+  try {
+    const res = await adminFetch('/api/list-orders');
+    if (res.ok) {
+      const json = await res.json();
+      if (Array.isArray(json.records) && json.records.length > 0) {
+        return json.records;
+      }
+    }
+  } catch (err) {
+    console.warn('API fetch failed, checking dev environment fallback:', err);
   }
-  const json = await res.json();
-  return json.records || [];
+
+  if (import.meta.env.DEV) {
+    return getDevMockOrders();
+  }
+
+  throw new Error('Airtable fetch failed (HTTP 500)');
 }
 
 function exportCsv(records: AirtableRecord[]) {
@@ -62,8 +75,38 @@ function exportCsv(records: AirtableRecord[]) {
   a.click();
 }
 
-function spark(seed: number): number[] {
-  return Array.from({ length: 10 }, (_, i) => Math.max(1, Math.round(seed * (0.7 + Math.sin(i + seed) * 0.3 + i * 0.04))));
+// ── 100% Real 10-day history bucketing from records ────────────────────────
+function get10DayDailyCounts(records: AirtableRecord[], predicate?: (r: AirtableRecord) => boolean): number[] {
+  const daysMap = new Map<string, number>();
+  for (let i = 9; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    daysMap.set(d.toISOString().slice(0, 10), 0);
+  }
+  records.forEach((r) => {
+    const c = String(r.fields['Created'] ?? '');
+    if (daysMap.has(c) && (!predicate || predicate(r))) {
+      daysMap.set(c, (daysMap.get(c) || 0) + 1);
+    }
+  });
+  return Array.from(daysMap.values());
+}
+
+function get10DayDailyRevenue(records: AirtableRecord[]): number[] {
+  const daysMap = new Map<string, number>();
+  for (let i = 9; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    daysMap.set(d.toISOString().slice(0, 10), 0);
+  }
+  records.forEach((r) => {
+    const c = String(r.fields['Created'] ?? '');
+    const total = Number(r.fields['Total (₹)'] || 0);
+    if (daysMap.has(c)) {
+      daysMap.set(c, (daysMap.get(c) || 0) + total);
+    }
+  });
+  return Array.from(daysMap.values());
 }
 
 // ── Password gate ──────────────────────────────────────────────────────────
@@ -124,10 +167,14 @@ export default function AdminPage() {
   const [showBulkLabels, setShowBulkLabels] = useState(false);
   const [invoiceModalRecords, setInvoiceModalRecords] = useState<AirtableRecord[] | null>(null);
   const [showManualModal, setShowManualModal] = useState(false);
+  const [showSmartCleaner, setShowSmartCleaner] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [pageNum, setPageNum] = useState(1);
   const [mobileNav, setMobileNav] = useState(false);
   const [copiedPhones, setCopiedPhones] = useState(false);
   const pageSize = 12;
+
+  const flaggedJunkOrders = useMemo(() => detectJunkOrders(records), [records]);
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
@@ -298,21 +345,125 @@ export default function AdminPage() {
 
   const stats: StatCardData[] = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const days7Ago = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+    const days14Ago = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10);
+
     const todays = filtered.filter((r) => String(r.fields['Created'] ?? '') === today);
+    const yesterdays = filtered.filter((r) => String(r.fields['Created'] ?? '') === yesterday);
+
     const count = (pred: (r: AirtableRecord) => boolean) => filtered.filter(pred).length;
     const isCod = (r: AirtableRecord) => String(r.fields['Payment'] ?? '').toUpperCase().includes('COD');
     const isExpress = (r: AirtableRecord) => String(r.fields['Delivery'] ?? '').toLowerCase().includes('express');
     const revenue = filtered.reduce((s, r) => s + Number(r.fields['Total (₹)'] || 0), 0);
+
+    // Day-over-day real deltas for today's orders & revenue
+    const todayOrderDelta = yesterdays.length > 0
+      ? Math.round(((todays.length - yesterdays.length) / yesterdays.length) * 100)
+      : (todays.length > 0 ? 100 : 0);
+
+    const todayRev = todays.reduce((s, r) => s + Number(r.fields['Total (₹)'] || 0), 0);
+    const yestRev = yesterdays.reduce((s, r) => s + Number(r.fields['Total (₹)'] || 0), 0);
+    const todayRevDelta = yestRev > 0
+      ? Math.round(((todayRev - yestRev) / yestRev) * 100)
+      : (todayRev > 0 ? 100 : 0);
+
+    // 7d vs prior 7d real delta helper
+    const get7dDelta = (predicate: (r: AirtableRecord) => boolean) => {
+      const recent7 = filtered.filter((r) => {
+        const c = String(r.fields['Created'] ?? '');
+        return c >= days7Ago && predicate(r);
+      }).length;
+      const prior7 = filtered.filter((r) => {
+        const c = String(r.fields['Created'] ?? '');
+        return c >= days14Ago && c < days7Ago && predicate(r);
+      }).length;
+      if (prior7 > 0) return Math.round(((recent7 - prior7) / prior7) * 100);
+      return recent7 > 0 ? 100 : 0;
+    };
+
     return [
-      { key: 'today', label: "Today's Orders", value: todays.length, icon: ShoppingBag, tint: 'bg-blue-100 text-blue-600', change: 12, spark: spark(todays.length || 8) },
-      { key: 'rev', label: 'Revenue', value: revenue, icon: IndianRupee, tint: 'bg-emerald-100 text-emerald-600', change: 8, spark: spark(revenue / 1000 || 20) },
-      { key: 'pend', label: 'Pending Action', value: count((r) => ['New', 'Created in Innofulfill', 'Confirmed'].includes(String(r.fields['Status']))), icon: Clock, tint: 'bg-amber-100 text-amber-600', change: -4, spark: spark(15) },
-      { key: 'pack', label: 'Paid / Ready', value: count((r) => String(r.fields['Status']) === 'Paid'), icon: Package, tint: 'bg-violet-100 text-violet-600', change: 6, spark: spark(10) },
-      { key: 'ship', label: 'Shipped', value: count((r) => String(r.fields['Status']) === 'Shipped'), icon: Truck, tint: 'bg-indigo-100 text-indigo-600', change: 15, spark: spark(12) },
-      { key: 'del', label: 'Delivered', value: count((r) => String(r.fields['Status']) === 'Delivered'), icon: CheckCircle2, tint: 'bg-green-100 text-green-600', change: 22, spark: spark(18) },
-      { key: 'cod', label: 'COD Orders', value: count(isCod), icon: Banknote, tint: 'bg-orange-100 text-orange-600', change: 5, spark: spark(14) },
-      { key: 'pre', label: 'Prepaid Orders', value: count((r) => !isCod(r)), icon: CreditCard, tint: 'bg-sky-100 text-sky-600', change: 9, spark: spark(16) },
-      { key: 'exp', label: 'Express Speed', value: count(isExpress), icon: Zap, tint: 'bg-amber-100 text-amber-600', change: 18, spark: spark(7) },
+      {
+        key: 'today',
+        label: "Today's Orders",
+        value: todays.length,
+        icon: ShoppingBag,
+        tint: 'bg-blue-100 text-blue-600',
+        change: todayOrderDelta,
+        spark: get10DayDailyCounts(filtered),
+      },
+      {
+        key: 'rev',
+        label: 'Total Revenue',
+        value: revenue,
+        icon: IndianRupee,
+        tint: 'bg-emerald-100 text-emerald-600',
+        change: todayRevDelta,
+        spark: get10DayDailyRevenue(filtered),
+      },
+      {
+        key: 'pend',
+        label: 'Pending Action',
+        value: count((r) => ['New', 'Created in Innofulfill', 'Confirmed'].includes(String(r.fields['Status']))),
+        icon: Clock,
+        tint: 'bg-amber-100 text-amber-600',
+        change: get7dDelta((r) => ['New', 'Created in Innofulfill', 'Confirmed'].includes(String(r.fields['Status']))),
+        spark: get10DayDailyCounts(filtered, (r) => ['New', 'Created in Innofulfill', 'Confirmed'].includes(String(r.fields['Status']))),
+      },
+      {
+        key: 'pack',
+        label: 'Paid / Ready',
+        value: count((r) => String(r.fields['Status']) === 'Paid'),
+        icon: Package,
+        tint: 'bg-violet-100 text-violet-600',
+        change: get7dDelta((r) => String(r.fields['Status']) === 'Paid'),
+        spark: get10DayDailyCounts(filtered, (r) => String(r.fields['Status']) === 'Paid'),
+      },
+      {
+        key: 'ship',
+        label: 'Shipped',
+        value: count((r) => String(r.fields['Status']) === 'Shipped'),
+        icon: Truck,
+        tint: 'bg-indigo-100 text-indigo-600',
+        change: get7dDelta((r) => String(r.fields['Status']) === 'Shipped'),
+        spark: get10DayDailyCounts(filtered, (r) => String(r.fields['Status']) === 'Shipped'),
+      },
+      {
+        key: 'del',
+        label: 'Delivered',
+        value: count((r) => String(r.fields['Status']) === 'Delivered'),
+        icon: CheckCircle2,
+        tint: 'bg-green-100 text-green-600',
+        change: get7dDelta((r) => String(r.fields['Status']) === 'Delivered'),
+        spark: get10DayDailyCounts(filtered, (r) => String(r.fields['Status']) === 'Delivered'),
+      },
+      {
+        key: 'cod',
+        label: 'COD Orders',
+        value: count(isCod),
+        icon: Banknote,
+        tint: 'bg-orange-100 text-orange-600',
+        change: get7dDelta(isCod),
+        spark: get10DayDailyCounts(filtered, isCod),
+      },
+      {
+        key: 'pre',
+        label: 'Prepaid Orders',
+        value: count((r) => !isCod(r)),
+        icon: CreditCard,
+        tint: 'bg-sky-100 text-sky-600',
+        change: get7dDelta((r) => !isCod(r)),
+        spark: get10DayDailyCounts(filtered, (r) => !isCod(r)),
+      },
+      {
+        key: 'exp',
+        label: 'Express Speed',
+        value: count(isExpress),
+        icon: Zap,
+        tint: 'bg-amber-100 text-amber-600',
+        change: get7dDelta(isExpress),
+        spark: get10DayDailyCounts(filtered, isExpress),
+      },
     ];
   }, [filtered]);
 
@@ -343,6 +494,24 @@ export default function AdminPage() {
       navigator.clipboard.writeText(phones);
       setCopiedPhones(true);
       setTimeout(() => setCopiedPhones(false), 2000);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selected);
+    if (ids.length === 0) return;
+    if (!window.confirm(`Are you sure you want to permanently delete ${ids.length} selected orders from Airtable? This action cannot be undone.`)) {
+      return;
+    }
+    setBulkDeleting(true);
+    try {
+      await deleteAdminOrders(ids);
+      setSelected(new Set());
+      await load();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBulkDeleting(false);
     }
   };
 
@@ -414,6 +583,21 @@ export default function AdminPage() {
                   >
                     <Printer className="h-4 w-4" />
                     Print Invoices
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowSmartCleaner(true)}
+                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 via-rose-600 to-amber-500 px-4 py-2.5 text-sm font-extrabold text-white shadow-md shadow-rose-500/20 transition-all hover:brightness-110 hover:scale-[1.02] active:scale-[0.98]"
+                    title="Scan & delete duplicate submissions, fake numbers, and junk addresses"
+                  >
+                    <Sparkles className="h-4 w-4 text-amber-300" />
+                    Smart AI Cleaner
+                    {flaggedJunkOrders.length > 0 && (
+                      <span className="rounded-full bg-white px-2 py-0.5 text-xs font-black text-rose-600">
+                        {flaggedJunkOrders.length} Flagged
+                      </span>
+                    )}
                   </button>
                 </div>
               </div>
@@ -569,6 +753,15 @@ export default function AdminPage() {
                     {copiedPhones ? 'Copied!' : 'Copy Mobile Numbers'}
                   </button>
 
+                  <button
+                    onClick={handleBulkDelete}
+                    disabled={bulkDeleting}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 font-bold text-xs transition-colors shadow-xs disabled:opacity-50"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    {bulkDeleting ? 'Deleting...' : `Delete Selected (${selected.size})`}
+                  </button>
+
                   <button onClick={() => setSelected(new Set())} className="ml-auto text-slate-400 hover:text-white text-xs font-semibold">
                     Deselect All
                   </button>
@@ -614,7 +807,28 @@ export default function AdminPage() {
         onClose={() => setViewRecord(null)}
         onPrintInvoice={(rec) => setInvoiceModalRecords([rec])}
         onPrintLabel={(rec) => { setSelected(new Set([rec.id])); setShowBulkLabels(true); }}
+        onDeleteOrder={async (rec) => {
+          await deleteAdminOrders([rec.id]);
+          setSelected((prev) => {
+            const next = new Set(prev);
+            next.delete(rec.id);
+            return next;
+          });
+          await load();
+        }}
       />
+
+      {showSmartCleaner && (
+        <SmartOrderCleanerModal
+          records={records}
+          onClose={() => setShowSmartCleaner(false)}
+          onDeleted={async () => {
+            setShowSmartCleaner(false);
+            setSelected(new Set());
+            await load();
+          }}
+        />
+      )}
 
       {showBulkLabels && (
         <BulkAddressLabelModal

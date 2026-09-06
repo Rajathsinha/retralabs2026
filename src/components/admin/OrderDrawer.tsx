@@ -1,5 +1,5 @@
 import { adminFetch } from '../../utils/adminAuth';
-import { X, Copy, Printer, ExternalLink, Truck, FileText, MapPin, CreditCard, User, Clock, StickyNote } from 'lucide-react';
+import { X, Copy, Printer, ExternalLink, Truck, FileText, MapPin, CreditCard, User, Clock, StickyNote, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { StatusBadge, DeliveryBadge, PaymentBadge, PaymentStatusBadge } from './badges';
 import type { AirtableRecord, AirtableAttachment } from './types';
@@ -9,6 +9,7 @@ interface OrderDrawerProps {
   onClose: () => void;
   onPrintInvoice?: (record: AirtableRecord) => void;
   onPrintLabel?: (record: AirtableRecord) => void;
+  onDeleteOrder?: (record: AirtableRecord) => Promise<void> | void;
 }
 
 const AIRTABLE_URL = 'https://airtable.com/appzoLMmoFxy53cKx/tbly4OWpkoz6E7OW0/viwi9NXrMheloOfuD?blocks=hide';
@@ -53,8 +54,9 @@ function Check({ className }: { className?: string }) {
   );
 }
 
-export function OrderDrawer({ record, onClose, onPrintInvoice, onPrintLabel }: OrderDrawerProps) {
+export function OrderDrawer({ record, onClose, onPrintInvoice, onPrintLabel, onDeleteOrder }: OrderDrawerProps) {
   const [verifying, setVerifying] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -303,6 +305,29 @@ export function OrderDrawer({ record, onClose, onPrintInvoice, onPrintLabel }: O
           <a href={AIRTABLE_URL} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 hover:bg-white transition-colors">
             <ExternalLink className="w-4 h-4" /> Open in Airtable
           </a>
+          {onDeleteOrder && (
+            <button
+              onClick={async () => {
+                const orderId = String(f['orderID'] ?? record.id);
+                if (window.confirm(`Are you sure you want to permanently delete order #${orderId} from Airtable? This cannot be undone.`)) {
+                  try {
+                    setDeleting(true);
+                    await onDeleteOrder(record);
+                    onClose();
+                  } catch (err) {
+                    alert(String(err));
+                  } finally {
+                    setDeleting(false);
+                  }
+                }
+              }}
+              disabled={deleting}
+              className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-sm font-semibold hover:bg-rose-100 transition-colors disabled:opacity-50"
+            >
+              <Trash2 className="w-4 h-4 text-rose-600" />
+              {deleting ? 'Deleting from Airtable...' : 'Delete Order'}
+            </button>
+          )}
         </div>
       </div>
       <style>{`@keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } } }`}</style>
