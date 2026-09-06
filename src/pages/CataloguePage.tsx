@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { PRODUCTS } from '../data/products';
 import { ProductWithVariants, ProductVariant } from '../types';
 import { useCart } from '../context/CartContext';
@@ -170,13 +170,35 @@ export default function CataloguePage() {
   });
 
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { addToCart, openCart } = useCart();
 
   const [activeCategory, setActiveCategory] = useState('all');
   const [sortBy, setSortBy]                 = useState<SortKey>('default');
-  const [search, setSearch]                 = useState('');
+  const [search, setSearch]                 = useState(() => searchParams.get('q') ?? '');
   const [selectedProduct, setSelectedProduct] = useState<ProductWithVariants | null>(null);
   const [addedVariantId, setAddedVariantId] = useState<string | null>(null);
+
+  // Keep ?q= and the search box in sync. The WebSite SearchAction in index.html
+  // advertises /catalogue/?q={search_term_string} to Google, so that URL has to
+  // actually run the search — both on first load and when shared.
+  useEffect(() => {
+    const q = searchParams.get('q') ?? '';
+    setSearch(prev => (prev === q ? prev : q));
+  }, [searchParams]);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearch(value);
+    setSearchParams(
+      prev => {
+        const next = new URLSearchParams(prev);
+        if (value.trim()) next.set('q', value);
+        else next.delete('q');
+        return next;
+      },
+      { replace: true },
+    );
+  }, [setSearchParams]);
 
   const handleAddToCart = useCallback((product: ProductWithVariants, variant: ProductVariant) => {
     addToCart(product, variant);
@@ -355,7 +377,7 @@ export default function CataloguePage() {
                     type="text"
                     placeholder="Search peptides..."
                     value={search}
-                    onChange={e => setSearch(e.target.value)}
+                    onChange={e => handleSearchChange(e.target.value)}
                     className="w-full pl-9 pr-4 py-2.5 border border-[#E5E7EB] text-[13px] text-[#111111] placeholder-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10 transition-all bg-white"
                     style={{ borderRadius: 10 }}
                   />
@@ -412,7 +434,7 @@ export default function CataloguePage() {
                 <p className="text-[#9CA3AF] text-[14px]">Try adjusting your search or filter</p>
                 <button
                   type="button"
-                  onClick={() => { setSearch(''); setActiveCategory('all'); }}
+                  onClick={() => { handleSearchChange(''); setActiveCategory('all'); }}
                   className="mt-4 text-[#2563EB] text-[14px] font-semibold hover:underline"
                 >
                   Clear filters
