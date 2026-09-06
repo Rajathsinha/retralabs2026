@@ -5,7 +5,6 @@ export const PRODUCTS: ProductWithVariants[] = [
     id: '1',
     slug: 'retatrutide',
     name: 'Retatrutide',
-    display_name: 'GLP-3 R10',
     description: 'Triple agonist peptide targeting GLP-1, GIP, and glucagon receptors for metabolic and obesity research.',
     category: 'research-peptide',
     image_url: '/reta.png',    created_at: new Date().toISOString(),
