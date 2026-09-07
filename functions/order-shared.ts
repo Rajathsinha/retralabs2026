@@ -95,24 +95,42 @@ export function paymentSessionExpiresAt(startedAtIso: string): number {
 }
 
 /**
- * Generate internal document number: RETR0000000035
- * Scans Airtable for the highest existing RETR sequence.
+ * Format today's date in Indian Standard Time (Asia/Kolkata) as YYYYMMDD.
  */
-export async function generateOrderId(baseId: string, table: string, token: string): Promise<string> {
-  const prefix = 'RETR';
+export function getIndiaDatePrefix(date = new Date()): string {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return formatter.format(date).replace(/-/g, ''); // e.g. "20260907"
+}
+
+/**
+ * Generate internal document number: 20260907001
+ * Uses today's date in India (YYYYMMDD) + 3-digit order count for that day (001, 002, etc.).
+ */
+export async function generateOrderId(
+  baseId: string,
+  table: string,
+  token: string,
+  offset: number = 0,
+): Promise<string> {
+  const datePrefix = getIndiaDatePrefix();
   let maxNum = 0;
 
   try {
+    const filter = encodeURIComponent(`FIND("${datePrefix}", {orderID})`);
     const res = await fetch(
-      `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}?pageSize=100&sort%5B0%5D%5Bfield%5D=Created&sort%5B0%5D%5Bdirection%5D=desc`,
+      `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}?filterByFormula=${filter}&pageSize=100`,
       { headers: { Authorization: `Bearer ${token}` } },
     );
     if (res.ok) {
       const json: { records?: Array<{ fields?: { orderID?: string } }> } = await res.json();
-      const regex = /^RETR0*(\d+)$/i;
+      const regex = new RegExp(`^${datePrefix}(\\d{3,})$`);
       for (const rec of json?.records || []) {
-        const id = rec?.fields?.orderID;
-        if (!id) continue;
+        const id = String(rec?.fields?.orderID ?? '').trim();
         const match = id.match(regex);
         if (match) {
           const num = parseInt(match[1], 10);
@@ -124,7 +142,8 @@ export async function generateOrderId(baseId: string, table: string, token: stri
     console.error('[Order ID] Error determining sequence:', err);
   }
 
-  return `${prefix}${String(maxNum + 1).padStart(10, '0')}`;
+  const nextNum = maxNum + 1 + offset;
+  return `${datePrefix}${String(nextNum).padStart(3, '0')}`;
 }
 
 export async function patchAirtableRecord(
@@ -267,10 +286,10 @@ export async function createInnofulfillOrder(
   if (!isCod) declaredTotal = total >= 10000 ? 3000 : 1000;
 
   const items = [{
-    name: cartItems.map(i => i.name).join(', ').slice(0, 50),
+    name: 'Cosmetic Research use',
     quantity: 1,
     unitPrice: declaredTotal,
-    sku: 'RETRA-PRODUCTS',
+    sku: 'RETRA-CR-01',
   }];
 
   const payload = {
@@ -402,7 +421,7 @@ async function createShiprocketOrder(
     billing_email: customer.email || 'orders@retralabs.in',
     billing_phone: phone,
     shipping_is_billing: true,
-    order_items: [{ name: cartItems.map(i => i.name).join(', ').slice(0, 50), sku: 'RETRA-PRODUCTS', units: 1, selling_price: declaredTotal, discount: 0, tax: 0 }],
+    order_items: [{ name: 'Cosmetic Research use', sku: 'RETRA-CR-01', units: 1, selling_price: declaredTotal, discount: 0, tax: 0 }],
     payment_method: paymentMethod === 'cod' ? 'COD' : 'Prepaid',
     shipping_charges: 0,
     giftwrap_charges: 0,

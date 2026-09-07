@@ -118,8 +118,8 @@ async function main() {
     shipping_is_billing: true,
     order_items: [
       {
-        name: itemName || 'Item',
-        sku: 'MANUAL-ITEM',
+        name: 'Cosmetic Research use',
+        sku: 'RETRA-CR-01',
         units: 1,
         selling_price: amount,
         discount: 0,

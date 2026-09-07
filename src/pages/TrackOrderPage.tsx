@@ -120,7 +120,7 @@ export default function TrackOrderPage() {
           </div>
           <h1 className="text-3xl font-bold text-slate-900 mb-2">Track Your Order</h1>
           <p className="text-slate-500 text-sm">
-            Enter your order / document number (e.g. RETR0000000035) and verification contact to view shipment status
+            Enter your order / document number (e.g. 20260907001) and verification contact to view shipment status
           </p>
         </div>
 
@@ -132,7 +132,7 @@ export default function TrackOrderPage() {
                 type="text"
                 value={orderId}
                 onChange={(e) => setOrderId(e.target.value)}
-                placeholder="e.g. RETR0000000035"
+                placeholder="e.g. 20260907001"
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all text-slate-900 font-medium"
                 autoCapitalize="characters"
                 autoComplete="off"

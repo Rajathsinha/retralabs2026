@@ -104,7 +104,7 @@ export const handler = async (event: { httpMethod?: string; body?: string; heade
     // ── 5. Create Shipment in Innofulfill ────────────────────────────────────
     const total = Number(f['Total (₹)'] || 0);
     const declaredTotal = isCod ? total : total >= 10000 ? 3000 : 1000;
-    const cartItems = [{ name: String(f.Items || 'Item'), quantity: 1, unitPrice: declaredTotal, variant: 'MANUAL' }];
+    const cartItems = [{ name: 'Cosmetic Research use', quantity: 1, unitPrice: declaredTotal, variant: 'MANUAL' }];
     const customer = {
       name: String(f.Name || 'Customer'),
       email: String(f.Email || 'manual@retralabs.in'),

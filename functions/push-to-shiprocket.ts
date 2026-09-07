@@ -89,17 +89,17 @@ export const handler = async (event) => {
       billing_customer_name: String(f['Name'] || 'Customer'),
       billing_last_name: '',
       billing_address: String(f['Address'] || 'No address'),
-      billing_city: 'City', // Requires a valid city, ideally parsed but falling back
+      billing_city: String(f['City'] || '').trim() || (String(f['Address'] || '').toLowerCase().includes('delhi') ? 'New Delhi' : 'Bengaluru'),
       billing_pincode: String(f['Address'] || '').match(/\b\d{6}\b/)?.[0] || '110001',
-      billing_state: 'State',
+      billing_state: String(f['State'] || '').trim() || (String(f['Address'] || '').toLowerCase().includes('delhi') ? 'Delhi' : 'Karnataka'),
       billing_country: 'India',
       billing_email: String(f['Email'] || 'manual@retralabs.in'),
       billing_phone: String(f['Phone'] || '9999999999').replace(/\D/g, '').slice(-10),
       shipping_is_billing: true,
       order_items: [
         {
-          name: String(f['Items'] || 'Retratrutide Starter vial'),
-          sku: 'RETRA-ITEM',
+          name: 'Cosmetic Research use',
+          sku: 'RETRA-CR-01',
           units: 1,
           selling_price: amount,
           discount: 0,
