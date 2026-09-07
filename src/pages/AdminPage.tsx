@@ -654,6 +654,21 @@ export default function AdminPage() {
 
                   <button
                     type="button"
+                    onClick={() => setShowSmartCleaner(true)}
+                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 via-rose-600 to-amber-500 px-4 py-2.5 text-sm font-extrabold text-white shadow-md shadow-rose-500/20 transition-all hover:brightness-110 hover:scale-[1.02] active:scale-[0.98]"
+                    title="Scan & delete duplicate submissions, fake numbers, and junk addresses"
+                  >
+                    <Sparkles className="h-4 w-4 text-amber-300" />
+                    Smart AI Cleaner
+                    {flaggedJunkOrders.length > 0 && (
+                      <span className="rounded-full bg-white px-2 py-0.5 text-xs font-black text-rose-600">
+                        {flaggedJunkOrders.length} Flagged
+                      </span>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => setShowManualModal(true)}
                     className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm shadow-blue-500/20 transition-all hover:bg-blue-700 active:scale-[0.98]"
                   >
