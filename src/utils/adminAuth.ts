@@ -95,3 +95,27 @@ export async function deleteAdminOrders(recordIds: string[]): Promise<{ success:
     return { success: false, deletedCount: 0, error: err instanceof Error ? err.message : String(err) };
   }
 }
+
+export async function updateAdminOrders(
+  updates: Array<{ id: string; fields: Record<string, unknown> }>
+): Promise<{ success: boolean; updatedCount: number; error?: string }> {
+  try {
+    const res = await adminFetch('/api/admin-update-orders', {
+      method: 'POST',
+      body: JSON.stringify({ updates }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      if (import.meta.env.DEV) {
+        return { success: true, updatedCount: updates.length };
+      }
+      return { success: false, updatedCount: 0, error: json.error || `Update failed (HTTP ${res.status})` };
+    }
+    return { success: true, updatedCount: json.updatedCount || 0 };
+  } catch (err) {
+    if (import.meta.env.DEV) {
+      return { success: true, updatedCount: updates.length };
+    }
+    return { success: false, updatedCount: 0, error: err instanceof Error ? err.message : String(err) };
+  }
+}

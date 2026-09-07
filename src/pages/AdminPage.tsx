@@ -1,6 +1,6 @@
 import { useSEO } from '../hooks/useSEO';
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { ShoppingBag, IndianRupee, Clock, Package, Truck, CheckCircle2, Banknote, CreditCard, Zap, X, FileText, Printer, Copy, Check, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { ShoppingBag, IndianRupee, Clock, Package, Truck, CheckCircle2, Banknote, CreditCard, Zap, X, FileText, Printer, Copy, Check, Plus, Sparkles, Trash2, Wand2 } from 'lucide-react';
 import { Sidebar } from '../components/admin/Sidebar';
 import type { AdminPage as AdminPageId } from '../components/admin/Sidebar';
 import { Topbar } from '../components/admin/Topbar';
@@ -13,6 +13,7 @@ import { BulkAddressLabelModal } from '../components/admin/BulkAddressLabelModal
 import { OrderInvoiceModal } from '../components/admin/OrderInvoiceModal';
 import { ManualOrderModal } from '../components/admin/ManualOrderModal';
 import { SmartOrderCleanerModal } from '../components/admin/SmartOrderCleanerModal';
+import { SmartOrderFormatterModal } from '../components/admin/SmartOrderFormatterModal';
 import { SkeletonTable } from '../components/admin/SkeletonTable';
 import { DashboardView } from '../components/admin/DashboardView';
 import { AnalyticsView } from '../components/admin/AnalyticsView';
@@ -21,6 +22,7 @@ import { SettingsView } from '../components/admin/SettingsView';
 import type { AirtableRecord, AdminFilters, StatCardData } from '../components/admin/types';
 import { adminFetch, adminLogin, getAdminToken, clearAdminToken, deleteAdminOrders } from '../utils/adminAuth';
 import { detectJunkOrders } from '../utils/junkOrderDetector';
+import { formatOrderRecord } from '../utils/orderDataFormatter';
 import { getDevMockOrders } from '../utils/devMockOrders';
 import Logo from '../components/Logo';
 
@@ -168,6 +170,7 @@ export default function AdminPage() {
   const [invoiceModalRecords, setInvoiceModalRecords] = useState<AirtableRecord[] | null>(null);
   const [showManualModal, setShowManualModal] = useState(false);
   const [showSmartCleaner, setShowSmartCleaner] = useState(false);
+  const [showSmartFormatter, setShowSmartFormatter] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [pageNum, setPageNum] = useState(1);
   const [mobileNav, setMobileNav] = useState(false);
@@ -175,6 +178,9 @@ export default function AdminPage() {
   const pageSize = 12;
 
   const flaggedJunkOrders = useMemo(() => detectJunkOrders(records), [records]);
+  const needsFormattingCount = useMemo(() => {
+    return records.filter((r) => formatOrderRecord(r).hasChanges).length;
+  }, [records]);
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
@@ -587,6 +593,21 @@ export default function AdminPage() {
 
                   <button
                     type="button"
+                    onClick={() => setShowSmartFormatter(true)}
+                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 px-4 py-2.5 text-sm font-extrabold text-white shadow-md shadow-blue-500/20 transition-all hover:brightness-110 hover:scale-[1.02] active:scale-[0.98]"
+                    title="Standardize customer names to Title Case, phone numbers strictly to 10 digits (+91/0 removed), and clean addresses"
+                  >
+                    <Wand2 className="h-4 w-4 text-cyan-200" />
+                    Smart AI Formatter
+                    {needsFormattingCount > 0 && (
+                      <span className="rounded-full bg-white px-2 py-0.5 text-xs font-black text-indigo-700">
+                        {needsFormattingCount}
+                      </span>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => setShowSmartCleaner(true)}
                     className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 via-rose-600 to-amber-500 px-4 py-2.5 text-sm font-extrabold text-white shadow-md shadow-rose-500/20 transition-all hover:brightness-110 hover:scale-[1.02] active:scale-[0.98]"
                     title="Scan & delete duplicate submissions, fake numbers, and junk addresses"
@@ -816,7 +837,19 @@ export default function AdminPage() {
           });
           await load();
         }}
+        onOrderUpdated={load}
       />
+
+      {showSmartFormatter && (
+        <SmartOrderFormatterModal
+          records={records}
+          onClose={() => setShowSmartFormatter(false)}
+          onFormatted={async () => {
+            setShowSmartFormatter(false);
+            await load();
+          }}
+        />
+      )}
 
       {showSmartCleaner && (
         <SmartOrderCleanerModal
@@ -857,6 +890,8 @@ export default function AdminPage() {
         onRefresh={load}
         onCreateOrder={() => setShowManualModal(true)}
         onPrintLabels={() => setShowBulkLabels(true)}
+        onSmartFormat={() => setShowSmartFormatter(true)}
+        onSmartClean={() => setShowSmartCleaner(true)}
       />
     </div>
   );

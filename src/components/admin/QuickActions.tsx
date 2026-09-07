@@ -1,17 +1,27 @@
 import { useState } from 'react';
-import { Plus, X, FileText, RefreshCw } from 'lucide-react';
+import { Plus, X, FileText, RefreshCw, Wand2, Sparkles } from 'lucide-react';
 
 interface QuickActionsProps {
   onRefresh: () => void;
   onCreateOrder?: () => void;
   onPrintLabels?: () => void;
+  onSmartFormat?: () => void;
+  onSmartClean?: () => void;
 }
 
-export function QuickActions({ onRefresh, onCreateOrder, onPrintLabels }: QuickActionsProps) {
+export function QuickActions({
+  onRefresh,
+  onCreateOrder,
+  onPrintLabels,
+  onSmartFormat,
+  onSmartClean,
+}: QuickActionsProps) {
   const [open, setOpen] = useState(false);
 
   const actions = [
     { label: 'Paste / Create Order', icon: Plus, onClick: onCreateOrder },
+    ...(onSmartFormat ? [{ label: 'Smart AI Formatter', icon: Wand2, onClick: onSmartFormat }] : []),
+    ...(onSmartClean ? [{ label: 'Smart AI Cleaner', icon: Sparkles, onClick: onSmartClean }] : []),
     { label: 'Generate Shipping Label', icon: FileText, onClick: onPrintLabels },
     { label: 'Refresh Orders', icon: RefreshCw, onClick: onRefresh },
   ];

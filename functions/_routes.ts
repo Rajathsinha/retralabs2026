@@ -12,6 +12,7 @@ import { handler as verifyDelivery } from './verify-delivery';
 import { handler as adminLogin } from './admin-login';
 import { handler as adminCreateManualOrder } from './admin-create-manual-order';
 import { handler as adminDeleteOrders } from './admin-delete-orders';
+import { handler as adminUpdateOrders } from './admin-update-orders';
 
 // Polyfill globalThis.process for Node-style env access in Cloudflare edge runtime
 if (typeof globalThis.process === 'undefined') {
@@ -35,6 +36,7 @@ const HANDLERS: Record<string, (event: any, context?: any) => Promise<any>> = {
   'admin-login': adminLogin,
   'admin-create-manual-order': adminCreateManualOrder,
   'admin-delete-orders': adminDeleteOrders,
+  'admin-update-orders': adminUpdateOrders,
 };
 
 export const onRequest: PagesFunction<Record<string, string>> = async (context) => {

@@ -1,8 +1,24 @@
-import { adminFetch } from '../../utils/adminAuth';
-import { X, Copy, Printer, ExternalLink, Truck, FileText, MapPin, CreditCard, User, Clock, StickyNote, Trash2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { adminFetch, updateAdminOrders } from '../../utils/adminAuth';
+import {
+  X,
+  Copy,
+  Printer,
+  ExternalLink,
+  Truck,
+  FileText,
+  MapPin,
+  CreditCard,
+  User,
+  Clock,
+  StickyNote,
+  Trash2,
+  Wand2,
+  CheckCircle2,
+} from 'lucide-react';
+import { useEffect, useState, useMemo } from 'react';
 import { StatusBadge, DeliveryBadge, PaymentBadge, PaymentStatusBadge } from './badges';
 import type { AirtableRecord, AirtableAttachment } from './types';
+import { formatOrderRecord } from '../../utils/orderDataFormatter';
 
 interface OrderDrawerProps {
   record: AirtableRecord | null;
@@ -10,6 +26,7 @@ interface OrderDrawerProps {
   onPrintInvoice?: (record: AirtableRecord) => void;
   onPrintLabel?: (record: AirtableRecord) => void;
   onDeleteOrder?: (record: AirtableRecord) => Promise<void> | void;
+  onOrderUpdated?: () => Promise<void> | void;
 }
 
 const AIRTABLE_URL = 'https://airtable.com/appzoLMmoFxy53cKx/tbly4OWpkoz6E7OW0/viwi9NXrMheloOfuD?blocks=hide';
@@ -54,9 +71,24 @@ function Check({ className }: { className?: string }) {
   );
 }
 
-export function OrderDrawer({ record, onClose, onPrintInvoice, onPrintLabel, onDeleteOrder }: OrderDrawerProps) {
+export function OrderDrawer({
+  record,
+  onClose,
+  onPrintInvoice,
+  onPrintLabel,
+  onDeleteOrder,
+  onOrderUpdated,
+}: OrderDrawerProps) {
   const [verifying, setVerifying] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [localRecord, setLocalRecord] = useState<AirtableRecord | null>(record);
+  const [formatting, setFormatting] = useState(false);
+  const [formatSuccess, setFormatSuccess] = useState(false);
+
+  useEffect(() => {
+    setLocalRecord(record);
+    setFormatSuccess(false);
+  }, [record]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -64,8 +96,9 @@ export function OrderDrawer({ record, onClose, onPrintInvoice, onPrintLabel, onD
     return () => window.removeEventListener('keydown', onKey);
   }, [record, onClose]);
 
-  if (!record) return null;
-  const f = record.fields;
+  const activeRecord = localRecord || record;
+  if (!activeRecord) return null;
+  const f = activeRecord.fields;
   const screenshots = f['Screenshot'] as AirtableAttachment[] | undefined;
   const phone = String(f['Phone'] ?? '');
   const address = String(f['Address'] ?? '');
@@ -76,6 +109,37 @@ export function OrderDrawer({ record, onClose, onPrintInvoice, onPrintLabel, onD
     ? awbRaw
     : (f['Innofulfill Order ID'] ? 'Awaiting shipment assignment' : '—');
 
+  // Compute AI formatting
+  const formattedOrder = useMemo(() => {
+    return formatOrderRecord(activeRecord);
+  }, [activeRecord]);
+
+  const handleApplyFormatting = async () => {
+    if (!formattedOrder || !formattedOrder.hasChanges) return;
+    setFormatting(true);
+    try {
+      const updates: Record<string, string> = {};
+      if (formattedOrder.name.changed) updates['Name'] = formattedOrder.name.formatted;
+      if (formattedOrder.phone.changed) updates['Phone'] = formattedOrder.phone.formatted;
+      if (formattedOrder.address.changed) updates['Address'] = formattedOrder.address.formatted;
+
+      const res = await updateAdminOrders([{ id: activeRecord.id, fields: updates }]);
+      if (!res.success && res.error) {
+        throw new Error(res.error);
+      }
+
+      setLocalRecord((prev) =>
+        prev ? { ...prev, fields: { ...prev.fields, ...updates } } : null
+      );
+      setFormatSuccess(true);
+      await onOrderUpdated?.();
+    } catch (err) {
+      alert(String(err));
+    } finally {
+      setFormatting(false);
+    }
+  };
+
   const handleVerifyPayment = async () => {
     if (!window.confirm('Confirm that payment proof has been verified for this order?')) return;
     setVerifying(true);
@@ -83,7 +147,7 @@ export function OrderDrawer({ record, onClose, onPrintInvoice, onPrintLabel, onD
       const res = await adminFetch('/api/verify-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recordId: record.id }),
+        body: JSON.stringify({ recordId: activeRecord.id }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Verification failed');
@@ -119,6 +183,88 @@ export function OrderDrawer({ record, onClose, onPrintInvoice, onPrintLabel, onD
             <PaymentBadge payment={String(f['Payment'] ?? '')} />
             <DeliveryBadge delivery={String(f['Delivery'] ?? '')} />
           </div>
+
+          {/* Smart AI Formatter card */}
+          {formattedOrder && (
+            <div className="mx-5 mt-4 p-3.5 rounded-xl border border-indigo-200/80 bg-gradient-to-r from-indigo-50/70 via-blue-50/40 to-white shadow-sm">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-indigo-600 to-blue-600 flex items-center justify-center text-white shadow-sm shadow-indigo-500/20">
+                    <Wand2 className="w-3.5 h-3.5" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-indigo-950">Smart AI Formatter</span>
+                    <p className="text-[10px] text-slate-500">Standardize Customer Name, 10-digit Phone, & Address</p>
+                  </div>
+                </div>
+                {formattedOrder.hasChanges ? (
+                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">
+                    {formattedOrder.changeSummary.length} change{formattedOrder.changeSummary.length > 1 ? 's' : ''}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                    <CheckCircle2 className="w-3 h-3" /> Standardized
+                  </span>
+                )}
+              </div>
+
+              {formattedOrder.hasChanges && (
+                <div className="space-y-2 text-xs mb-3 bg-white/90 rounded-lg p-2.5 border border-indigo-100/70">
+                  {formattedOrder.phone.changed && (
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Phone (+91 → 10 digits)</span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-rose-500 line-through text-[11px]">{formattedOrder.phone.current}</span>
+                        <span className="text-slate-400 text-[10px]">→</span>
+                        <span className="font-mono font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 text-xs">
+                          {formattedOrder.phone.formatted}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  {formattedOrder.name.changed && (
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Customer Name (Title Case)</span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-rose-500 line-through text-[11px]">{formattedOrder.name.current}</span>
+                        <span className="text-slate-400 text-[10px]">→</span>
+                        <span className="font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 text-xs">
+                          {formattedOrder.name.formatted}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  {formattedOrder.address.changed && (
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Clean Address</span>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-rose-500 line-through text-[11px] break-words">{formattedOrder.address.current}</span>
+                        <span className="font-medium text-emerald-800 bg-emerald-50 px-1.5 py-1 rounded border border-emerald-200 text-xs leading-relaxed break-words">
+                          {formattedOrder.address.formatted}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {formattedOrder.hasChanges ? (
+                <button
+                  type="button"
+                  disabled={formatting}
+                  onClick={handleApplyFormatting}
+                  className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-indigo-600 via-blue-600 to-indigo-700 text-white text-xs font-bold hover:brightness-110 active:scale-[0.98] transition-all shadow-sm shadow-indigo-500/20 disabled:opacity-50"
+                >
+                  <Wand2 className="w-3.5 h-3.5" />
+                  {formatting ? 'Applying AI Formatting...' : 'Apply AI Format (Save to Airtable)'}
+                </button>
+              ) : formatSuccess ? (
+                <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 py-1.5 rounded-lg border border-emerald-200">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Changes saved to Airtable!
+                </div>
+              ) : null}
+            </div>
+          )}
 
           <Section icon={User} title="Customer">
             <Row label="Name" value={String(f['Name'] ?? '—')} />
@@ -216,7 +362,7 @@ export function OrderDrawer({ record, onClose, onPrintInvoice, onPrintLabel, onD
                   const res = await adminFetch('/api/push-to-shiprocket', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ recordId: record.id })
+                    body: JSON.stringify({ recordId: activeRecord.id })
                   });
                   const json = await res.json();
                   if (!res.ok) throw new Error(json.error || 'Failed to push');
@@ -257,7 +403,7 @@ export function OrderDrawer({ record, onClose, onPrintInvoice, onPrintLabel, onD
                   const res = await adminFetch('/api/push-to-innofulfill', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ recordId: record.id, allowDuplicate })
+                    body: JSON.stringify({ recordId: activeRecord.id, allowDuplicate })
                   });
                   const json = await res.json();
 
@@ -271,7 +417,7 @@ export function OrderDrawer({ record, onClose, onPrintInvoice, onPrintLabel, onD
                         const forceRes = await adminFetch('/api/push-to-innofulfill', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ recordId: record.id, allowDuplicate: true })
+                          body: JSON.stringify({ recordId: activeRecord.id, allowDuplicate: true })
                         });
                         const forceJson = await forceRes.json();
                         if (!forceRes.ok) throw new Error(forceJson.error || 'Failed to force push');
@@ -309,13 +455,13 @@ export function OrderDrawer({ record, onClose, onPrintInvoice, onPrintLabel, onD
               <Truck className="w-4 h-4" /> Push to Innofulfill
             </button>
             <button
-              onClick={() => onPrintInvoice?.(record)}
+              onClick={() => onPrintInvoice?.(activeRecord)}
               className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition-colors"
             >
               <Printer className="w-4 h-4" /> Print Invoice
             </button>
             <button
-              onClick={() => onPrintLabel?.(record)}
+              onClick={() => onPrintLabel?.(activeRecord)}
               className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 text-sm font-semibold hover:bg-blue-100 transition-colors"
             >
               <FileText className="w-4 h-4" /> Print Address Slip
@@ -328,7 +474,7 @@ export function OrderDrawer({ record, onClose, onPrintInvoice, onPrintLabel, onD
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Customer Outreach</p>
               <div className="grid grid-cols-2 gap-2">
                 <a
-                  href={`https://wa.me/91${phone.replace(/\D/g, '')}?text=${encodeURIComponent(
+                  href={`https://wa.me/91${phone.replace(/\D/g, '').slice(-10)}?text=${encodeURIComponent(
                     `Hi ${String(f['Name'] ?? 'Customer')}, this is RetraLabs regarding your order #${String(f['orderID'] ?? '')}. Everything is confirmed and being prepared for dispatch!`
                   )}`}
                   target="_blank"
@@ -338,7 +484,7 @@ export function OrderDrawer({ record, onClose, onPrintInvoice, onPrintLabel, onD
                   💬 WhatsApp Customer
                 </a>
                 <a
-                  href={`tel:+91${phone.replace(/\D/g, '')}`}
+                  href={`tel:+91${phone.replace(/\D/g, '').slice(-10)}`}
                   className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 transition-colors"
                 >
                   📞 Call Customer
@@ -358,11 +504,11 @@ export function OrderDrawer({ record, onClose, onPrintInvoice, onPrintLabel, onD
           {onDeleteOrder && (
             <button
               onClick={async () => {
-                const orderId = String(f['orderID'] ?? record.id);
+                const orderId = String(f['orderID'] ?? activeRecord.id);
                 if (window.confirm(`Are you sure you want to permanently delete order #${orderId} from Airtable? This cannot be undone.`)) {
                   try {
                     setDeleting(true);
-                    await onDeleteOrder(record);
+                    await onDeleteOrder(activeRecord);
                     onClose();
                   } catch (err) {
                     alert(String(err));
