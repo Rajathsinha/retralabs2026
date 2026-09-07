@@ -236,17 +236,67 @@ export function OrderDrawer({ record, onClose, onPrintInvoice, onPrintLabel, onD
               onClick={async (e) => {
                 const btn = e.currentTarget;
                 const originalText = btn.innerHTML;
-                btn.innerHTML = `<span class="animate-pulse">Pushing...</span>`;
+
+                // Check if already has Innofulfill Order ID or AWB
+                const existingInnoId = String(f['Innofulfill Order ID'] ?? '').trim();
+                const existingAwb = String(f['AWB Number'] ?? '').trim();
+                let allowDuplicate = false;
+
+                if (existingInnoId) {
+                  const confirmDup = window.confirm(
+                    `⚠️ DUPLICATE ORDER WARNING:\n\nOrder #${String(f['orderID'] || '')} has ALREADY been pushed to Innofulfill!\n• Innofulfill Booking ID: ${existingInnoId}\n• AWB Number: ${existingAwb || 'Awaiting assignment'}\n\nDo you really want to re-push this duplicate order to Innofulfill?`
+                  );
+                  if (!confirmDup) return;
+                  allowDuplicate = true;
+                }
+
+                btn.innerHTML = `<span class="animate-pulse">Checking PIN & Pushing...</span>`;
                 btn.disabled = true;
+
                 try {
                   const res = await adminFetch('/api/push-to-innofulfill', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ recordId: record.id })
+                    body: JSON.stringify({ recordId: record.id, allowDuplicate })
                   });
                   const json = await res.json();
-                  if (!res.ok) throw new Error(json.error || 'Failed to push');
-                  btn.innerHTML = `✅ Pushed successfully`;
+
+                  if (!res.ok) {
+                    if (json.duplicate) {
+                      const force = window.confirm(
+                        `⚠️ DUPLICATE WARNING:\n\n${json.error}\n\nDo you want to force push this duplicate anyway?`
+                      );
+                      if (force) {
+                        btn.innerHTML = `<span class="animate-pulse">Force Pushing...</span>`;
+                        const forceRes = await adminFetch('/api/push-to-innofulfill', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ recordId: record.id, allowDuplicate: true })
+                        });
+                        const forceJson = await forceRes.json();
+                        if (!forceRes.ok) throw new Error(forceJson.error || 'Failed to force push');
+                        btn.innerHTML = `✅ Pushed successfully`;
+                        setTimeout(() => onClose(), 1500);
+                        return;
+                      } else {
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                        return;
+                      }
+                    }
+
+                    if (json.unserviceable) {
+                      alert(`❌ INNOFULFILL UNSERVICEABLE:\n\n${json.error}`);
+                      btn.innerHTML = originalText;
+                      btn.disabled = false;
+                      return;
+                    }
+
+                    throw new Error(json.error || 'Failed to push');
+                  }
+
+                  const awbText = json.awbNumber ? ` (AWB: ${json.awbNumber})` : '';
+                  btn.innerHTML = `✅ Pushed successfully${awbText}`;
                   setTimeout(() => onClose(), 1500); // close to refresh
                 } catch(err) {
                   alert(String(err));

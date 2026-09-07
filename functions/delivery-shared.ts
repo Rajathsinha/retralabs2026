@@ -109,7 +109,7 @@ function innofulfillBase(): string {
  * Throws on transport or auth failure so the caller can distinguish "Innofulfill
  * says no" from "we could not ask Innofulfill".
  */
-async function innofulfillServiceable(
+export async function innofulfillServiceable(
   token: string,
   toPincode: string,
   paymentMode: 'PREPAID' | 'COD',
