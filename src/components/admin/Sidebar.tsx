@@ -24,12 +24,12 @@ export function Sidebar({ current, onNavigate, onLogout, mobileOpen, onCloseMobi
     <>
       {mobileOpen && <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={onCloseMobile} />}
       <aside
-        className={`fixed lg:sticky top-0 z-40 h-screen w-64 bg-[#0B1220] border-r border-white/[0.06] flex flex-col transition-transform duration-300 ${
+        className={`fixed inset-y-0 left-0 z-40 w-64 bg-[#0B1220] border-r border-white/[0.06] flex flex-col transition-transform duration-300 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
         {/* Logo */}
-        <div className="h-16 flex items-center justify-between px-5 border-b border-white/[0.06]">
+        <div className="h-16 shrink-0 flex items-center justify-between px-5 border-b border-white/[0.06]">
           <a href="/" className="hover:opacity-90 transition-opacity">
             <Logo size="md" variant="light" />
           </a>
@@ -39,7 +39,7 @@ export function Sidebar({ current, onNavigate, onLogout, mobileOpen, onCloseMobi
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-3 py-4 space-y-1">
+        <nav className="flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-1">
           {NAV.map((item) => {
             const active = current === item.id;
             const Icon = item.icon;
@@ -63,7 +63,7 @@ export function Sidebar({ current, onNavigate, onLogout, mobileOpen, onCloseMobi
         </nav>
 
         {/* External Links */}
-        <div className="px-3 py-2 mt-auto border-t border-white/[0.06]">
+        <div className="shrink-0 px-3 py-2 mt-auto border-t border-white/[0.06]">
           <a
             href="https://app.shiprocket.in/"
             target="_blank"
@@ -78,7 +78,7 @@ export function Sidebar({ current, onNavigate, onLogout, mobileOpen, onCloseMobi
         </div>
 
         {/* Logout */}
-        <div className="p-3">
+        <div className="shrink-0 p-3">
           <button
             onClick={onLogout}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-white/[0.03] transition-all"

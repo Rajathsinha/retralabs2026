@@ -536,7 +536,7 @@ export default function AdminPage() {
         onCloseMobile={() => setMobileNav(false)}
       />
 
-      <div className="flex-1 min-w-0 flex flex-col">
+      <div className="flex-1 min-w-0 flex flex-col lg:pl-64">
         <Topbar
           search={filters.search}
           onSearch={(v) => setFilters({ ...filters, search: v })}
