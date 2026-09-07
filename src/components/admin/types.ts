@@ -5,6 +5,7 @@ export interface AirtableAttachment {
 
 export interface AirtableRecord {
   id: string;
+  createdTime?: string;
   fields: Record<string, string | number | AirtableAttachment[] | undefined>;
 }
 

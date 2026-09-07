@@ -1,12 +1,32 @@
 import { useSEO } from '../hooks/useSEO';
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { ShoppingBag, IndianRupee, Clock, Package, Truck, CheckCircle2, Banknote, CreditCard, Zap, X, FileText, Printer, Copy, Check, Plus, Sparkles, Trash2, Wand2 } from 'lucide-react';
+import {
+  ShoppingBag,
+  IndianRupee,
+  Clock,
+  Package,
+  Truck,
+  CheckCircle2,
+  Banknote,
+  CreditCard,
+  Zap,
+  X,
+  FileText,
+  Printer,
+  Copy,
+  Check,
+  Plus,
+  Sparkles,
+  Trash2,
+  Wand2,
+  SlidersHorizontal,
+} from 'lucide-react';
 import { Sidebar } from '../components/admin/Sidebar';
 import type { AdminPage as AdminPageId } from '../components/admin/Sidebar';
 import { Topbar } from '../components/admin/Topbar';
 import { StatCard } from '../components/admin/StatCard';
 import { FilterBar, hasActiveFilters } from '../components/admin/FilterBar';
-import { OrdersTable, type SortDir } from '../components/admin/OrdersTable';
+import { OrdersTable } from '../components/admin/OrdersTable';
 import { OrderDrawer } from '../components/admin/OrderDrawer';
 import { QuickActions } from '../components/admin/QuickActions';
 import { BulkAddressLabelModal } from '../components/admin/BulkAddressLabelModal';
@@ -24,6 +44,15 @@ import { adminFetch, adminLogin, getAdminToken, clearAdminToken, deleteAdminOrde
 import { detectJunkOrders } from '../utils/junkOrderDetector';
 import { formatOrderRecord } from '../utils/orderDataFormatter';
 import { getDevMockOrders } from '../utils/devMockOrders';
+import {
+  AdminSortOption,
+  SORT_OPTIONS,
+  sortOrders,
+  getOrderTimestamp,
+  formatExactOrderTime,
+  extractCityAndState,
+  cleanPhone10,
+} from '../utils/orderViewHelpers';
 import Logo from '../components/Logo';
 
 const EMPTY_FILTERS: AdminFilters = {
@@ -162,8 +191,7 @@ export default function AdminPage() {
   const [filters, setFilters] = useState<AdminFilters>(EMPTY_FILTERS);
   const [showFilters, setShowFilters] = useState(false);
   const [tab, setTab] = useState<'all' | 'prepay' | 'cod'>('all');
-  const [sortKey, setSortKey] = useState('Created');
-  const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [sortOption, setSortOption] = useState<AdminSortOption>('time_desc');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [viewRecord, setViewRecord] = useState<AirtableRecord | null>(null);
   const [showBulkLabels, setShowBulkLabels] = useState(false);
@@ -175,7 +203,7 @@ export default function AdminPage() {
   const [pageNum, setPageNum] = useState(1);
   const [mobileNav, setMobileNav] = useState(false);
   const [copiedPhones, setCopiedPhones] = useState(false);
-  const pageSize = 12;
+  const [pageSize, setPageSize] = useState(15);
 
   const flaggedJunkOrders = useMemo(() => detectJunkOrders(records), [records]);
   const needsFormattingCount = useMemo(() => {
@@ -228,32 +256,27 @@ export default function AdminPage() {
   }, [records]);
 
   const filtered = useMemo(() => {
-    const todayIso = new Date().toISOString().slice(0, 10);
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayIso = yesterday.toISOString().slice(0, 10);
-
-    const getDaysAgoIso = (days: number) => {
-      const d = new Date();
-      d.setDate(d.getDate() - days);
-      return d.toISOString().slice(0, 10);
-    };
+    const now = Date.now();
+    const getDaysAgoTime = (days: number) => now - days * 86400000;
 
     return records.filter((r) => {
       const f = r.fields;
       const payment = String(f['Payment'] ?? '').toUpperCase();
       const isCod = payment.includes('COD');
-      const created = String(f['Created'] ?? '');
       const total = Number(f['Total (₹)'] || 0);
-      const phone = String(f['Phone'] ?? '').trim();
+      const phone = cleanPhone10(f['Phone']);
       const name = String(f['Name'] ?? '').trim();
       const custKey = phone || name;
       const orderCount = customerOrderCounts.get(custKey) || 1;
       const status = String(f['Status'] ?? '');
       const awb = String(f['AWB Number'] ?? '');
       const tracking = String(f['Tracking ID'] ?? '');
+      const innoId = String(f['Innofulfill Order ID'] ?? '');
       const delivery = String(f['Delivery'] ?? '').toLowerCase();
-      const pStatus = String(f['Payment Status'] ?? '');
+      const pStatus = String(f['Payment Status'] ?? '').toUpperCase();
+      const timeInfo = formatExactOrderTime(r);
+      const orderTs = getOrderTimestamp(r);
+      const loc = extractCityAndState(r);
 
       // Tab filter
       if (tab === 'cod' && !isCod) return false;
@@ -261,14 +284,18 @@ export default function AdminPage() {
 
       // Date Presets
       if (filters.datePreset) {
-        if (filters.datePreset === 'today' && created !== todayIso) return false;
-        if (filters.datePreset === 'yesterday' && created !== yesterdayIso) return false;
-        if (filters.datePreset === '7d' && created < getDaysAgoIso(7)) return false;
-        if (filters.datePreset === '15d' && created < getDaysAgoIso(15)) return false;
-        if (filters.datePreset === '30d' && created < getDaysAgoIso(30)) return false;
-        if (filters.datePreset === 'quarter' && created < getDaysAgoIso(90)) return false;
-        if (filters.datePreset === 'needs_action' && (!['Paid', 'Confirmed', 'New'].includes(status) || (awb && tracking))) return false;
-        if (filters.datePreset === 'prepay_unverified' && (isCod || pStatus === 'VERIFIED' || pStatus === 'PAID')) return false;
+        if (filters.datePreset === 'today' && !timeInfo.isToday) return false;
+        if (filters.datePreset === 'yesterday' && !timeInfo.isYesterday) return false;
+        if (filters.datePreset === '7d' && orderTs < getDaysAgoTime(7)) return false;
+        if (filters.datePreset === '15d' && orderTs < getDaysAgoTime(15)) return false;
+        if (filters.datePreset === '30d' && orderTs < getDaysAgoTime(30)) return false;
+        if (filters.datePreset === 'quarter' && orderTs < getDaysAgoTime(90)) return false;
+        if (filters.datePreset === 'needs_action' && (awb || tracking || innoId)) return false;
+        if (
+          filters.datePreset === 'prepay_unverified' &&
+          (isCod || pStatus === 'CONFIRMED' || pStatus === 'PAID' || pStatus === 'PAYMENT_CONFIRMED')
+        )
+          return false;
         if (filters.datePreset === 'express' && !delivery.includes('express')) return false;
         if (filters.datePreset === 'cod' && !isCod) return false;
         if (filters.datePreset === 'repeat' && orderCount <= 1) return false;
@@ -278,7 +305,7 @@ export default function AdminPage() {
       // Explicit Filters
       if (filters.status && status !== filters.status) return false;
       if (filters.payment && !payment.includes(filters.payment.toUpperCase())) return false;
-      if (filters.paymentStatus && !pStatus.toLowerCase().includes(filters.paymentStatus.toLowerCase())) return false;
+      if (filters.paymentStatus && !pStatus.includes(filters.paymentStatus.toUpperCase())) return false;
       if (filters.delivery && !delivery.includes(filters.delivery.toLowerCase())) return false;
       if (filters.referral && !String(f['Referral'] ?? '').toLowerCase().includes(filters.referral.toLowerCase())) return false;
       if (filters.product && !String(f['Items'] ?? '').toLowerCase().includes(filters.product.toLowerCase())) return false;
@@ -287,8 +314,9 @@ export default function AdminPage() {
       if (filters.maxAmount && total > Number(filters.maxAmount)) return false;
 
       if (filters.city) {
-        const addr = String(f['Address'] ?? '').toLowerCase();
-        if (!addr.includes(filters.city.toLowerCase())) return false;
+        const queryCity = filters.city.toLowerCase();
+        const hay = [loc.city, loc.state, String(f['Address'] ?? '')].join(' ').toLowerCase();
+        if (!hay.includes(queryCity)) return false;
       }
 
       if (filters.customerType && filters.customerType !== 'all') {
@@ -298,38 +326,47 @@ export default function AdminPage() {
 
       if (filters.customer) {
         const c = filters.customer.toLowerCase();
-        const hay = [String(f['Name'] ?? ''), String(f['Phone'] ?? '')].join(' ').toLowerCase();
+        const hay = [name, phone].join(' ').toLowerCase();
         if (!hay.includes(c)) return false;
       }
 
       if (filters.trackingId) {
         const t = filters.trackingId.toLowerCase();
-        const hay = [awb, tracking, String(f['Innofulfill Order ID'] ?? '')].join(' ').toLowerCase();
+        const hay = [awb, tracking, innoId].join(' ').toLowerCase();
         if (!hay.includes(t)) return false;
       }
 
-      if (filters.dateFrom && created < filters.dateFrom) return false;
-      if (filters.dateTo && created > filters.dateTo) return false;
+      if (filters.dateFrom) {
+        const fromTs = new Date(filters.dateFrom).getTime();
+        if (orderTs < fromTs) return false;
+      }
+      if (filters.dateTo) {
+        const toTs = new Date(filters.dateTo + 'T23:59:59').getTime();
+        if (orderTs > toTs) return false;
+      }
 
       if (filters.search) {
-        const q = filters.search.toLowerCase();
+        const q = filters.search.toLowerCase().trim();
         const hay = [
           f['orderID'],
-          f['Name'],
-          f['Phone'],
+          name,
+          phone,
           f['Email'],
           f['Items'],
+          loc.city,
+          loc.state,
           f['Status'],
           f['Shipment Status'],
           f['Courier'],
           f['Carrier Display Name'],
-          f['Innofulfill Order ID'],
-          f['Innofulfill Internal ID'],
-          f['AWB Number'],
-          f['Tracking ID'],
+          innoId,
+          awb,
+          tracking,
           f['Transaction'],
           f['Address'],
-        ].map((v) => String(v ?? '').toLowerCase()).join(' ');
+        ]
+          .map((v) => String(v ?? '').toLowerCase())
+          .join(' ');
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -337,17 +374,8 @@ export default function AdminPage() {
   }, [records, tab, filters, customerOrderCounts]);
 
   const sorted = useMemo(() => {
-    const arr = [...filtered];
-    arr.sort((a, b) => {
-      const av = String(a.fields[sortKey] ?? '');
-      const bv = String(b.fields[sortKey] ?? '');
-      if (sortKey === 'Total (₹)') {
-        return sortDir === 'asc' ? Number(av || 0) - Number(bv || 0) : Number(bv || 0) - Number(av || 0);
-      }
-      return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
-    });
-    return arr;
-  }, [filtered, sortKey, sortDir]);
+    return sortOrders(filtered, sortOption);
+  }, [filtered, sortOption]);
 
   const stats: StatCardData[] = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
@@ -474,8 +502,15 @@ export default function AdminPage() {
   }, [filtered]);
 
   const onSort = (key: string) => {
-    if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    else { setSortKey(key); setSortDir('desc'); }
+    if (key === 'Total (₹)') {
+      setSortOption((prev) => (prev === 'price_desc' ? 'price_asc' : 'price_desc'));
+    } else if (key === 'Name') {
+      setSortOption((prev) => (prev === 'name_asc' ? 'name_desc' : 'name_asc'));
+    } else if (key === 'orderID') {
+      setSortOption((prev) => (prev === 'order_id_desc' ? 'time_desc' : 'order_id_desc'));
+    } else {
+      setSortOption((prev) => (prev === 'time_desc' ? 'time_asc' : 'time_desc'));
+    }
   };
 
   const toggleSelect = (id: string) =>
@@ -637,58 +672,185 @@ export default function AdminPage() {
                 {stats.map((s) => <StatCard key={s.key} card={s} />)}
               </div>
 
-              {/* Preset filters and view tabs */}
-              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                <div className="flex items-center gap-1 bg-slate-100/80 p-1 rounded-xl w-fit">
-                  {(['all', 'prepay', 'cod'] as const).map((t) => (
+              {/* Quick Filter Pills Row */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-3 scrollbar-none">
+                {[
+                  { id: '', label: 'All Orders', count: records.length },
+                  {
+                    id: 'today',
+                    label: "Today's Orders",
+                    count: records.filter((r) => formatExactOrderTime(r).isToday).length,
+                    badgeColor: 'bg-blue-100 text-blue-800',
+                  },
+                  {
+                    id: 'yesterday',
+                    label: 'Yesterday',
+                    count: records.filter((r) => formatExactOrderTime(r).isYesterday).length,
+                  },
+                  {
+                    id: 'needs_action',
+                    label: 'Needs Push / Shipping',
+                    count: records.filter(
+                      (r) => !r.fields['AWB Number'] && !r.fields['Tracking ID'] && !r.fields['Innofulfill Order ID'],
+                    ).length,
+                    badgeColor: 'bg-amber-100 text-amber-800',
+                  },
+                  {
+                    id: 'prepay',
+                    label: 'UPI / Prepaid',
+                    count: records.filter((r) => !String(r.fields['Payment'] || '').toUpperCase().includes('COD')).length,
+                    badgeColor: 'bg-emerald-100 text-emerald-800',
+                  },
+                  {
+                    id: 'cod',
+                    label: 'Cash on Delivery (COD)',
+                    count: records.filter((r) => String(r.fields['Payment'] || '').toUpperCase().includes('COD')).length,
+                    badgeColor: 'bg-amber-100 text-amber-800',
+                  },
+                  {
+                    id: 'prepay_unverified',
+                    label: 'Unverified Proof',
+                    count: records.filter((r) => {
+                      const isCod = String(r.fields['Payment'] || '').toUpperCase().includes('COD');
+                      const pStatus = String(r.fields['Payment Status'] || '').toUpperCase();
+                      return !isCod && pStatus !== 'CONFIRMED' && pStatus !== 'PAID' && pStatus !== 'PAYMENT_CONFIRMED';
+                    }).length,
+                    badgeColor: 'bg-rose-100 text-rose-800',
+                  },
+                  {
+                    id: 'high_value',
+                    label: 'High Value (₹10k+)',
+                    count: records.filter((r) => Number(r.fields['Total (₹)'] || 0) >= 10000).length,
+                  },
+                ].map((pill) => {
+                  const active =
+                    pill.id === ''
+                      ? !filters.datePreset && tab === 'all'
+                      : pill.id === 'cod'
+                      ? tab === 'cod'
+                      : pill.id === 'prepay'
+                      ? tab === 'prepay'
+                      : filters.datePreset === pill.id;
+
+                  return (
                     <button
-                      key={t}
-                      onClick={() => { setTab(t); setPageNum(1); }}
-                      className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                        tab === t ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                      key={pill.id}
+                      type="button"
+                      onClick={() => {
+                        if (pill.id === 'cod') {
+                          setTab('cod');
+                          setFilters((f) => ({ ...f, datePreset: '' }));
+                        } else if (pill.id === 'prepay') {
+                          setTab('prepay');
+                          setFilters((f) => ({ ...f, datePreset: '' }));
+                        } else {
+                          setTab('all');
+                          setFilters((f) => ({ ...f, datePreset: pill.id }));
+                        }
+                        setPageNum(1);
+                      }}
+                      className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                        active
+                          ? 'bg-slate-950 text-white shadow-xs'
+                          : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
                       }`}
                     >
-                      {t === 'all' ? 'All' : t === 'prepay' ? 'Prepaid' : 'COD'}
-                      <span className={`ml-1.5 text-xs ${tab === t ? 'text-blue-600' : 'text-slate-400'}`}>
-                        {t === 'all'
-                          ? records.length
-                          : t === 'prepay'
-                          ? records.filter((r) => !String(r.fields['Payment'] ?? '').toUpperCase().includes('COD')).length
-                          : records.filter((r) => String(r.fields['Payment'] ?? '').toUpperCase().includes('COD')).length}
+                      <span>{pill.label}</span>
+                      <span
+                        className={`px-1.5 py-0.2 rounded-md text-[10px] font-mono ${
+                          active
+                            ? 'bg-white/20 text-white'
+                            : pill.badgeColor || 'bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        {pill.count}
                       </span>
                     </button>
-                  ))}
+                  );
+                })}
+              </div>
+
+              {/* Search, Sort & Action Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-4 bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs">
+                {/* Search Bar */}
+                <div className="relative flex-1 min-w-[220px] max-w-md">
+                  <input
+                    type="text"
+                    value={filters.search}
+                    onChange={(e) => {
+                      setFilters({ ...filters, search: e.target.value });
+                      setPageNum(1);
+                    }}
+                    placeholder="Search customer, 10-digit mobile, city, order ID…"
+                    className="w-full pl-3 pr-8 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:border-blue-500 transition-all font-medium"
+                  />
+                  {filters.search && (
+                    <button
+                      type="button"
+                      onClick={() => setFilters({ ...filters, search: '' })}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Dedicated Sort Selector */}
+                  <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-xl">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">Sort:</span>
+                    <select
+                      value={sortOption}
+                      onChange={(e) => {
+                        setSortOption(e.target.value as AdminSortOption);
+                        setPageNum(1);
+                      }}
+                      className="bg-transparent text-xs font-bold text-slate-800 outline-none cursor-pointer py-1"
+                    >
+                      {SORT_OPTIONS.map((opt) => (
+                        <option key={opt.id} value={opt.id}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Filter Drawer Toggle */}
                   <button
+                    type="button"
                     onClick={() => setShowFilters(!showFilters)}
-                    className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all border ${
+                    className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
                       showFilters || hasActiveFilters(filters)
-                        ? 'bg-blue-50 border-blue-200 text-blue-700 shadow-xs'
+                        ? 'bg-blue-50 border-blue-200 text-blue-700 shadow-2xs'
                         : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                     }`}
                   >
-                    <span className="w-2 h-2 rounded-full bg-blue-600" />
-                    {showFilters ? 'Hide Filters' : 'Filters & Presets'}
+                    <SlidersHorizontal className="w-3.5 h-3.5" />
+                    <span>Filters</span>
                     {hasActiveFilters(filters) && (
-                      <span className="px-1.5 py-0.2 rounded-full bg-blue-600 text-white text-[10px]">Active</span>
+                      <span className="px-1.5 py-0.2 rounded-full bg-blue-600 text-white text-[10px]">
+                        Active
+                      </span>
                     )}
                   </button>
 
+                  {/* Export CSV */}
                   <button
+                    type="button"
                     onClick={() => exportCsv(sorted)}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors"
                   >
                     Export CSV
                   </button>
+
+                  {/* Paste / Create Orders */}
                   <button
                     type="button"
                     onClick={() => setShowManualModal(true)}
-                    className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs transition-all hover:bg-blue-700"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3.5 py-2 text-xs font-bold text-white shadow-2xs transition-all hover:bg-blue-700"
                   >
                     <Plus className="h-3.5 w-3.5" />
-                    Paste / Create Orders
+                    <span>+ Create Order</span>
                   </button>
                 </div>
               </div>
@@ -708,7 +870,7 @@ export default function AdminPage() {
               {/* Active Filter Pills Bar */}
               {hasActiveFilters(filters) && (
                 <div className="flex flex-wrap items-center gap-2 mb-3 bg-white p-2.5 rounded-xl border border-slate-200 text-xs">
-                  <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Active:</span>
+                  <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Active Filters:</span>
                   {Object.entries(filters)
                     .filter(([, v]) => v && v !== 'search' && v !== 'all')
                     .map(([k, v]) => (
@@ -736,9 +898,11 @@ export default function AdminPage() {
                 <OrdersTable
                   records={sorted}
                   loading={loading}
-                  sortKey={sortKey}
-                  sortDir={sortDir}
+                  sortKey={sortOption}
+                  sortDir={sortOption.endsWith('_asc') ? 'asc' : 'desc'}
                   onSort={onSort}
+                  sortOption={sortOption}
+                  onSortOptionChange={setSortOption}
                   selected={selected}
                   onToggleSelect={toggleSelect}
                   onToggleSelectAll={toggleSelectAll}
@@ -746,6 +910,8 @@ export default function AdminPage() {
                   page={pageNum}
                   pageSize={pageSize}
                   onPageChange={setPageNum}
+                  onPageSizeChange={setPageSize}
+                  customerOrderCounts={customerOrderCounts}
                 />
               )}
 

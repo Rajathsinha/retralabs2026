@@ -58,12 +58,14 @@ export function PaymentBadge({ payment }: { payment: string }) {
   const isCod = p.includes('COD');
   return (
     <span
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold ${
-        isCod ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800'
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-extrabold tracking-tight ${
+        isCod
+          ? 'bg-amber-50 text-amber-900 border border-amber-300 shadow-2xs'
+          : 'bg-emerald-50 text-emerald-900 border border-emerald-300 shadow-2xs'
       }`}
     >
-      {isCod ? <Banknote className="w-3 h-3" /> : <CreditCard className="w-3 h-3" />}
-      {isCod ? 'COD' : 'UPI'}
+      {isCod ? <Banknote className="w-3.5 h-3.5 text-amber-700" /> : <CreditCard className="w-3.5 h-3.5 text-emerald-700" />}
+      {isCod ? 'COD' : 'UPI / Prepaid'}
     </span>
   );
 }
