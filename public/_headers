@@ -3,6 +3,9 @@
 # The site previously declared these in a config file Cloudflare does not read,
 # so they were never actually applied. Defined here so they take effect.
 
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 
