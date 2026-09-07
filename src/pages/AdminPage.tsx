@@ -20,6 +20,7 @@ import {
   Trash2,
   Wand2,
   SlidersHorizontal,
+  Share2,
 } from 'lucide-react';
 import { Sidebar } from '../components/admin/Sidebar';
 import type { AdminPage as AdminPageId } from '../components/admin/Sidebar';
@@ -200,6 +201,7 @@ export default function AdminPage() {
   const [showSmartCleaner, setShowSmartCleaner] = useState(false);
   const [showSmartFormatter, setShowSmartFormatter] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [copiedFormLink, setCopiedFormLink] = useState(false);
   const [pageNum, setPageNum] = useState(1);
   const [mobileNav, setMobileNav] = useState(false);
   const [copiedPhones, setCopiedPhones] = useState(false);
@@ -652,16 +654,34 @@ export default function AdminPage() {
 
                   <button
                     type="button"
-                    onClick={() => setShowSmartCleaner(true)}
-                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 via-rose-600 to-amber-500 px-4 py-2.5 text-sm font-extrabold text-white shadow-md shadow-rose-500/20 transition-all hover:brightness-110 hover:scale-[1.02] active:scale-[0.98]"
-                    title="Scan & delete duplicate submissions, fake numbers, and junk addresses"
+                    onClick={() => setShowManualModal(true)}
+                    className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm shadow-blue-500/20 transition-all hover:bg-blue-700 active:scale-[0.98]"
                   >
-                    <Sparkles className="h-4 w-4 text-amber-300" />
-                    Smart AI Cleaner
-                    {flaggedJunkOrders.length > 0 && (
-                      <span className="rounded-full bg-white px-2 py-0.5 text-xs font-black text-rose-600">
-                        {flaggedJunkOrders.length} Flagged
-                      </span>
+                    <Plus className="h-4 w-4" />
+                    Paste / Create Orders
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const url = `${window.location.origin}/order`;
+                      navigator.clipboard.writeText(url);
+                      setCopiedFormLink(true);
+                      setTimeout(() => setCopiedFormLink(false), 2500);
+                    }}
+                    className="inline-flex items-center gap-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-800 px-4 py-2.5 text-sm font-semibold transition-all"
+                    title="Copy shareable customer order form link (/order)"
+                  >
+                    {copiedFormLink ? (
+                      <>
+                        <Check className="h-4 w-4 text-emerald-600" />
+                        Copied Form Link!
+                      </>
+                    ) : (
+                      <>
+                        <Share2 className="h-4 w-4 text-slate-600" />
+                        Copy Customer Form Link
+                      </>
                     )}
                   </button>
                 </div>

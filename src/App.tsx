@@ -53,6 +53,7 @@ const TrackOrderPage     = lazyWithRetry(() => import('./pages/TrackOrderPage'))
 const CategoryPage       = lazyWithRetry(() => import('./pages/CategoryPage'));
 const GuidePage          = lazyWithRetry(() => import('./pages/GuidePage'));
 const GuidesIndexPage    = lazyWithRetry(() => import('./pages/GuidesIndexPage'));
+const CustomerOrderFormPage = lazyWithRetry(() => import('./pages/CustomerOrderFormPage'));
 const HeroUIWrapper      = lazyWithRetry(() => import('./providers/HeroUIWrapper'));
 
 // ─── Error Boundary ───────────────────────────────────────────────────────────
@@ -186,6 +187,8 @@ export default function App() {
             <Route path="/category/:slug"  element={<CategoryPage />} />
             <Route path="/guides"          element={<GuidesIndexPage />} />
             <Route path="/guides/:slug"     element={<GuidePage />} />
+            <Route path="/order"           element={<CustomerOrderFormPage />} />
+            <Route path="/order-form"      element={<CustomerOrderFormPage />} />
           </Route>
           {/* Admin — no header/footer */}
           <Route path="/admin" element={<Suspense fallback={<div style={{ minHeight: '100vh', background: '#040C1E' }} />}><AdminPage /></Suspense>} />
