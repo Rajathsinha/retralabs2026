@@ -99,11 +99,17 @@ class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryStat
                 : (this.state.error?.message || 'An unexpected error occurred.')}
             </p>
             <button
-              onClick={() => {
+              onClick={async () => {
                 sessionStorage.removeItem('chunk_reload_ts');
+                if ('caches' in window) {
+                  try {
+                    const keys = await caches.keys();
+                    await Promise.all(keys.map((k) => caches.delete(k)));
+                  } catch {}
+                }
                 window.location.reload();
               }}
-              className="w-full py-3 px-4 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl font-bold text-sm transition-all shadow-lg shadow-blue-500/25"
+              className="w-full py-3 px-4 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl font-bold text-sm transition-all shadow-lg shadow-blue-500/25 cursor-pointer"
             >
               Update & Reload
             </button>

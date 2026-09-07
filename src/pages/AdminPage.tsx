@@ -478,7 +478,16 @@ export default function AdminPage() {
     else { setSortKey(key); setSortDir('desc'); }
   };
 
-  const toggleSelect = (id: string) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleSelect = (id: string) =>
+    setSelected((s) => {
+      const n = new Set(s);
+      if (n.has(id)) {
+        n.delete(id);
+      } else {
+        n.add(id);
+      }
+      return n;
+    });
   const toggleSelectAll = () => {
     const pageRows = sorted.slice((pageNum - 1) * pageSize, pageNum * pageSize);
     const allSel = pageRows.every((r) => selected.has(r.id));

@@ -56,7 +56,7 @@ function Row({ label, value }: { label: string; value: string }) {
 function CopyBtn({ text, label }: { text: string; label: string }) {
   const [done, setDone] = useState(false);
   const copy = async () => {
-    try { await navigator.clipboard.writeText(text); setDone(true); setTimeout(() => setDone(false), 1500); } catch {}
+    try { await navigator.clipboard.writeText(text); setDone(true); setTimeout(() => setDone(false), 1500); } catch (e) { console.debug('Copy failed', e); }
   };
   return (
     <button onClick={copy} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
@@ -106,12 +106,12 @@ export function OrderDrawer({
   }, [record, onClose]);
 
   const activeRecord = localRecord || record;
-  const f = activeRecord ? activeRecord.fields : {};
 
   // Logistics pushed status detection
   const isInnofulfillPushed = useMemo(() => {
     if (!activeRecord) return false;
     if (sessionPushedInnofulfill) return true;
+    const f = activeRecord.fields;
     const innoId = String(f['Innofulfill Order ID'] ?? '').trim();
     const provider = String(f['Courier Provider'] ?? '').trim();
     const status = String(f['Status'] ?? '').toLowerCase();
@@ -122,11 +122,12 @@ export function OrderDrawer({
       carrier.includes('innofulfill') ||
       status.includes('innofulfill')
     );
-  }, [sessionPushedInnofulfill, f, activeRecord]);
+  }, [sessionPushedInnofulfill, activeRecord]);
 
   const isShiprocketPushed = useMemo(() => {
     if (!activeRecord) return false;
     if (sessionPushedShiprocket) return true;
+    const f = activeRecord.fields;
     const provider = String(f['Courier Provider'] ?? '').trim();
     const carrier = String(f['Carrier Display Name'] ?? '').toLowerCase();
     const trackingId = String(f['Tracking ID'] ?? '').trim();
@@ -137,7 +138,7 @@ export function OrderDrawer({
       carrier.includes('shiprocket') ||
       (!innoId && provider !== 'Innofulfill' && (trackingId || (awb && !/^RETRA-\d{8}-\d{4}$/i.test(awb))))
     );
-  }, [sessionPushedShiprocket, f, activeRecord]);
+  }, [sessionPushedShiprocket, activeRecord]);
 
   // Compute AI formatting
   const formattedOrder = useMemo(() => {
@@ -147,6 +148,7 @@ export function OrderDrawer({
 
   if (!activeRecord) return null;
 
+  const f = activeRecord.fields;
   const screenshots = f['Screenshot'] as AirtableAttachment[] | undefined;
   const phone = String(f['Phone'] ?? '');
   const address = String(f['Address'] ?? '');
