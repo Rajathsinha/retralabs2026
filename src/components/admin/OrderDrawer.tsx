@@ -106,20 +106,11 @@ export function OrderDrawer({
   }, [record, onClose]);
 
   const activeRecord = localRecord || record;
-  if (!activeRecord) return null;
-  const f = activeRecord.fields;
-  const screenshots = f['Screenshot'] as AirtableAttachment[] | undefined;
-  const phone = String(f['Phone'] ?? '');
-  const address = String(f['Address'] ?? '');
-  const tracking = String(f['Tracking ID'] ?? '');
-  const paymentStatus = String(f['Payment Status'] ?? '');
-  const awbRaw = f['AWB Number'] ? String(f['AWB Number']) : '';
-  const awbDisplay = awbRaw && !/^RETRA-\d{8}-\d{4}$/i.test(awbRaw)
-    ? awbRaw
-    : (f['Innofulfill Order ID'] ? 'Awaiting shipment assignment' : '—');
+  const f = activeRecord ? activeRecord.fields : {};
 
   // Logistics pushed status detection
   const isInnofulfillPushed = useMemo(() => {
+    if (!activeRecord) return false;
     if (sessionPushedInnofulfill) return true;
     const innoId = String(f['Innofulfill Order ID'] ?? '').trim();
     const provider = String(f['Courier Provider'] ?? '').trim();
@@ -131,9 +122,10 @@ export function OrderDrawer({
       carrier.includes('innofulfill') ||
       status.includes('innofulfill')
     );
-  }, [sessionPushedInnofulfill, f]);
+  }, [sessionPushedInnofulfill, f, activeRecord]);
 
   const isShiprocketPushed = useMemo(() => {
+    if (!activeRecord) return false;
     if (sessionPushedShiprocket) return true;
     const provider = String(f['Courier Provider'] ?? '').trim();
     const carrier = String(f['Carrier Display Name'] ?? '').toLowerCase();
@@ -145,12 +137,25 @@ export function OrderDrawer({
       carrier.includes('shiprocket') ||
       (!innoId && provider !== 'Innofulfill' && (trackingId || (awb && !/^RETRA-\d{8}-\d{4}$/i.test(awb))))
     );
-  }, [sessionPushedShiprocket, f]);
+  }, [sessionPushedShiprocket, f, activeRecord]);
 
   // Compute AI formatting
   const formattedOrder = useMemo(() => {
+    if (!activeRecord) return null;
     return formatOrderRecord(activeRecord);
   }, [activeRecord]);
+
+  if (!activeRecord) return null;
+
+  const screenshots = f['Screenshot'] as AirtableAttachment[] | undefined;
+  const phone = String(f['Phone'] ?? '');
+  const address = String(f['Address'] ?? '');
+  const tracking = String(f['Tracking ID'] ?? '');
+  const paymentStatus = String(f['Payment Status'] ?? '');
+  const awbRaw = f['AWB Number'] ? String(f['AWB Number']) : '';
+  const awbDisplay = awbRaw && !/^RETRA-\d{8}-\d{4}$/i.test(awbRaw)
+    ? awbRaw
+    : (f['Innofulfill Order ID'] ? 'Awaiting shipment assignment' : '—');
 
   const handlePushToShiprocket = async () => {
     if (pushingShiprocket || pushingInnofulfill) return;

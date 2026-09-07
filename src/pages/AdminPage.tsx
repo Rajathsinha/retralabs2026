@@ -823,22 +823,24 @@ export default function AdminPage() {
         </main>
       </div>
 
-      <OrderDrawer
-        record={viewRecord}
-        onClose={() => setViewRecord(null)}
-        onPrintInvoice={(rec) => setInvoiceModalRecords([rec])}
-        onPrintLabel={(rec) => { setSelected(new Set([rec.id])); setShowBulkLabels(true); }}
-        onDeleteOrder={async (rec) => {
-          await deleteAdminOrders([rec.id]);
-          setSelected((prev) => {
-            const next = new Set(prev);
-            next.delete(rec.id);
-            return next;
-          });
-          await load();
-        }}
-        onOrderUpdated={load}
-      />
+      {viewRecord && (
+        <OrderDrawer
+          record={viewRecord}
+          onClose={() => setViewRecord(null)}
+          onPrintInvoice={(rec) => setInvoiceModalRecords([rec])}
+          onPrintLabel={(rec) => { setSelected(new Set([rec.id])); setShowBulkLabels(true); }}
+          onDeleteOrder={async (rec) => {
+            await deleteAdminOrders([rec.id]);
+            setSelected((prev) => {
+              const next = new Set(prev);
+              next.delete(rec.id);
+              return next;
+            });
+            await load();
+          }}
+          onOrderUpdated={load}
+        />
+      )}
 
       {showSmartFormatter && (
         <SmartOrderFormatterModal
