@@ -21,6 +21,7 @@ import {
   Wand2,
   SlidersHorizontal,
   Share2,
+  Bot,
 } from 'lucide-react';
 import { Sidebar } from '../components/admin/Sidebar';
 import type { AdminPage as AdminPageId } from '../components/admin/Sidebar';
@@ -35,6 +36,7 @@ import { OrderInvoiceModal } from '../components/admin/OrderInvoiceModal';
 import { ManualOrderModal } from '../components/admin/ManualOrderModal';
 import { SmartOrderCleanerModal } from '../components/admin/SmartOrderCleanerModal';
 import { SmartOrderFormatterModal } from '../components/admin/SmartOrderFormatterModal';
+import { AdminAiCopilotModal } from '../components/admin/AdminAiCopilotModal';
 import { SkeletonTable } from '../components/admin/SkeletonTable';
 import { DashboardView } from '../components/admin/DashboardView';
 import { AnalyticsView } from '../components/admin/AnalyticsView';
@@ -200,12 +202,25 @@ export default function AdminPage() {
   const [showManualModal, setShowManualModal] = useState(false);
   const [showSmartCleaner, setShowSmartCleaner] = useState(false);
   const [showSmartFormatter, setShowSmartFormatter] = useState(false);
+  const [showAiCopilot, setShowAiCopilot] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [copiedFormLink, setCopiedFormLink] = useState(false);
   const [pageNum, setPageNum] = useState(1);
   const [mobileNav, setMobileNav] = useState(false);
   const [copiedPhones, setCopiedPhones] = useState(false);
   const [pageSize, setPageSize] = useState(15);
+
+  // Global hotkey: Cmd+K or Ctrl+K to toggle AI Copilot
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setShowAiCopilot((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const flaggedJunkOrders = useMemo(() => detectJunkOrders(records), [records]);
   const needsFormattingCount = useMemo(() => {
@@ -580,6 +595,7 @@ export default function AdminPage() {
         onLogout={() => { clearAdminToken(); setAuthed(false); }}
         mobileOpen={mobileNav}
         onCloseMobile={() => setMobileNav(false)}
+        onOpenAiCopilot={() => setShowAiCopilot(true)}
       />
 
       <div className="flex-1 min-w-0 flex flex-col lg:pl-64">
@@ -589,6 +605,7 @@ export default function AdminPage() {
           onRefresh={load}
           onToggleFilters={() => setShowFilters(!showFilters)}
           onOpenMobileNav={() => setMobileNav(true)}
+          onOpenAiCopilot={() => setShowAiCopilot(true)}
           loading={loading}
           lastRefresh={lastRefresh}
         />
@@ -698,6 +715,17 @@ export default function AdminPage() {
                         Copy Customer Form Link
                       </>
                     )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowAiCopilot(true)}
+                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 px-4 py-2.5 text-sm font-extrabold text-white shadow-md shadow-blue-500/20 transition-all hover:brightness-110 hover:scale-[1.02] active:scale-[0.98]"
+                    title="Ask RetraLabs AI Copilot questions about orders, revenue, UPI verification, AWBs, and anomalies"
+                  >
+                    <Bot className="h-4 w-4 text-cyan-200" />
+                    AI Copilot
+                    <span className="rounded-md bg-white/20 px-1.5 py-0.5 text-xs font-mono">⌘K</span>
                   </button>
                 </div>
               </div>
@@ -1098,12 +1126,20 @@ export default function AdminPage() {
         />
       )}
 
+      <AdminAiCopilotModal
+        isOpen={showAiCopilot}
+        onClose={() => setShowAiCopilot(false)}
+        records={records}
+        onSelectOrder={(rec) => setViewRecord(rec)}
+      />
+
       <QuickActions
         onRefresh={load}
         onCreateOrder={() => setShowManualModal(true)}
         onPrintLabels={() => setShowBulkLabels(true)}
         onSmartFormat={() => setShowSmartFormatter(true)}
         onSmartClean={() => setShowSmartCleaner(true)}
+        onOpenAiCopilot={() => setShowAiCopilot(true)}
       />
     </div>
   );

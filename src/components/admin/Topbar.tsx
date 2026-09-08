@@ -1,4 +1,4 @@
-import { RefreshCw, Bell, SlidersHorizontal, Search, Menu } from 'lucide-react';
+import { RefreshCw, Bell, SlidersHorizontal, Search, Menu, Sparkles } from 'lucide-react';
 
 interface TopbarProps {
   search: string;
@@ -8,9 +8,19 @@ interface TopbarProps {
   onOpenMobileNav: () => void;
   loading: boolean;
   lastRefresh: Date | null;
+  onOpenAiCopilot?: () => void;
 }
 
-export function Topbar({ search, onSearch, onRefresh, onToggleFilters, onOpenMobileNav, loading, lastRefresh }: TopbarProps) {
+export function Topbar({
+  search,
+  onSearch,
+  onRefresh,
+  onToggleFilters,
+  onOpenMobileNav,
+  loading,
+  lastRefresh,
+  onOpenAiCopilot,
+}: TopbarProps) {
   return (
     <header className="sticky top-0 z-20 bg-white/80 backdrop-blur-xl border-b border-slate-200/80">
       <div className="h-16 px-4 sm:px-6 flex items-center gap-3">
@@ -34,6 +44,18 @@ export function Topbar({ search, onSearch, onRefresh, onToggleFilters, onOpenMob
             <span className="hidden md:block text-xs text-slate-400 mr-1">
               Updated {lastRefresh.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
+          )}
+          {onOpenAiCopilot && (
+            <button
+              type="button"
+              onClick={onOpenAiCopilot}
+              className="h-9 px-3 flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-sm shadow-blue-500/20 text-xs font-bold transition-all hover:scale-105 active:scale-95"
+              title="Ask RetraLabs AI Copilot (⌘K)"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-cyan-200 animate-pulse" />
+              <span className="hidden sm:inline">Ask AI</span>
+              <kbd className="hidden md:inline rounded bg-white/20 px-1 py-0.5 text-[10px] font-mono leading-none">⌘K</kbd>
+            </button>
           )}
           <button
             onClick={onRefresh}

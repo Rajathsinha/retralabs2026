@@ -1,4 +1,4 @@
-import { LayoutDashboard, ShoppingBag, BarChart3, Users, Settings, LogOut, X, ExternalLink } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, BarChart3, Users, Settings, LogOut, X, ExternalLink, Sparkles } from 'lucide-react';
 import Logo from '../Logo';
 
 export type AdminPage = 'dashboard' | 'orders' | 'analytics' | 'customers' | 'settings';
@@ -9,6 +9,7 @@ interface SidebarProps {
   onLogout: () => void;
   mobileOpen: boolean;
   onCloseMobile: () => void;
+  onOpenAiCopilot?: () => void;
 }
 
 const NAV: { id: AdminPage; label: string; icon: React.ComponentType<{ className?: string }>; badge?: boolean }[] = [
@@ -19,7 +20,14 @@ const NAV: { id: AdminPage; label: string; icon: React.ComponentType<{ className
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
-export function Sidebar({ current, onNavigate, onLogout, mobileOpen, onCloseMobile }: SidebarProps) {
+export function Sidebar({
+  current,
+  onNavigate,
+  onLogout,
+  mobileOpen,
+  onCloseMobile,
+  onOpenAiCopilot,
+}: SidebarProps) {
   return (
     <>
       {mobileOpen && <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={onCloseMobile} />}
@@ -61,6 +69,25 @@ export function Sidebar({ current, onNavigate, onLogout, mobileOpen, onCloseMobi
             );
           })}
         </nav>
+
+        {/* AI Copilot Launcher */}
+        {onOpenAiCopilot && (
+          <div className="shrink-0 px-3 py-2 border-t border-white/[0.06]">
+            <button
+              type="button"
+              onClick={onOpenAiCopilot}
+              className="w-full group relative overflow-hidden rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 p-[1px] font-medium text-white shadow-lg shadow-blue-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <div className="flex items-center justify-between rounded-[11px] bg-[#0B1220]/90 px-3 py-2.5 transition-colors group-hover:bg-[#0B1220]/60">
+                <div className="flex items-center gap-2.5">
+                  <Sparkles className="w-4 h-4 text-cyan-300 animate-pulse" />
+                  <span className="text-xs font-bold tracking-wide">AI Copilot</span>
+                </div>
+                <span className="rounded bg-cyan-400/20 px-1.5 py-0.5 text-[10px] font-mono text-cyan-200">⌘K</span>
+              </div>
+            </button>
+          </div>
+        )}
 
         {/* External Links */}
         <div className="shrink-0 px-3 py-2 mt-auto border-t border-white/[0.06]">

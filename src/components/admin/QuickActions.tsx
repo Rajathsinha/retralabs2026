@@ -7,6 +7,7 @@ interface QuickActionsProps {
   onPrintLabels?: () => void;
   onSmartFormat?: () => void;
   onSmartClean?: () => void;
+  onOpenAiCopilot?: () => void;
 }
 
 export function QuickActions({
@@ -15,10 +16,12 @@ export function QuickActions({
   onPrintLabels,
   onSmartFormat,
   onSmartClean,
+  onOpenAiCopilot,
 }: QuickActionsProps) {
   const [open, setOpen] = useState(false);
 
   const actions = [
+    ...(onOpenAiCopilot ? [{ label: 'Ask AI Copilot ✨', icon: Sparkles, onClick: onOpenAiCopilot }] : []),
     { label: 'Paste / Create Order', icon: Plus, onClick: onCreateOrder },
     ...(onSmartFormat ? [{ label: 'Smart AI Formatter', icon: Wand2, onClick: onSmartFormat }] : []),
     ...(onSmartClean ? [{ label: 'Smart AI Cleaner', icon: Sparkles, onClick: onSmartClean }] : []),
