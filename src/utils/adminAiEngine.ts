@@ -76,9 +76,21 @@ export const SUGGESTED_PROMPTS: SuggestedPrompt[] = [
     category: 'Overview',
   },
   {
-    id: 'reta-orders-week',
-    label: '🧪 Reta Orders (Last 7 Days)',
-    query: 'How many Reta orders did we get in the last 7 days?',
+    id: 'reta-orders-6d',
+    label: '🧪 Reta Orders (Last 6 Days)',
+    query: 'How many Reta orders in the last 6 days?',
+    category: 'Products',
+  },
+  {
+    id: 'cp10-orders',
+    label: '🧪 CP10 (CJC+IPA) Orders',
+    query: 'How many CP10 orders did we get?',
+    category: 'Products',
+  },
+  {
+    id: 'tesa-orders',
+    label: '🧪 Tesa Orders',
+    query: 'How many Tesa orders did we get?',
     category: 'Products',
   },
   {
@@ -122,119 +134,141 @@ export const SUGGESTED_PROMPTS: SuggestedPrompt[] = [
 // ─────────────────────────────────────────────────────────────────────────────
 // Date Range Extraction Helper
 // ─────────────────────────────────────────────────────────────────────────────
-interface DateRange {
+export interface DateRange {
   label: string;
   startTs: number;
   endTs: number;
+  startDateStr: string;
+  endDateStr: string;
 }
 
-function parseQueryDateRange(query: string): DateRange | null {
-  const q = query.toLowerCase();
+function formatDateDisplay(ts: number): string {
+  if (!ts || isNaN(ts)) return 'Unknown Date';
+  return new Date(ts).toLocaleDateString('en-GB', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+export function parseQueryDateRange(query: string): DateRange | null {
+  const q = query.toLowerCase().trim();
   const now = Date.now();
   const ONE_DAY = 86400000;
+  const ONE_HOUR = 3600000;
 
-  // Today in IST
-  const nowDate = new Date();
-  const startOfTodayIst = new Date(
-    nowDate.getFullYear(),
-    nowDate.getMonth(),
-    nowDate.getDate(),
-  ).getTime();
+  // IST offset helper (+5:30)
+  const istOffset = 5.5 * 60 * 60 * 1000;
+  const nowIst = new Date(now + istOffset);
+  const startOfTodayIst =
+    new Date(
+      Date.UTC(nowIst.getUTCFullYear(), nowIst.getUTCMonth(), nowIst.getUTCDate()),
+    ).getTime() - istOffset;
 
+  const makeRange = (label: string, startTs: number, endTs: number): DateRange => ({
+    label,
+    startTs,
+    endTs,
+    startDateStr: formatDateDisplay(startTs),
+    endDateStr: formatDateDisplay(endTs),
+  });
+
+  // 1. "today"
   if (q.includes('today')) {
-    return {
-      label: 'Today',
-      startTs: startOfTodayIst,
-      endTs: now + ONE_DAY,
-    };
+    return makeRange('Today', startOfTodayIst, now + ONE_HOUR);
   }
 
+  // 2. "yesterday"
   if (q.includes('yesterday')) {
-    return {
-      label: 'Yesterday',
-      startTs: startOfTodayIst - ONE_DAY,
-      endTs: startOfTodayIst - 1,
-    };
+    return makeRange('Yesterday', startOfTodayIst - ONE_DAY, startOfTodayIst - 1);
   }
 
-  if (q.includes('last 7 days') || q.includes('past 7 days')) {
-    return {
-      label: 'Last 7 Days',
-      startTs: now - 7 * ONE_DAY,
-      endTs: now,
-    };
+  // 3. Dynamic "last / past N days" or "in [the] last / past N days" (e.g. "last 6 days", "past 5 days", "in 6 days", "last 6d")
+  const daysMatch =
+    q.match(/(?:(?:last|past|previous|in(?:\s+the)?)\s+)?(\d+)\s*(?:days?|d\b)/i) ||
+    q.match(/(?:last|past|previous|in(?:\s+the)?\s+(?:last|past))\s+(\d+)\s+days?/i);
+  if (daysMatch) {
+    const num = parseInt(daysMatch[1], 10);
+    if (!isNaN(num) && num > 0) {
+      return makeRange(`Last ${num} Days`, now - num * ONE_DAY, now);
+    }
   }
 
-  if (q.includes('last week') || q.includes('past week')) {
-    // 7 days ending before current week start or past 7 to 14 days
-    return {
-      label: 'Last Week',
-      startTs: now - 14 * ONE_DAY,
-      endTs: now - 7 * ONE_DAY,
-    };
+  // 4. Dynamic "last / past N weeks"
+  const weeksMatch = q.match(/(?:last|past|previous|in(?:\s+the)?\s+(?:last|past))\s+(\d+)\s+weeks?/i);
+  if (weeksMatch) {
+    const num = parseInt(weeksMatch[1], 10);
+    if (!isNaN(num) && num > 0) {
+      return makeRange(`Last ${num} Weeks`, now - num * 7 * ONE_DAY, now);
+    }
   }
 
+  // 5. "this week"
   if (q.includes('this week')) {
-    return {
-      label: 'This Week',
-      startTs: now - 7 * ONE_DAY,
-      endTs: now,
-    };
+    return makeRange('This Week', now - 7 * ONE_DAY, now);
   }
 
-  if (q.includes('last 30 days') || q.includes('past 30 days')) {
-    return {
-      label: 'Last 30 Days',
-      startTs: now - 30 * ONE_DAY,
-      endTs: now,
-    };
+  // 6. "last week" / "past week"
+  if (q.includes('last week') || q.includes('past week')) {
+    return makeRange('Last Week', now - 14 * ONE_DAY, now - 7 * ONE_DAY);
   }
 
+  // 7. Dynamic "last / past N months"
+  const monthsMatch = q.match(/(?:last|past|previous|in(?:\s+the)?\s+(?:last|past))\s+(\d+)\s+months?/i);
+  if (monthsMatch) {
+    const num = parseInt(monthsMatch[1], 10);
+    if (!isNaN(num) && num > 0) {
+      return makeRange(`Last ${num} Months`, now - num * 30 * ONE_DAY, now);
+    }
+  }
+
+  // 8. "this month"
   if (q.includes('this month')) {
-    const startOfMonth = new Date(nowDate.getFullYear(), nowDate.getMonth(), 1).getTime();
-    return {
-      label: 'This Month',
-      startTs: startOfMonth,
-      endTs: now,
-    };
+    const startOfMonthIst =
+      new Date(Date.UTC(nowIst.getUTCFullYear(), nowIst.getUTCMonth(), 1)).getTime() - istOffset;
+    return makeRange('This Month', startOfMonthIst, now);
   }
 
+  // 9. "last month" / "past month"
   if (q.includes('last month') || q.includes('past month')) {
-    const startOfLastMonth = new Date(nowDate.getFullYear(), nowDate.getMonth() - 1, 1).getTime();
-    const endOfLastMonth = new Date(nowDate.getFullYear(), nowDate.getMonth(), 0, 23, 59, 59).getTime();
-    return {
-      label: 'Last Month',
-      startTs: startOfLastMonth,
-      endTs: endOfLastMonth,
-    };
+    const startOfLastMonthIst =
+      new Date(Date.UTC(nowIst.getUTCFullYear(), nowIst.getUTCMonth() - 1, 1)).getTime() - istOffset;
+    const endOfLastMonthIst =
+      new Date(Date.UTC(nowIst.getUTCFullYear(), nowIst.getUTCMonth(), 0, 23, 59, 59)).getTime() -
+      istOffset;
+    return makeRange('Last Month', startOfLastMonthIst, endOfLastMonthIst);
   }
 
-  // Explicit date range pattern: "from [date] to [date]" or "[date] to [date]"
-  const explicitMatch = q.match(/(?:from\s+)?(\d{4}[-/]\d{1,2}[-/]\d{1,2})\s+(?:to|until|-)\s+(\d{4}[-/]\d{1,2}[-/]\d{1,2})/);
+  // 10. Dynamic hours (e.g. "last 24 hours", "last 48 hours")
+  const hoursMatch = q.match(/(?:last|past|previous|in(?:\s+the)?\s+(?:last|past))\s+(\d+)\s*(?:hours?|hrs?|h\b)/i);
+  if (hoursMatch) {
+    const num = parseInt(hoursMatch[1], 10);
+    if (!isNaN(num) && num > 0) {
+      return makeRange(`Last ${num} Hours`, now - num * ONE_HOUR, now);
+    }
+  }
+
+  // 11. Explicit ISO date range: from YYYY-MM-DD to YYYY-MM-DD
+  const explicitMatch = q.match(
+    /(?:from\s+)?(\d{4}[-/]\d{1,2}[-/]\d{1,2})\s+(?:to|until|-)\s+(\d{4}[-/]\d{1,2}[-/]\d{1,2})/i,
+  );
   if (explicitMatch) {
     const start = new Date(explicitMatch[1]).getTime();
     const end = new Date(explicitMatch[2] + 'T23:59:59').getTime();
     if (!isNaN(start) && !isNaN(end)) {
-      return {
-        label: `${explicitMatch[1]} to ${explicitMatch[2]}`,
-        startTs: start,
-        endTs: end,
-      };
+      return makeRange(`${explicitMatch[1]} to ${explicitMatch[2]}`, start, end);
     }
   }
 
-  // Month-word pattern e.g. "from 1 aug to 15 aug" or "in august"
+  // 12. Month-word pattern e.g. "in august"
   const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
   for (let m = 0; m < monthNames.length; m++) {
     if (q.includes(monthNames[m])) {
-      const year = nowDate.getFullYear();
-      const startOfMonth = new Date(year, m, 1).getTime();
-      const endOfMonth = new Date(year, m + 1, 0, 23, 59, 59).getTime();
-      return {
-        label: `${monthNames[m].toUpperCase()} ${year}`,
-        startTs: startOfMonth,
-        endTs: endOfMonth,
-      };
+      const year = nowIst.getUTCFullYear();
+      const startOfMonth = new Date(Date.UTC(year, m, 1)).getTime() - istOffset;
+      const endOfMonth = new Date(Date.UTC(year, m + 1, 0, 23, 59, 59)).getTime() - istOffset;
+      return makeRange(`${monthNames[m].toUpperCase()} ${year}`, startOfMonth, endOfMonth);
     }
   }
 
@@ -242,34 +276,178 @@ function parseQueryDateRange(query: string): DateRange | null {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Product Pattern Matching
+// Product Catalog & Alias Registry (Strict Zero Inventory)
 // ─────────────────────────────────────────────────────────────────────────────
-function matchProduct(itemStr: string, query: string): boolean {
-  const itemLower = itemStr.toLowerCase();
+export interface ProductDef {
+  canonicalName: string;
+  shortCode: string;
+  queryTriggers: string[];
+  itemSubstrings: string[];
+}
+
+export const PRODUCT_CATALOG: ProductDef[] = [
+  {
+    canonicalName: 'Retatrutide (Reta)',
+    shortCode: 'reta',
+    // reta === retatrutide, also matches Airtable typos like 'retratrutide'
+    queryTriggers: ['reta', 'retatrutide', 'retratrutide', 'retra'],
+    itemSubstrings: ['reta', 'retra', 'retatrutide', 'retratrutide'],
+  },
+  {
+    canonicalName: 'Tesamorelin (Tesa)',
+    shortCode: 'tesa',
+    // tesa = tesamorelin
+    queryTriggers: ['tesa', 'tesamorelin'],
+    itemSubstrings: ['tesa', 'tesamorelin'],
+  },
+  {
+    canonicalName: 'CJC-1295 (No DAC) + Ipamorelin Stack (CP10)',
+    shortCode: 'cp10',
+    // cp10 = cjc no dac + ipa
+    queryTriggers: [
+      'cp10',
+      'cp 10',
+      'cp-10',
+      'cjc no dac + ipa',
+      'cjc no dac',
+      'cjc',
+      'ipa',
+      'ipamorelin',
+      'cjc+ipa',
+      'cjc-1295',
+      'cjc stack',
+      'ipa stack',
+    ],
+    itemSubstrings: ['cjc-1295', 'cjc', 'ipamorelin', 'cp10', 'cp-10'],
+  },
+  {
+    canonicalName: 'Tirzepatide (Tirz)',
+    shortCode: 'tirz',
+    queryTriggers: ['tirz', 'tirzepatide'],
+    itemSubstrings: ['tirz', 'tirzepatide'],
+  },
+  {
+    canonicalName: 'Semax',
+    shortCode: 'semax',
+    queryTriggers: ['semax'],
+    itemSubstrings: ['semax'],
+  },
+  {
+    canonicalName: 'Semaglutide / Semax',
+    shortCode: 'sema',
+    queryTriggers: ['sema', 'semaglutide'],
+    itemSubstrings: ['sema', 'semaglutide', 'semax'],
+  },
+  {
+    canonicalName: 'Selank',
+    shortCode: 'selank',
+    queryTriggers: ['selank'],
+    itemSubstrings: ['selank'],
+  },
+  {
+    canonicalName: 'BPC-157',
+    shortCode: 'bpc',
+    queryTriggers: ['bpc', 'bpc-157', 'bpc157', 'bpc 157'],
+    itemSubstrings: ['bpc', 'bpc-157'],
+  },
+  {
+    canonicalName: 'TB-500',
+    shortCode: 'tb500',
+    queryTriggers: ['tb500', 'tb 500', 'tb-500'],
+    itemSubstrings: ['tb-500', 'tb500'],
+  },
+  {
+    canonicalName: 'GHK-Cu',
+    shortCode: 'ghk',
+    queryTriggers: ['ghk', 'ghk-cu', 'ghkcu', 'ghk cu', 'copper peptide'],
+    itemSubstrings: ['ghk', 'ghk-cu'],
+  },
+  {
+    canonicalName: 'NAD+',
+    shortCode: 'nad',
+    queryTriggers: ['nad', 'nad+', 'nad plus'],
+    itemSubstrings: ['nad'],
+  },
+  {
+    canonicalName: 'Cagrilintide (Cagri)',
+    shortCode: 'cagri',
+    queryTriggers: ['cagri', 'cagrilintide'],
+    itemSubstrings: ['cagri', 'cagrilintide'],
+  },
+  {
+    canonicalName: 'MOT-C',
+    shortCode: 'motc',
+    queryTriggers: ['mot-c', 'motc', 'mots-c', 'mot c', 'mots c'],
+    itemSubstrings: ['mot-c', 'mots-c', 'motc'],
+  },
+  {
+    canonicalName: 'Klow Blend',
+    shortCode: 'klow',
+    queryTriggers: ['klow', 'klow blend'],
+    itemSubstrings: ['klow'],
+  },
+  {
+    canonicalName: 'The Wolverine Stack',
+    shortCode: 'wolverine',
+    queryTriggers: ['wolverine', 'wolverine stack'],
+    itemSubstrings: ['wolverine'],
+  },
+  {
+    canonicalName: 'AOD 9604',
+    shortCode: 'aod',
+    queryTriggers: ['aod', 'aod 9604', 'aod9604', 'aod-9604'],
+    itemSubstrings: ['aod'],
+  },
+  {
+    canonicalName: 'SS-31',
+    shortCode: 'ss31',
+    queryTriggers: ['ss-31', 'ss31', 'ss 31'],
+    itemSubstrings: ['ss-31', 'ss31'],
+  },
+  {
+    canonicalName: 'Epithalon',
+    shortCode: 'epithalon',
+    queryTriggers: ['epithalon', 'epitalon'],
+    itemSubstrings: ['epithalon', 'epitalon'],
+  },
+  {
+    canonicalName: 'Bacteriostatic Water',
+    shortCode: 'bac',
+    queryTriggers: ['bac', 'bac water', 'bacteriostatic water', 'bacteriostatic'],
+    itemSubstrings: ['bacteriostatic', 'bac water'],
+  },
+];
+
+export function orderContainsProduct(itemsField: string, product: ProductDef): boolean {
+  const itemLower = itemsField.toLowerCase();
+  return product.itemSubstrings.some((sub) => itemLower.includes(sub));
+}
+
+export function detectProductsInQuery(query: string): ProductDef[] {
   const q = query.toLowerCase();
+  const matched: ProductDef[] = [];
 
-  const wantsReta = q.includes('reta') || q.includes('retatrutide');
-  const wantsTirz = q.includes('tirz') || q.includes('tirzepatide');
-  const wantsSema = q.includes('sema') || q.includes('semaglutide');
-  const wantsCagri = q.includes('cagri') || q.includes('cagrilintide');
-  const wantsNad = q.includes('nad') || q.includes('nad+');
-  const wantsBpc = q.includes('bpc') || q.includes('bpc-157');
-  const wantsGhk = q.includes('ghk') || q.includes('ghk-cu');
+  for (const prod of PRODUCT_CATALOG) {
+    const found = prod.queryTriggers.some((trig) => {
+      if (trig.length <= 4) {
+        const regex = new RegExp(`(^|[^a-z0-9])${trig.replace('+', '\\+')}([^a-z0-9]|$)`, 'i');
+        return regex.test(q);
+      }
+      return q.includes(trig);
+    });
 
-  if (wantsReta && (itemLower.includes('reta') || itemLower.includes('retatrutide'))) return true;
-  if (wantsTirz && (itemLower.includes('tirz') || itemLower.includes('tirzepatide'))) return true;
-  if (wantsSema && (itemLower.includes('sema') || itemLower.includes('semaglutide'))) return true;
-  if (wantsCagri && (itemLower.includes('cagri') || itemLower.includes('cagrilintide'))) return true;
-  if (wantsNad && itemLower.includes('nad')) return true;
-  if (wantsBpc && itemLower.includes('bpc')) return true;
-  if (wantsGhk && itemLower.includes('ghk')) return true;
-
-  // If query didn't specify any known peptide, return true
-  if (!wantsReta && !wantsTirz && !wantsSema && !wantsCagri && !wantsNad && !wantsBpc && !wantsGhk) {
-    return true;
+    if (found && !matched.some((m) => m.shortCode === prod.shortCode)) {
+      matched.push(prod);
+    }
   }
 
-  return false;
+  return matched;
+}
+
+export function matchProduct(itemStr: string, query: string): boolean {
+  const detected = detectProductsInQuery(query);
+  if (detected.length === 0) return true;
+  return detected.some((prod) => orderContainsProduct(itemStr, prod));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -419,7 +597,7 @@ function detectDomain(query: string): AiDomain {
 // 1. ORDERS
 function handleOrdersQuery(query: string, records: AirtableRecord[]): AiCopilotResponse {
   const dateRange = parseQueryDateRange(query);
-  const q = query.toLowerCase();
+  const detectedProducts = detectProductsInQuery(query);
 
   let targetOrders = records;
   if (dateRange) {
@@ -429,11 +607,30 @@ function handleOrdersQuery(query: string, records: AirtableRecord[]): AiCopilotR
     });
   }
 
-  // Filter by product if specified (e.g. "Reta orders")
-  const isProductFiltered =
-    q.includes('reta') || q.includes('tirz') || q.includes('sema') || q.includes('cagri');
-  if (isProductFiltered) {
-    targetOrders = targetOrders.filter((r) => matchProduct(String(r.fields['Items'] || ''), q));
+  // Filter by product if specified (e.g. "Reta orders", "Tesa orders", "CP10 orders")
+  let productLabel = 'All Products';
+  let primaryProduct: ProductDef | null = null;
+  let allTimeProductOrdersCount = records.length;
+  let allTimeProductRev = 0;
+
+  if (detectedProducts.length > 0) {
+    primaryProduct = detectedProducts[0];
+    productLabel = primaryProduct.canonicalName;
+
+    // Filter target orders in current date range
+    targetOrders = targetOrders.filter((r) =>
+      orderContainsProduct(String(r.fields['Items'] || ''), primaryProduct!),
+    );
+
+    // Calculate all-time metrics for this product for clear context
+    const allTimeProductOrders = records.filter((r) =>
+      orderContainsProduct(String(r.fields['Items'] || ''), primaryProduct!),
+    );
+    allTimeProductOrdersCount = allTimeProductOrders.length;
+    allTimeProductRev = allTimeProductOrders.reduce(
+      (sum, r) => sum + Number(r.fields['Total (₹)'] || 0),
+      0,
+    );
   }
 
   // Status breakdown
@@ -450,21 +647,52 @@ function handleOrdersQuery(query: string, records: AirtableRecord[]): AiCopilotR
   const upiCount = targetOrders.length - codCount;
 
   const timeLabel = dateRange ? dateRange.label : 'All Time';
-  const productLabel = isProductFiltered
-    ? q.includes('reta')
-      ? 'Retatrutide'
-      : q.includes('tirz')
-      ? 'Tirzepatide'
-      : 'Selected Product'
-    : 'All Products';
+  const rangeContext = dateRange ? ` (${dateRange.startDateStr} to ${dateRange.endDateStr})` : '';
 
-  const rows = Object.entries(statusCounts).map(([status, count]) => [
-    status,
-    count,
-    `${Math.round((count / (targetOrders.length || 1)) * 100)}%`,
-  ]);
+  // Construct day-by-day table if date range is specified and has orders
+  let breakdownHeaders: string[] = ['Order Status', 'Count', 'Share (%)'];
+  let breakdownRows: Array<Array<string | number>> = [];
 
-  const related = targetOrders.slice(0, 5).map((r) => ({
+  if (dateRange && targetOrders.length > 0) {
+    const dayMap = new Map<string, { count: number; rev: number; upi: number; cod: number }>();
+    targetOrders.forEach((r) => {
+      const ts = getOrderTimestamp(r);
+      const dayStr = ts
+        ? new Date(ts).toLocaleDateString('en-GB', {
+            timeZone: 'Asia/Kolkata',
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+          })
+        : 'Unknown Date';
+      if (!dayMap.has(dayStr)) {
+        dayMap.set(dayStr, { count: 0, rev: 0, upi: 0, cod: 0 });
+      }
+      const entry = dayMap.get(dayStr)!;
+      entry.count += 1;
+      entry.rev += Number(r.fields['Total (₹)'] || 0);
+      const isCod = String(r.fields['Payment'] || '').toUpperCase().includes('COD');
+      if (isCod) entry.cod += 1;
+      else entry.upi += 1;
+    });
+
+    breakdownHeaders = ['Date (IST)', 'Orders', 'Gross Revenue', 'Payment Split'];
+    breakdownRows = Array.from(dayMap.entries()).map(([day, d]) => [
+      day,
+      d.count,
+      formatCurrency(d.rev),
+      `${d.upi} UPI / ${d.cod} COD`,
+    ]);
+  } else {
+    breakdownHeaders = ['Order Status', 'Count', 'Share (%)'];
+    breakdownRows = Object.entries(statusCounts).map(([status, count]) => [
+      status,
+      count,
+      `${Math.round((count / (targetOrders.length || 1)) * 100)}%`,
+    ]);
+  }
+
+  const related = targetOrders.slice(0, 10).map((r) => ({
     id: r.id,
     orderId: String(r.fields['orderID'] || r.id),
     name: String(r.fields['Name'] || 'Customer'),
@@ -474,29 +702,58 @@ function handleOrdersQuery(query: string, records: AirtableRecord[]): AiCopilotR
     date: formatExactOrderTime(r).display,
   }));
 
+  // Build high clarity summary
+  let summaryText = '';
+  const orderWord = targetOrders.length === 1 ? 'order' : 'orders';
+  if (primaryProduct) {
+    const allTimeWord = allTimeProductOrdersCount === 1 ? 'order' : 'orders';
+    if (targetOrders.length === 0) {
+      summaryText = `Found **0 orders** for **${productLabel}** during **${timeLabel}**${rangeContext}. (For reference, there are **${allTimeProductOrdersCount} ${allTimeWord}** for ${productLabel} totaling **${formatCurrency(allTimeProductRev)}** across all time).`;
+    } else {
+      summaryText = `Found **${targetOrders.length} ${orderWord}** for **${productLabel}** during **${timeLabel}**${rangeContext}, totaling **${formatCurrency(totalRev)}** (${upiCount} UPI / ${codCount} COD). Across all time, there are **${allTimeProductOrdersCount} ${primaryProduct.shortCode.toUpperCase()} ${allTimeWord}** (${formatCurrency(allTimeProductRev)}).`;
+    }
+  } else {
+    summaryText = `Found **${targetOrders.length} ${orderWord}** across **${timeLabel}**${rangeContext}, totaling **${formatCurrency(totalRev)}** (${upiCount} UPI / ${codCount} COD).`;
+  }
+
+  const metrics: AiMetricChip[] = [
+    {
+      label: primaryProduct ? `${primaryProduct.shortCode.toUpperCase()} Orders` : 'Total Orders',
+      value: String(targetOrders.length),
+      tone: 'blue',
+    },
+    { label: 'Total Value', value: formatCurrency(totalRev), tone: 'positive' },
+    { label: 'UPI / Prepaid', value: String(upiCount), tone: 'positive' },
+    { label: 'COD Orders', value: String(codCount), tone: 'amber' },
+  ];
+
+  if (primaryProduct && dateRange) {
+    metrics.push({
+      label: 'All-Time Total',
+      value: `${allTimeProductOrdersCount} orders`,
+      tone: 'neutral',
+    });
+  }
+
   return {
     query,
     domain: 'ORDERS',
     title: `Order Analysis — ${productLabel} (${timeLabel})`,
-    summary: `Found **${targetOrders.length} orders** for ${productLabel} during **${timeLabel}**, totaling **${formatCurrency(totalRev)}** (${upiCount} UPI / ${codCount} COD).`,
-    metrics: [
-      { label: 'Total Orders', value: String(targetOrders.length), tone: 'blue' },
-      { label: 'Total Value', value: formatCurrency(totalRev), tone: 'positive' },
-      { label: 'UPI / Prepaid', value: String(upiCount), tone: 'positive' },
-      { label: 'COD Orders', value: String(codCount), tone: 'amber' },
-    ],
+    summary: summaryText,
+    metrics,
     breakdownTable: {
-      headers: ['Order Status', 'Count', 'Share (%)'],
-      rows,
+      headers: breakdownHeaders,
+      rows: breakdownRows,
     },
     relatedOrders: related,
-    rawMarkdown: `### Order Analysis: ${productLabel} (${timeLabel})\n\n- **Total Count**: ${targetOrders.length} orders\n- **Total Gross Value**: ${formatCurrency(totalRev)}\n- **Payment Breakdown**: ${upiCount} UPI, ${codCount} COD\n\n*Airtable records evaluated: ${records.length} active entries.*`,
+    rawMarkdown: `### Order Analysis: ${productLabel} (${timeLabel})\n\n- **Total Count**: ${targetOrders.length} orders\n- **Total Gross Value**: ${formatCurrency(totalRev)}\n- **Payment Split**: ${upiCount} UPI, ${codCount} COD\n${primaryProduct ? `- **All-Time ${primaryProduct.canonicalName} Volume**: ${allTimeProductOrdersCount} orders (${formatCurrency(allTimeProductRev)})\n` : ''}\n*Evaluated from live Airtable order records.*`,
   };
 }
 
 // 2. PRODUCTS (Sales & Revenue Only — Strict Zero Inventory)
 function handleProductsQuery(query: string, records: AirtableRecord[]): AiCopilotResponse {
   const dateRange = parseQueryDateRange(query);
+  const detectedProducts = detectProductsInQuery(query);
   const q = query.toLowerCase();
 
   let targetOrders = records;
@@ -507,46 +764,62 @@ function handleProductsQuery(query: string, records: AirtableRecord[]): AiCopilo
     });
   }
 
-  // Analyze products
-  const productStats: Record<string, { count: number; revenue: number }> = {};
-  targetOrders.forEach((r) => {
-    const itemStr = String(r.fields['Items'] || 'Retatrutide Starter Kit').trim();
-    const price = Number(r.fields['Total (₹)'] || 0);
-
-    // Normalize name
-    let cleanName = itemStr;
-    if (/reta/i.test(itemStr)) cleanName = 'Retatrutide (All Variants)';
-    else if (/tirz/i.test(itemStr)) cleanName = 'Tirzepatide';
-    else if (/sema/i.test(itemStr)) cleanName = 'Semaglutide';
-    else if (/cagri/i.test(itemStr)) cleanName = 'Cagrilintide';
-
-    if (!productStats[cleanName]) productStats[cleanName] = { count: 0, revenue: 0 };
-    productStats[cleanName].count += 1;
-    productStats[cleanName].revenue += price;
+  // Tally each catalog product
+  const productStats: Record<string, { count: number; revenue: number; def: ProductDef }> = {};
+  PRODUCT_CATALOG.forEach((p) => {
+    productStats[p.canonicalName] = { count: 0, revenue: 0, def: p };
   });
 
-  const sortedProducts = Object.entries(productStats).sort((a, b) => b[1].revenue - a[1].revenue);
-  const topProduct = sortedProducts[0] || ['Retatrutide', { count: 0, revenue: 0 }];
+  targetOrders.forEach((r) => {
+    const itemStr = String(r.fields['Items'] || '').trim();
+    const orderTotal = Number(r.fields['Total (₹)'] || 0);
 
-  // Comparison logic if user asked "reta vs tirz"
+    // Identify which products are present in this order
+    const matchedProducts = PRODUCT_CATALOG.filter((p) => orderContainsProduct(itemStr, p));
+    if (matchedProducts.length > 0) {
+      const allocatedPrice = Math.round(orderTotal / matchedProducts.length);
+      matchedProducts.forEach((p) => {
+        productStats[p.canonicalName].count += 1;
+        productStats[p.canonicalName].revenue += allocatedPrice;
+      });
+    }
+  });
+
+  // Filter only products with at least 1 order, sorted by revenue desc
+  const sortedProducts = Object.entries(productStats)
+    .filter(([, s]) => s.count > 0)
+    .sort((a, b) => b[1].revenue - a[1].revenue);
+
+  const topProduct =
+    sortedProducts[0] || ['Retatrutide (Reta)', { count: 0, revenue: 0, def: PRODUCT_CATALOG[0] }];
+
+  // Comparison logic if user asked "compare reta vs tirz" or multiple products detected
   let comparisonSummary = '';
-  if (q.includes('vs') || (q.includes('reta') && q.includes('tirz'))) {
-    const reta = productStats['Retatrutide (All Variants)'] || { count: 0, revenue: 0 };
-    const tirz = productStats['Tirzepatide'] || { count: 0, revenue: 0 };
-    comparisonSummary = `\n\n**Reta vs Tirz Comparison**:\n- **Retatrutide**: ${reta.count} orders (${formatCurrency(reta.revenue)})\n- **Tirzepatide**: ${tirz.count} orders (${formatCurrency(tirz.revenue)})`;
+  if (detectedProducts.length >= 2 || q.includes('vs') || q.includes('compare')) {
+    const prodA = detectedProducts[0] || PRODUCT_CATALOG[0]; // Retatrutide
+    const prodB = detectedProducts[1] || PRODUCT_CATALOG[3]; // Tirzepatide
+    const statsA = productStats[prodA.canonicalName] || { count: 0, revenue: 0 };
+    const statsB = productStats[prodB.canonicalName] || { count: 0, revenue: 0 };
+
+    const leader = statsA.revenue >= statsB.revenue ? prodA.canonicalName : prodB.canonicalName;
+    comparisonSummary = `\n\n**${prodA.canonicalName} vs ${prodB.canonicalName} Comparison**:\n- **${prodA.canonicalName}**: ${statsA.count} orders (${formatCurrency(statsA.revenue)})\n- **${prodB.canonicalName}**: ${statsB.count} orders (${formatCurrency(statsB.revenue)})\n*Leader by sales revenue: **${leader}***`;
   }
 
+  const totalPeriodRevenue =
+    targetOrders.reduce((sum, r) => sum + Number(r.fields['Total (₹)'] || 0), 0) || 1;
   const rows = sortedProducts.map(([name, s]) => [
     name,
     s.count,
     formatCurrency(s.revenue),
-    `${Math.round((s.revenue / (targetOrders.reduce((sum, r) => sum + Number(r.fields['Total (₹)'] || 0), 0) || 1)) * 100)}%`,
+    `${Math.round((s.revenue / totalPeriodRevenue) * 100)}%`,
   ]);
+
+  const timeLabel = dateRange ? dateRange.label : 'All Time';
 
   return {
     query,
     domain: 'PRODUCTS',
-    title: `Product Sales & Revenue Analysis (${dateRange?.label || 'All Time'})`,
+    title: `Product Sales & Revenue Analysis (${timeLabel})`,
     summary: `Top revenue product is **${topProduct[0]}** generating **${formatCurrency(topProduct[1].revenue)}** across **${topProduct[1].count} orders**.${comparisonSummary}`,
     metrics: [
       { label: 'Top Product', value: topProduct[0], tone: 'blue' },
@@ -554,10 +827,10 @@ function handleProductsQuery(query: string, records: AirtableRecord[]): AiCopilo
       { label: 'Units/Orders', value: String(topProduct[1].count), tone: 'neutral' },
     ],
     breakdownTable: {
-      headers: ['Product Name', 'Orders', 'Revenue', 'Revenue Share'],
+      headers: ['Product Name', 'Orders', 'Allocated Revenue', 'Share (%)'],
       rows,
     },
-    rawMarkdown: `### Product Sales Performance\n\n- **Top Product**: ${topProduct[0]} (${formatCurrency(topProduct[1].revenue)})\n${comparisonSummary}\n\n*Note: Inventory management is strictly excluded; data reflects genuine Airtable sales metrics.*`,
+    rawMarkdown: `### Product Sales Performance (${timeLabel})\n\n- **Top Product**: ${topProduct[0]} (${formatCurrency(topProduct[1].revenue)})\n${comparisonSummary}\n\n*Note: Inventory management is strictly excluded; data reflects genuine Airtable sales metrics.*`,
   };
 }
 
