@@ -483,9 +483,16 @@ export function OrderDrawer({
             <Row label="Method" value={String(f['Payment'] ?? '—')} />
             <Row label="Payment Status" value={paymentStatus ? paymentStatus.replace(/_/g, ' ') : '—'} />
             <Row label="Transaction" value={String(f['Transaction'] ?? '—')} />
-            {f['Payment Verification Note'] && (
-              <Row label="OCR Check" value={String(f['Payment Verification Note'])} />
-            )}
+            {f['Payment Verification Note'] && (() => {
+              const note = String(f['Payment Verification Note']);
+              const flagged = /NOT found|does not appear|not configured|no readable text|error/i.test(note);
+              return (
+                <div className={`mt-2 rounded-lg px-3 py-2 text-xs leading-relaxed ${flagged ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'}`}>
+                  <span className="font-bold">{flagged ? 'OCR flagged this — check the screenshot: ' : 'OCR check: '}</span>
+                  {note}
+                </div>
+              );
+            })()}
             {paymentStatus === 'PAYMENT_PROOF_SUBMITTED' && (
               <button
                 type="button"

@@ -7,6 +7,7 @@ import {
   SHIPMENT_STATUS,
   type CartLineItem,
 } from './order-shared';
+import { ocrPaymentScreenshot } from './ocr-shared';
 
 interface SubmitPaymentProofBody {
   fields: {
@@ -51,6 +52,10 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
     let orderId = body.orderDocumentNumber?.trim() || '';
     let recordId: string | null = null;
 
+    // Server-side check against the screenshot actually uploaded — surfaced to
+    // the admin alongside "Verify Payment", never trusted to decide on its own.
+    const ocr = await ocrPaymentScreenshot(body.screenshot.base64, body.amountPaid, body.transaction.trim());
+
     if (orderId) {
       const filterFormula = encodeURIComponent(`{orderID} = "${orderId}"`);
       const searchRes = await fetch(
@@ -84,6 +89,7 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
         'Shipment Status': SHIPMENT_STATUS.NOT_CREATED,
         Transaction: body.transaction.trim(),
         'Payment Proof Submitted At': body.paymentDateTime || new Date().toISOString(),
+        'Payment Verification Note': ocr.note,
       };
 
       for (let attempt = 0; attempt < 5; attempt++) {
@@ -114,6 +120,7 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
         'Payment Status': PAYMENT_STATUS.PROOF_SUBMITTED,
         Status: 'PAYMENT_PROOF_SUBMITTED',
         'Payment Proof Submitted At': body.paymentDateTime || new Date().toISOString(),
+        'Payment Verification Note': ocr.note,
       });
     }
 

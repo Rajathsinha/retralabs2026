@@ -5,6 +5,7 @@ import {
   patchAirtableRecord,
   type CartLineItem,
 } from './order-shared';
+import { ocrPaymentScreenshot } from './ocr-shared';
 
 interface ConfirmPaymentBody {
   recordId: string;
@@ -92,9 +93,17 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
     // "I've already paid" flow, and only an admin who has looked at the actual
     // screenshot (verify-payment.ts, requireAdmin-gated) can move it to
     // CONFIRMED and release it to fulfillment.
-    const ocrNote = body.ocrAmountMatch
-      ? `OCR amount check: ${body.ocrAmountMatch}`
-      : undefined;
+    //
+    // Run OCR on the server, against the screenshot that was actually
+    // uploaded — unlike the browser-side check, this can't be edited or
+    // skipped by the customer before the request is sent.
+    let ocrNote: string | undefined;
+    if (body.screenshot?.base64) {
+      const ocr = await ocrPaymentScreenshot(body.screenshot.base64, body.total, body.transaction.trim());
+      ocrNote = ocr.note;
+    } else if (body.ocrAmountMatch) {
+      ocrNote = `Browser OCR amount check: ${body.ocrAmountMatch}`;
+    }
 
     await patchAirtableRecord(baseId, table, token, body.recordId, {
       Transaction: body.transaction.trim(),
