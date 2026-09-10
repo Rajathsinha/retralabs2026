@@ -345,7 +345,7 @@ export default function ProductDetailPage() {
             {/* Main image */}
             <div className="flex-1 sticky top-24">
               <div
-                className="relative aspect-[4/5] rounded-[20px] overflow-hidden bg-[#F8F9FA] border border-[#E5E7EB] flex items-center justify-center"
+                className="relative aspect-[4/5] rounded-[20px] overflow-hidden bg-[#F8F9FA] border border-[#E5E7EB] flex items-center justify-center crt-power-on crt-scanlines"
               >
                 <img
                   src={getProductImageUrl(product.image_url, product.name)}

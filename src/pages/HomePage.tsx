@@ -233,14 +233,14 @@ export default function HomePage() {
                           href={slide.link}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-[#2563EB] text-[clamp(32px,6vw,64px)] tracking-[-0.03em] leading-[1.05] hover:text-[#1d4ed8] transition-colors cursor-pointer"
+                          className="crt-glow text-[#2563EB] text-[clamp(32px,6vw,64px)] tracking-[-0.03em] leading-[1.05] hover:text-[#1d4ed8] transition-colors cursor-pointer"
                           style={{ fontFamily: "'Geist', system-ui, sans-serif", fontWeight: 300, textDecoration: 'none' }}
                         >
                           <CharReveal text={slide.accent} staggerMs={35} delayMs={slide.lines[0].length + slide.lines[1].length + 1} />
                         </a>
                       ) : (
                         <h2
-                          className="text-[#2563EB] text-[clamp(32px,6vw,64px)] tracking-[-0.03em] leading-[1.05]"
+                          className="crt-glow text-[#2563EB] text-[clamp(32px,6vw,64px)] tracking-[-0.03em] leading-[1.05]"
                           style={{ fontFamily: "'Geist', system-ui, sans-serif", fontWeight: 300 }}
                         >
                           <CharReveal text={slide.accent} staggerMs={35} delayMs={slide.lines[0].length + slide.lines[1].length + 1} />
@@ -310,9 +310,9 @@ export default function HomePage() {
             </div>
 
             {/* ── Right Column — Product Image ── */}
-            <div ref={heroVisualRef} data-hero-visual className="relative flex items-center justify-center" style={{ height: 'clamp(200px, 46vw, 620px)' }}>
+            <div ref={heroVisualRef} data-hero-visual className="relative flex items-center justify-center crt-power-on" style={{ height: 'clamp(200px, 46vw, 620px)' }}>
               <div
-                className="relative w-full h-full"
+                className="relative w-full h-full crt-scanlines"
                 style={{
                   WebkitMaskImage: 'radial-gradient(ellipse 82% 78% at 50% 50%, black 38%, transparent 80%)',
                   maskImage: 'radial-gradient(ellipse 82% 78% at 50% 50%, black 38%, transparent 80%)',
