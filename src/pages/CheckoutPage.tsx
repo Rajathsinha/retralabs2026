@@ -63,19 +63,6 @@ async function confirmPayment(payload: Record<string, unknown>) {
   return json;
 }
 
-async function submitPaymentProof(payload: Record<string, unknown>) {
-  const res = await fetch('/api/submit-payment-proof', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  const json = await res.json().catch(() => null);
-  if (!res.ok || !json?.success) {
-    throw new Error(json?.error || `Payment proof submission failed (HTTP ${res.status})`);
-  }
-  return json;
-}
-
 async function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -635,55 +622,6 @@ export default function CheckoutPage() {
     }
   };
 
-  const handleSubmitPaymentProof = async (payload: {
-    orderDocumentNumber: string;
-    amountPaid: number;
-    transaction: string;
-    paymentDateTime: string;
-    screenshot: File;
-  }) => {
-    const itemsSummary = cart
-      .map(i => `${i.product.name} ${i.variant.dosage_mg}mg x${i.quantity} = ₹${(i.variant.price_inr * i.quantity).toLocaleString('en-IN')}`)
-      .join('\n');
-    const base64 = await fileToBase64(payload.screenshot);
-    await submitPaymentProof({
-      orderDocumentNumber: payload.orderDocumentNumber || paymentSession?.orderId || '',
-      amountPaid: payload.amountPaid,
-      transaction: payload.transaction,
-      paymentDateTime: payload.paymentDateTime,
-      screenshot: { contentType: payload.screenshot.type, filename: payload.screenshot.name, base64 },
-      fields: {
-        Name: formData.customer_name,
-        Email: formData.customer_email,
-        Phone: formData.customer_phone,
-        Address: `${formData.shipping_address}, ${formData.city}, ${formData.state}, PIN: ${formData.pincode}`,
-        Items: itemsSummary,
-        'Total (₹)': payload.amountPaid,
-        Payment: 'UPI Proof',
-        Delivery: formData.delivery_option === 'fast' ? 'Express' : 'Standard',
-        Referral: formData.referral_source,
-        Created: new Date().toISOString().slice(0, 10),
-      },
-    });
-    clearCart();
-    setPaymentSession(null);
-    setShowQrModal(false);
-    setOrderSnapshot({
-      items: cart.map(i => `${i.product.name} ${i.variant.dosage_mg}mg x${i.quantity}`).join(', '),
-      total: payload.amountPaid,
-      orderId: payload.orderDocumentNumber || paymentSession?.orderId || null,
-      awbNumber: null,
-      innofulfillOrderId: null,
-      innofulfillWarning: null,
-      cartItems: cart.map(i => ({ name: i.product.name, config: i.variant.vial_configuration || `${i.variant.dosage_mg}mg`, qty: i.quantity, price: i.variant.price_inr })),
-      deliveryOption: formData.delivery_option,
-      paymentMethod: 'prepay',
-      deliveryCharge,
-      codCharge: 0,
-    });
-    setOrderSent(true);
-  };
-
   /* ── Step 3: order confirmed screen ── */
   if (orderSent) {
     const snap = orderSnapshot;
@@ -1056,9 +994,7 @@ export default function CheckoutPage() {
             isOpen={showQrModal}
             onClose={() => setShowQrModal(false)}
             amount={grandTotal}
-            orderId={paymentSession?.orderId}
             onConfirm={(txnRef, screenshot, ocrStatus) => handleQrPaymentConfirmed(txnRef, screenshot, ocrStatus)}
-            onSubmitPaymentProof={handleSubmitPaymentProof}
             whatsappUrl={whatsappUrl}
           />
 
