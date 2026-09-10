@@ -235,6 +235,7 @@ export const PRODUCTS: ProductWithVariants[] = [
     variants: [
       { id: '18a', product_id: '18', dosage_mg: 10, price_inr: 2800, in_stock: true, vial_configuration: '1×10mg',  created_at: new Date().toISOString() },
       { id: '18b', product_id: '18', dosage_mg: 20, price_inr: 5100, compare_at_price_inr: 5600, in_stock: true, vial_configuration: '10mg × 2', created_at: new Date().toISOString() },
+      { id: '18c', product_id: '18', dosage_mg: 50, price_inr: 9200, compare_at_price_inr: 15000, in_stock: true, vial_configuration: '10mg × 5', created_at: new Date().toISOString() },
     ],
   },
   {
