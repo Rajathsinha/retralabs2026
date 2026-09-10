@@ -3,7 +3,6 @@ import {
   corsHeaders,
   getAirtableConfig,
   patchAirtableRecord,
-  processLogistics,
   type CartLineItem,
 } from './order-shared';
 
@@ -12,6 +11,8 @@ interface ConfirmPaymentBody {
   orderId: string;
   transaction: string;
   screenshot?: { contentType: string; filename: string; base64: string };
+  /** Client-side OCR read of the screenshot, advisory only — never trusted for the decision. */
+  ocrAmountMatch?: 'idle' | 'scanning' | 'matched' | 'mismatch' | 'error';
   cartItems: CartLineItem[];
   customer: {
     name: string;
@@ -85,10 +86,22 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
       return { statusCode: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'This order already has a different payment reference on file' }) };
     }
 
+    // A self-reported reference number and an uploaded screenshot are not proof
+    // of payment — anyone can type any string and attach any image. This never
+    // auto-confirms or ships: it lands as PROOF_SUBMITTED, same as the manual
+    // "I've already paid" flow, and only an admin who has looked at the actual
+    // screenshot (verify-payment.ts, requireAdmin-gated) can move it to
+    // CONFIRMED and release it to fulfillment.
+    const ocrNote = body.ocrAmountMatch
+      ? `OCR amount check: ${body.ocrAmountMatch}`
+      : undefined;
+
     await patchAirtableRecord(baseId, table, token, body.recordId, {
       Transaction: body.transaction.trim(),
-      'Payment Status': PAYMENT_STATUS.CONFIRMED,
-      Status: 'PAYMENT_CONFIRMED',
+      'Payment Status': PAYMENT_STATUS.PROOF_SUBMITTED,
+      Status: 'PAYMENT_PROOF_SUBMITTED',
+      'Payment Proof Submitted At': new Date().toISOString(),
+      ...(ocrNote ? { 'Payment Verification Note': ocrNote } : {}),
     });
 
     if (body.screenshot?.base64) {
@@ -106,28 +119,19 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
       ).catch((err) => console.warn('[ConfirmPayment] Screenshot upload failed:', err));
     }
 
-    const logistics = await processLogistics(baseId, table, token, body.recordId, body.orderId, {
-      cartItems: body.cartItems,
-      customer: body.customer,
-      paymentMethod: body.paymentMethod,
-      deliveryOption: body.deliveryOption,
-      total: body.total,
-      deliveryCharge: body.deliveryCharge,
-      codCharge: body.codCharge,
-    });
-
     return {
       statusCode: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         success: true,
         orderId: body.orderId,
-        paymentStatus: PAYMENT_STATUS.CONFIRMED,
-        awbNumber: logistics.awbNumber || null,
-        innofulfillOrderId: logistics.innofulfillOrderId || null,
-        shipmentStatus: logistics.shipmentStatus,
-        carrierDisplayName: logistics.carrierDisplayName || null,
-        innofulfillWarning: logistics.warning || null,
+        paymentStatus: PAYMENT_STATUS.PROOF_SUBMITTED,
+        awbNumber: null,
+        innofulfillOrderId: null,
+        shipmentStatus: null,
+        carrierDisplayName: null,
+        innofulfillWarning: null,
+        message: "Payment reference received. We'll verify it against your screenshot and confirm your order shortly.",
       }),
     };
   } catch (err) {

@@ -37,7 +37,7 @@ interface UpiQrModalProps {
   onClose: () => void;
   amount: number;
   orderId?: string | null;
-  onConfirm: (txnRef: string, screenshot: File | null) => Promise<void>;
+  onConfirm: (txnRef: string, screenshot: File | null, ocrAmountMatch?: OcrStatus) => Promise<void>;
   onSubmitPaymentProof?: (payload: {
     orderDocumentNumber: string;
     amountPaid: number;
@@ -253,14 +253,14 @@ export default function UpiQrModal({ isOpen, onClose, amount, orderId, onConfirm
     setConfirming(true);
     setStage('verifying');
     try {
-      await onConfirm(txnRef.trim(), screenshot);
+      await onConfirm(txnRef.trim(), screenshot, ocrStatus);
       setStage('success');
     } catch {
       setStage('idle');
     } finally {
       setConfirming(false);
     }
-  }, [txnRef, confirming, stage, onConfirm, screenshot]);
+  }, [txnRef, confirming, stage, onConfirm, screenshot, ocrStatus]);
 
   const handleSubmitProof = useCallback(async () => {
     if (!onSubmitPaymentProof || !proofTxn.trim() || !proofScreenshot || confirming) return;

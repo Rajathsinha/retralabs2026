@@ -227,9 +227,6 @@ export default function CheckoutPage() {
   const [whatsappUrl, setWhatsappUrl] = useState('');
   const [orderSent,   setOrderSent]   = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
-  /* WhatsApp payers: attach a screenshot instead of scanning the QR. */
-  const [showWhatsappProof, setShowWhatsappProof] = useState(false);
-  const [whatsappProofFile, setWhatsappProofFile] = useState<File | null>(null);
   const [paymentSession, setPaymentSession] = useState<{ recordId: string; orderId: string; expiresAt: string | null } | null>(null);
   const [startingPayment, setStartingPayment] = useState(false);
   const [submitError,   setSubmitError]   = useState<string | null>(null); // fatal: order not saved
@@ -247,6 +244,7 @@ export default function CheckoutPage() {
     paymentMethod: 'prepay' | 'cod';
     deliveryCharge: number;
     codCharge: number;
+    pendingReview?: boolean;
   } | null>(null);
   const orderSaving = useRef(false); // prevent double-save
 
@@ -521,36 +519,7 @@ export default function CheckoutPage() {
     }
   };
 
-  /**
-   * For customers who already paid over WhatsApp. Reserves the order so a
-   * payment session exists, then shows the upload panel. No QR to scan.
-   */
-  const handleStartWhatsappProof = async () => {
-    if (startingPayment) return;
-    if (paymentSession) { setShowWhatsappProof(true); return; }
-    setStartingPayment(true);
-    setSubmitError(null);
-    try {
-      const itemsSummary = cart
-        .map(i => `${i.product.name} ${i.variant.dosage_mg}mg x${i.quantity} = ₹${(i.variant.price_inr * i.quantity).toLocaleString('en-IN')}`)
-        .join('\n');
-      const payload = buildOrderPayload(formData, grandTotal, deliveryCharge, 0, 'prepay', itemsSummary, true);
-      const result = await saveOrder(payload.fields, undefined, payload.extra);
-      if (!result.recordId || !result.orderId) throw new Error('Failed to start payment session');
-      setPaymentSession({
-        recordId: result.recordId,
-        orderId: result.orderId,
-        expiresAt: result.paymentSessionExpiresAt || null,
-      });
-      setShowWhatsappProof(true);
-    } catch (err) {
-      setSubmitError(`Could not start your order — ${describeError(err)}`);
-    } finally {
-      setStartingPayment(false);
-    }
-  };
-
-  const handleQrPaymentConfirmed = async (txnRef: string, screenshot: File | null) => {
+  const handleQrPaymentConfirmed = async (txnRef: string, screenshot: File | null, ocrAmountMatch?: string) => {
     if (orderSaving.current) return;
     orderSaving.current = true;
     setSubmitError(null);
@@ -582,6 +551,7 @@ export default function CheckoutPage() {
         orderId: paymentSession.orderId,
         transaction: txnRef,
         screenshot: screenshotPayload,
+        ocrAmountMatch,
         cartItems: cartSnapshot.map(i => ({
           name: i.product.name,
           variant: i.variant.vial_configuration || `${i.variant.dosage_mg}mg`,
@@ -651,6 +621,7 @@ export default function CheckoutPage() {
         paymentMethod: 'prepay',
         deliveryCharge: snapDeliveryCharge,
         codCharge: 0,
+        pendingReview: confirmed.paymentStatus !== 'PAYMENT_CONFIRMED',
       });
       clearCart();
       setPaymentSession(null);
@@ -811,8 +782,14 @@ export default function CheckoutPage() {
                   <Truck className="w-5 h-5 text-[#D97706]" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-[#111111]">AWB: Awaiting shipment assignment</p>
-                  <p className="text-xs text-[#9CA3AF]">Your document number is confirmed. The courier AWB will appear once Innofulfill assigns it.</p>
+                  <p className="text-sm font-bold text-[#111111]">
+                    {snap?.pendingReview ? 'Payment under review' : 'AWB: Awaiting shipment assignment'}
+                  </p>
+                  <p className="text-xs text-[#9CA3AF]">
+                    {snap?.pendingReview
+                      ? "We're checking your payment reference and screenshot. Your order will ship once verified — usually within a few hours."
+                      : 'Your document number is confirmed. The courier AWB will appear once Innofulfill assigns it.'}
+                  </p>
                 </div>
               </div>
               {snap?.orderId && (
@@ -1064,65 +1041,6 @@ export default function CheckoutPage() {
                 </a>
               </div>
 
-              {/* Already paid on WhatsApp — attach proof, nothing to scan */}
-              {!showWhatsappProof ? (
-                <button
-                  onClick={() => void handleStartWhatsappProof()}
-                  disabled={startingPayment}
-                  className="w-full flex items-center justify-between gap-4 p-4 bg-white hover:bg-[#f8fafc] border border-[#E5E7EB] hover:border-[#16a34a]/50 rounded-2xl transition-all duration-200 disabled:opacity-60"
-                >
-                  <div className="flex items-center gap-3 text-left">
-                    <div className="w-11 h-11 rounded-xl bg-[#16a34a]/10 flex items-center justify-center flex-shrink-0">
-                      <MessageCircle className="w-5 h-5 text-[#16a34a]" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-[#111111]">Already paid on WhatsApp?</p>
-                      <p className="text-xs text-[#9CA3AF] mt-0.5">Attach your payment screenshot — no scanning</p>
-                    </div>
-                  </div>
-                  {startingPayment
-                    ? <Loader2 className="w-4 h-4 text-[#16a34a] animate-spin flex-shrink-0" />
-                    : <ArrowRight className="w-4 h-4 text-[#16a34a] flex-shrink-0" />}
-                </button>
-              ) : (
-                <div className="rounded-2xl border border-[#16a34a]/40 bg-[#f0fdf4] p-4">
-                  <p className="text-sm font-bold text-[#14532d]">Attach your payment screenshot</p>
-                  <p className="text-xs text-[#166534]/80 mt-0.5 mb-3">
-                    Order {paymentSession?.orderId} is reserved. We&apos;ll confirm once we&apos;ve checked the payment.
-                  </p>
-
-                  <label className="block">
-                    <span className="sr-only">Payment screenshot</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => setWhatsappProofFile(e.target.files?.[0] ?? null)}
-                      className="block w-full text-xs text-[#166534] file:mr-3 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-[#16a34a] file:text-white hover:file:bg-[#15803d] file:cursor-pointer cursor-pointer"
-                    />
-                  </label>
-
-                  {whatsappProofFile && (
-                    <p className="text-xs text-[#166534] mt-2 truncate">Selected: {whatsappProofFile.name}</p>
-                  )}
-
-                  <button
-                    onClick={() => whatsappProofFile && void handleQrPaymentConfirmed('WhatsApp payment', whatsappProofFile)}
-                    disabled={!whatsappProofFile || confirming}
-                    className="mt-3 w-full flex items-center justify-center gap-2 bg-[#16a34a] hover:bg-[#15803d] disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-sm py-3.5 rounded-xl transition-all"
-                  >
-                    {confirming
-                      ? <Loader2 className="w-4 h-4 animate-spin" />
-                      : <><Check className="w-4 h-4" />Submit screenshot</>}
-                  </button>
-                  <button
-                    onClick={() => { setShowWhatsappProof(false); setWhatsappProofFile(null); }}
-                    className="mt-2 w-full text-xs font-semibold text-[#166534]/70 hover:text-[#166534] py-1"
-                  >
-                    Back to payment options
-                  </button>
-                </div>
-              )}
-
               <style>{`
                 @keyframes rl-scan-inline {
                   0% { top: 0%; opacity: 0; }
@@ -1139,7 +1057,7 @@ export default function CheckoutPage() {
             onClose={() => setShowQrModal(false)}
             amount={grandTotal}
             orderId={paymentSession?.orderId}
-            onConfirm={handleQrPaymentConfirmed}
+            onConfirm={(txnRef, screenshot, ocrStatus) => handleQrPaymentConfirmed(txnRef, screenshot, ocrStatus)}
             onSubmitPaymentProof={handleSubmitPaymentProof}
             whatsappUrl={whatsappUrl}
           />

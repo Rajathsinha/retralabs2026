@@ -483,6 +483,9 @@ export function OrderDrawer({
             <Row label="Method" value={String(f['Payment'] ?? '—')} />
             <Row label="Payment Status" value={paymentStatus ? paymentStatus.replace(/_/g, ' ') : '—'} />
             <Row label="Transaction" value={String(f['Transaction'] ?? '—')} />
+            {f['Payment Verification Note'] && (
+              <Row label="OCR Check" value={String(f['Payment Verification Note'])} />
+            )}
             {paymentStatus === 'PAYMENT_PROOF_SUBMITTED' && (
               <button
                 type="button"
