@@ -142,6 +142,7 @@ export const PRODUCTS: ProductWithVariants[] = [
       { id: '11a', product_id: '11', dosage_mg: 10, price_inr: 2800,  in_stock: true, vial_configuration: 'Single vial', created_at: new Date().toISOString() },
       { id: '11b', product_id: '11', dosage_mg: 20, price_inr: 5400,  compare_at_price_inr: 5600,  in_stock: true, vial_configuration: '10mg × 2',   created_at: new Date().toISOString() },
       { id: '11c', product_id: '11', dosage_mg: 50, price_inr: 10200, compare_at_price_inr: 14000, in_stock: true, vial_configuration: '10mg × 5',   created_at: new Date().toISOString() },
+      { id: '11d', product_id: '11', dosage_mg: 50, price_inr: 9600, in_stock: true, vial_configuration: '50mg Single', created_at: new Date().toISOString() },
     ],
   },
   {
