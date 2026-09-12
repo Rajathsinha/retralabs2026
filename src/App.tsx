@@ -3,6 +3,7 @@ import { Routes, Route, Outlet, useLocation } from 'react-router-dom';
 import { CartProvider } from './context/CartContext';
 import Header from './components/Header';
 import Footer from './components/Footer';
+import CrtClickEffect from './components/CrtClickEffect';
 // Helper to automatically recover from stale dynamic imports when new builds are deployed
 function lazyWithRetry<T extends React.ComponentType<any>>(
   factory: () => Promise<{ default: T }>
@@ -143,6 +144,7 @@ function RootLayout() {
   const { pathname } = useLocation();
   return (
     <div className="min-h-screen flex flex-col bg-white" style={{ overflowX: 'hidden' }}>
+      <CrtClickEffect />
       <Header />
       <Suspense fallback={<div className="flex-1" style={{ minHeight: '100vh' }} />}>
         <HeroUIWrapper>

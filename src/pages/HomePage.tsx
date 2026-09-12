@@ -310,9 +310,9 @@ export default function HomePage() {
             </div>
 
             {/* ── Right Column — Product Image ── */}
-            <div ref={heroVisualRef} data-hero-visual className="relative flex items-center justify-center crt-power-on" style={{ height: 'clamp(200px, 46vw, 620px)' }}>
+            <div ref={heroVisualRef} data-hero-visual className="relative flex items-center justify-center" style={{ height: 'clamp(200px, 46vw, 620px)' }}>
               <div
-                className="relative w-full h-full crt-scanlines"
+                className="relative w-full h-full"
                 style={{
                   WebkitMaskImage: 'radial-gradient(ellipse 82% 78% at 50% 50%, black 38%, transparent 80%)',
                   maskImage: 'radial-gradient(ellipse 82% 78% at 50% 50%, black 38%, transparent 80%)',
