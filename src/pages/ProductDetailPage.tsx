@@ -102,7 +102,7 @@ export default function ProductDetailPage() {
 
   const productImage = product
     ? (() => {
-        const p = getProductImageUrl('', product.name);
+        const p = getProductImageUrl('', product.name, 'hero');
         return p.startsWith('http') ? p : `https://retralabs.in${p.startsWith('/') ? '' : '/'}${p}`;
       })()
     : undefined;
@@ -348,13 +348,13 @@ export default function ProductDetailPage() {
                 className="relative aspect-[4/5] rounded-[20px] overflow-hidden bg-[#F8F9FA] border border-[#E5E7EB] flex items-center justify-center"
               >
                 <img
-                  src={getProductImageUrl(product.image_url, product.name)}
+                  src={getProductImageUrl(product.image_url, product.name, 'hero')}
                   alt={`${product.name} research peptide in India — ${purity}% HPLC verified, COA included`}
                   width={1200}
                   height={1200}
                   fetchPriority="high"
                   decoding="async"
-                  className="w-full h-full object-contain p-8 sm:p-12"
+                  className="w-full h-full object-contain p-2 sm:p-3"
                 />
                 {isFlagship && (
                   <div className="absolute top-4 left-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold text-white" style={{ background: accent }}>
