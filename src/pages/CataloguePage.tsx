@@ -18,6 +18,29 @@ import {
   Check,
 } from 'lucide-react';
 
+// ─── Catalogue-grid image override ─────────────────────────────────────────────
+// This page alone keeps the pre-photoshoot product images (the rest of the
+// site — product detail pages, cart, checkout, search — uses the new
+// Catalogue photography via product.image_url / getProductImageUrl).
+const CATALOGUE_IMAGE_BY_NAME: Record<string, string> = {
+  'Retatrutide':                        '/reta.webp',
+  'GHK-Cu':                             '/GHKCU.webp',
+  'Semax':                              '/SEMAX.webp',
+  'Selank':                             '/SELANK.webp',
+  'BPC-157':                            '/BPC.webp',
+  'NAD+':                               '/NAD+.webp',
+  'TB-500':                             '/TB500.webp',
+  'Tesamorelin':                        '/TESA.webp',
+  'MOT-C':                              '/MOTSC.webp',
+  'Klow Blend':                         '/KLOW.webp',
+  'CJC-1295 (No DAC) + Ipamorelin Stack':'/CJC+ipa.webp',
+  'The Wolverine Stack':                '/Wolverine.webp',
+  'AOD 9604':                           '/AOD.webp',
+  'SS-31':                              '/SS-31.webp',
+  'Cagrilintide':                       '/Cagrilintide.webp',
+  'Bacteriostatic Water (Pharma Grade)':'/bac-water.webp',
+};
+
 // ─── Per-product config ───────────────────────────────────────────────────────
 
 type ProductCfg = {
@@ -102,7 +125,7 @@ function ProductCard({ product, onAddToCart, addedVariantId, onNavigate }: CardP
           </div>
         )}
         <img
-          src={product.image_url}
+          src={CATALOGUE_IMAGE_BY_NAME[product.name] ?? product.image_url}
           alt={product.name}
           className="w-[62%] h-[62%] object-contain transition-transform duration-300 group-hover:scale-[1.03]"
           style={{ filter: 'saturate(0.9)' }}
