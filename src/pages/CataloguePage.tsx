@@ -13,7 +13,7 @@ import { CATEGORIES as SEO_CATEGORIES } from '../data/seoData';
 import ProductModal from '../components/ProductModal';
 import { productDisplayName } from '../utils/productDisplayName';
 import {
-  ShoppingCart, ChevronRight, Shield, Microscope,
+  Plus, ChevronRight, Shield, Microscope,
   FlaskConical, Package, CheckCircle, Search, SlidersHorizontal,
   Check,
 } from 'lucide-react';
@@ -22,31 +22,29 @@ import {
 
 type ProductCfg = {
   tag: string;
-  tagColor: string;
-  tagBg: string;
   category: string;
 };
 
 const PRODUCT_CFG: Record<string, ProductCfg> = {
-  'Retatrutide':                        { tag: 'Metabolic',    tagColor: '#2563EB', tagBg: '#EFF6FF', category: 'metabolic' },
-  'Tirzepatide':                        { tag: 'Metabolic',    tagColor: '#1D4ED8', tagBg: '#EFF6FF', category: 'metabolic' },
-  'CJC-1295 (No DAC) + Ipamorelin Stack':{ tag: 'Research',   tagColor: '#7C3AED', tagBg: '#F5F3FF', category: 'research' },
-  'MOT-C':                              { tag: 'Research',     tagColor: '#0D9488', tagBg: '#F0FDFA', category: 'research' },
-  'GHK-Cu':                             { tag: 'Anti-Aging',   tagColor: '#1D4ED8', tagBg: '#EFF6FF', category: 'anti-aging' },
-  'BPC-157':                            { tag: 'Recovery',     tagColor: '#7C3AED', tagBg: '#F5F3FF', category: 'recovery' },
-  'TB-500':                             { tag: 'Recovery',     tagColor: '#EA580C', tagBg: '#FFF7ED', category: 'recovery' },
-  'Selank':                             { tag: 'Research',     tagColor: '#DB2777', tagBg: '#FDF2F8', category: 'research' },
-  'Semax':                              { tag: 'Research',     tagColor: '#4338CA', tagBg: '#EEF2FF', category: 'research' },
-  'Tesamorelin':                        { tag: 'Research',     tagColor: '#059669', tagBg: '#F0FDF4', category: 'research' },
-  'NAD+':                               { tag: 'Anti-Aging',   tagColor: '#7C3AED', tagBg: '#F5F3FF', category: 'anti-aging' },
-  'SS-31':                              { tag: 'Anti-Aging',   tagColor: '#DB2777', tagBg: '#FDF2F8', category: 'anti-aging' },
-  'Kisspeptin-10':                      { tag: 'Research',     tagColor: '#EC4899', tagBg: '#FDF2F8', category: 'research' },
-  'AOD 9604':                           { tag: 'Metabolic',    tagColor: '#EA580C', tagBg: '#FFF7ED', category: 'metabolic' },
-  'Cagrilintide':                       { tag: 'Metabolic',    tagColor: '#16A34A', tagBg: '#F0FDF4', category: 'metabolic' },
-  'Klow Blend':                         { tag: 'Healing',      tagColor: '#0891B2', tagBg: '#ECFEFF', category: 'healing' },
-  'The Wolverine Stack':                { tag: 'Recovery',     tagColor: '#6B21A8', tagBg: '#F5F3FF', category: 'recovery' },
-  'Epithalon':                          { tag: 'Anti-Aging',   tagColor: '#2563EB', tagBg: '#EFF6FF', category: 'anti-aging' },
-  'Bacteriostatic Water (Pharma Grade)':{ tag: 'Supplies',     tagColor: '#6B7280', tagBg: '#F9FAFB', category: 'other' },
+  'Retatrutide':                        { tag: 'Metabolic',  category: 'metabolic' },
+  'Tirzepatide':                        { tag: 'Metabolic',  category: 'metabolic' },
+  'CJC-1295 (No DAC) + Ipamorelin Stack':{ tag: 'Research',   category: 'research' },
+  'MOT-C':                              { tag: 'Research',   category: 'research' },
+  'GHK-Cu':                             { tag: 'Anti-Aging', category: 'anti-aging' },
+  'BPC-157':                            { tag: 'Recovery',   category: 'recovery' },
+  'TB-500':                             { tag: 'Recovery',   category: 'recovery' },
+  'Selank':                             { tag: 'Research',   category: 'research' },
+  'Semax':                              { tag: 'Research',   category: 'research' },
+  'Tesamorelin':                        { tag: 'Research',   category: 'research' },
+  'NAD+':                               { tag: 'Anti-Aging', category: 'anti-aging' },
+  'SS-31':                              { tag: 'Anti-Aging', category: 'anti-aging' },
+  'Kisspeptin-10':                      { tag: 'Research',   category: 'research' },
+  'AOD 9604':                           { tag: 'Metabolic',  category: 'metabolic' },
+  'Cagrilintide':                       { tag: 'Metabolic',  category: 'metabolic' },
+  'Klow Blend':                         { tag: 'Healing',    category: 'healing' },
+  'The Wolverine Stack':                { tag: 'Recovery',   category: 'recovery' },
+  'Epithalon':                          { tag: 'Anti-Aging', category: 'anti-aging' },
+  'Bacteriostatic Water (Pharma Grade)':{ tag: 'Supplies',   category: 'other' },
 };
 
 const CATEGORIES = [
@@ -82,49 +80,56 @@ function ProductCard({ product, onAddToCart, addedVariantId, onNavigate }: CardP
   const cfg = PRODUCT_CFG[product.name];
   const lowestVariant = [...product.variants].sort((a, b) => a.price_inr - b.price_inr)[0];
   const isAdded = lowestVariant && addedVariantId === lowestVariant.id;
+  const hasDiscount = !!lowestVariant?.compare_at_price_inr && lowestVariant.compare_at_price_inr > lowestVariant.price_inr;
 
   return (
     <div
-      className="group bg-white border border-[#EBEBEB] flex flex-col cursor-pointer transition-all duration-300 hover:border-[#D0D0D0] hover:shadow-[0_8px_32px_rgba(0,0,0,0.10)]"
-      style={{ borderRadius: 18 }}
+      className="group flex flex-col cursor-pointer bg-[#F2F1EC] p-3.5 sm:p-4"
+      style={{ borderRadius: 20 }}
       onClick={() => onNavigate(product.slug)}
     >
-      {/* Image area */}
+      {/* Image area — plain, isolated product shot, no separate box */}
       <div
-        className="relative overflow-hidden bg-[#F8F9FA] flex items-center justify-center"
-        style={{ borderRadius: '18px 18px 0 0', aspectRatio: '1 / 1' }}
+        className="relative overflow-hidden flex items-center justify-center mb-3.5"
+        style={{ aspectRatio: '1 / 1' }}
       >
+        {cfg && (
+          <div
+            className="absolute top-0 left-0 z-10 px-2.5 py-1 text-[11px] font-bold text-[#1A1A1A]"
+            style={{ borderRadius: 999, background: '#F6D24C' }}
+          >
+            {cfg.tag}
+          </div>
+        )}
         <img
           src={product.image_url}
           alt={product.name}
-          className="w-full h-full object-contain p-4 sm:p-6 transition-transform duration-500 group-hover:scale-[1.04]"
+          className="w-[62%] h-[62%] object-contain transition-transform duration-300 group-hover:scale-[1.03]"
+          style={{ filter: 'saturate(0.9)' }}
           loading="lazy"
         />
-        {/* Category tag */}
-        {cfg && (
-          <div
-            className="absolute top-3 left-3 px-2.5 py-1 text-[10px] font-bold tracking-[0.06em] uppercase"
-            style={{ borderRadius: 8, color: cfg.tagColor, background: cfg.tagBg }}
-          >
-            RESEARCH USE ONLY
-          </div>
-        )}
       </div>
 
       {/* Info area */}
-      <div className="flex flex-col flex-1 px-4 pt-3.5 pb-4 gap-2">
-        {/* Product name */}
-        <h3 className="text-[#111111] text-[14px] sm:text-[15px] font-semibold leading-snug line-clamp-2 group-hover:text-[#2563EB] transition-colors duration-200">
+      <div className="flex flex-col flex-1 gap-1.5">
+        <h3 className="text-[#111111] text-[15px] sm:text-[16px] font-bold leading-snug line-clamp-2">
           {productDisplayName(product)}
         </h3>
 
+        <p className="text-[#6B6B63] text-[13px] leading-snug line-clamp-2">
+          {product.description}
+        </p>
 
         {/* Price */}
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-[#111111] text-[15px] sm:text-[16px] font-bold">
+        <div className="flex items-baseline gap-2 mt-1">
+          <span className="text-[#111111] text-[16px] font-bold">
             {lowestVariant ? format(lowestVariant.price_inr) : '—'}
           </span>
-          <span className="text-[#9CA3AF] text-[11px]">onwards</span>
+          {hasDiscount && (
+            <span className="text-[#9C9C93] text-[13px] line-through">
+              {format(lowestVariant.compare_at_price_inr as number)}
+            </span>
+          )}
         </div>
 
         {/* Add to cart */}
@@ -134,17 +139,17 @@ function ProductCard({ product, onAddToCart, addedVariantId, onNavigate }: CardP
             e.stopPropagation();
             if (lowestVariant) onAddToCart(product, lowestVariant);
           }}
-          className={`mt-auto w-full flex items-center justify-center gap-2 font-semibold py-2.5 text-[13px] transition-all duration-200 ${
+          className={`mt-2.5 w-full flex items-center justify-between gap-1.5 font-bold py-2.5 sm:py-3 px-3 sm:px-4 text-[12.5px] sm:text-[14px] whitespace-nowrap transition-all duration-200 ${
             isAdded
               ? 'bg-[#16a34a] text-white'
-              : 'bg-[#111111] hover:bg-[#1a1a1a] text-white active:scale-[0.97]'
+              : 'bg-[#E8622C] hover:bg-[#D9551F] text-white active:scale-[0.98]'
           }`}
-          style={{ borderRadius: 10 }}
+          style={{ borderRadius: 999 }}
         >
           {isAdded ? (
-            <><Check className="w-3.5 h-3.5" strokeWidth={2.5} /> Added</>
+            <><span className="mx-auto">Added</span> <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" strokeWidth={2.5} /></>
           ) : (
-            <><ShoppingCart className="w-3.5 h-3.5" strokeWidth={2} /> Add to Cart</>
+            <><span>Add to Cart</span> <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" strokeWidth={2.5} /></>
           )}
         </button>
       </div>
@@ -304,13 +309,13 @@ export default function CataloguePage() {
                     onClick={() => setActiveCategory(cat.id)}
                     className={`w-full flex items-center justify-between px-5 py-2.5 text-[13px] font-medium transition-all duration-150 text-left ${
                       activeCategory === cat.id
-                        ? 'text-[#2563EB] bg-[#EFF6FF]'
+                        ? 'text-[#E8622C] bg-[#FDEEE6]'
                         : 'text-[#374151] hover:bg-[#F9FAFB] hover:text-[#111111]'
                     }`}
                   >
                     <span>{cat.label}</span>
                     <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-md ${
-                      activeCategory === cat.id ? 'bg-[#2563EB]/10 text-[#2563EB]' : 'bg-[#F3F4F6] text-[#9CA3AF]'
+                      activeCategory === cat.id ? 'bg-[#E8622C]/10 text-[#E8622C]' : 'bg-[#F3F4F6] text-[#9CA3AF]'
                     }`}>
                       {categoryCounts[cat.id] ?? 0}
                     </span>
@@ -326,7 +331,7 @@ export default function CataloguePage() {
               </div>
               <div className="py-3 px-5 space-y-2">
                 {[
-                  { label: 'Metabolic Research',  color: '#2563EB' },
+                  { label: 'Metabolic Research',  color: '#E8622C' },
                   { label: 'Tissue Recovery',     color: '#EA580C' },
                   { label: 'Cellular Longevity',  color: '#7C3AED' },
                   { label: 'Cognitive Support',   color: '#4338CA' },
@@ -353,7 +358,7 @@ export default function CataloguePage() {
               <div className="py-3 px-5 space-y-2">
                 {['Lyophilised Powder', 'Blend / Stack', 'Medical Supplies'].map(form => (
                   <label key={form} className="flex items-center gap-3 cursor-pointer group">
-                    <div className="w-3.5 h-3.5 rounded border-2 border-[#E5E7EB] flex-shrink-0 transition-colors group-hover:border-[#2563EB]" />
+                    <div className="w-3.5 h-3.5 rounded border-2 border-[#E5E7EB] flex-shrink-0 transition-colors group-hover:border-[#E8622C]" />
                     <span className="text-[13px] text-[#374151] group-hover:text-[#111111] transition-colors">{form}</span>
                   </label>
                 ))}
@@ -378,7 +383,7 @@ export default function CataloguePage() {
                     placeholder="Search peptides..."
                     value={search}
                     onChange={e => handleSearchChange(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2.5 border border-[#E5E7EB] text-[13px] text-[#111111] placeholder-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10 transition-all bg-white"
+                    className="w-full pl-9 pr-4 py-2.5 border border-[#E5E7EB] text-[13px] text-[#111111] placeholder-[#9CA3AF] focus:outline-none focus:border-[#E8622C] focus:ring-2 focus:ring-[#E8622C]/10 transition-all bg-white"
                     style={{ borderRadius: 10 }}
                   />
                 </div>
@@ -388,7 +393,7 @@ export default function CataloguePage() {
                   <select
                     value={sortBy}
                     onChange={e => setSortBy(e.target.value as SortKey)}
-                    className="appearance-none border border-[#E5E7EB] text-[13px] text-[#374151] font-medium pl-3 pr-8 py-2.5 focus:outline-none focus:border-[#2563EB] cursor-pointer bg-white"
+                    className="appearance-none border border-[#E5E7EB] text-[13px] text-[#374151] font-medium pl-3 pr-8 py-2.5 focus:outline-none focus:border-[#E8622C] cursor-pointer bg-white"
                     style={{ borderRadius: 10 }}
                   >
                     {SORT_OPTIONS.map(o => (
@@ -435,7 +440,7 @@ export default function CataloguePage() {
                 <button
                   type="button"
                   onClick={() => { handleSearchChange(''); setActiveCategory('all'); }}
-                  className="mt-4 text-[#2563EB] text-[14px] font-semibold hover:underline"
+                  className="mt-4 text-[#E8622C] text-[14px] font-semibold hover:underline"
                 >
                   Clear filters
                 </button>
@@ -495,7 +500,7 @@ export default function CataloguePage() {
             ].map(({ icon: Icon, title, sub }) => (
               <div key={title} className="flex flex-col items-center text-center gap-3">
                 <div className="w-11 h-11 rounded-[13px] border border-[#E5E7EB] bg-white flex items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-                  <Icon className="w-5 h-5 text-[#2563EB]" strokeWidth={1.6} />
+                  <Icon className="w-5 h-5 text-[#E8622C]" strokeWidth={1.6} />
                 </div>
                 <div>
                   <p className="text-[#111111] text-[13px] font-semibold">{title}</p>
