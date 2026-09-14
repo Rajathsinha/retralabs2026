@@ -4,6 +4,15 @@ import { CartProvider } from './context/CartContext';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import CrtClickEffect from './components/CrtClickEffect';
+
+// A stale page trying to load a chunk that no longer exists post-deploy throws
+// different wording per engine: Chromium/Firefox say "Failed to fetch
+// dynamically imported module" or similar; Safari/WebKit's fallback-to-HTML
+// case instead throws a MIME-type mismatch ('text/html' is not a valid
+// JavaScript MIME type) since the CDN serves index.html for the missing path.
+const CHUNK_ERROR_PATTERN =
+  /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|is not a valid JavaScript MIME type/i;
+
 // Helper to automatically recover from stale dynamic imports when new builds are deployed
 function lazyWithRetry<T extends React.ComponentType<any>>(
   factory: () => Promise<{ default: T }>
@@ -15,9 +24,7 @@ function lazyWithRetry<T extends React.ComponentType<any>>(
       const errMsg = err instanceof Error ? err.message : String(err);
       const isChunkError =
         (err as { name?: string })?.name === 'ChunkLoadError' ||
-        /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed/i.test(
-          errMsg
-        );
+        CHUNK_ERROR_PATTERN.test(errMsg);
 
       if (isChunkError) {
         const lastReload = sessionStorage.getItem('chunk_reload_ts');
@@ -64,9 +71,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryStat
   static getDerivedStateFromError(error: Error) {
     const isChunkError =
       error?.name === 'ChunkLoadError' ||
-      /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed/i.test(
-        error?.message || ''
-      );
+      CHUNK_ERROR_PATTERN.test(error?.message || '');
 
     if (isChunkError) {
       const lastReload = sessionStorage.getItem('chunk_reload_ts');
@@ -85,9 +90,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryStat
     if (this.state.hasError) {
       const isChunkError =
         this.state.error?.name === 'ChunkLoadError' ||
-        /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed/i.test(
-          this.state.error?.message || ''
-        );
+        CHUNK_ERROR_PATTERN.test(this.state.error?.message || '');
 
       return (
         <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4 font-sans">
