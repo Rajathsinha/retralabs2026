@@ -68,6 +68,35 @@ export function canonicalRegion(value: string | null | undefined): string | unde
   return undefined;
 }
 
+/**
+ * The five South Indian states. Orders delivering here keep the customer's
+ * own Express/Standard choice; everywhere else ships AIR regardless of what
+ * was selected (see resolveDeliveryMode).
+ */
+export const SOUTH_STATES: readonly string[] = [
+  'Andhra Pradesh', 'Karnataka', 'Kerala', 'Tamil Nadu', 'Telangana',
+];
+
+export function isSouthState(state: string | null | undefined): boolean {
+  const canonical = canonicalRegion(state);
+  return !!canonical && SOUTH_STATES.includes(canonical);
+}
+
+/**
+ * Business rule: every order ships AIR (Express) by default, no matter which
+ * delivery option the customer picked or paid for — except the South Indian
+ * states, where the customer's own Express/Standard choice is honoured.
+ */
+export function resolveDeliveryMode(
+  deliveryOption: 'normal' | 'fast' | undefined,
+  state: string | null | undefined,
+): 'AIR' | 'SURFACE' {
+  if (isSouthState(state)) {
+    return deliveryOption === 'fast' ? 'AIR' : 'SURFACE';
+  }
+  return 'AIR';
+}
+
 /** A syntactically valid Indian PIN: six digits, first digit 1-9. */
 export const PINCODE_RE = /^[1-9][0-9]{5}$/;
 

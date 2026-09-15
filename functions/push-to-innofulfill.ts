@@ -6,7 +6,7 @@ import {
   getInnofulfillToken,
   patchAirtableRecord,
 } from './order-shared';
-import { innofulfillServiceable } from './delivery-shared';
+import { innofulfillServiceable, resolveDeliveryMode } from './delivery-shared';
 
 export { getInnofulfillToken, createInnofulfillOrder };
 
@@ -115,6 +115,7 @@ export const handler = async (event: { httpMethod?: string; body?: string; heade
       pincode,
     };
     const isExpress = String(f.Delivery || '').toLowerCase().includes('express');
+    const deliveryMode = resolveDeliveryMode(isExpress ? 'fast' : 'normal', customer.state);
 
     let innoResult;
     try {
@@ -125,7 +126,7 @@ export const handler = async (event: { httpMethod?: string; body?: string; heade
         cartItems,
         total,
         isCod ? 'cod' : 'prepay',
-        isExpress ? 'fast' : undefined,
+        deliveryMode,
       );
     } catch (innoErr: unknown) {
       const errStr = innoErr instanceof Error ? innoErr.message : String(innoErr);
