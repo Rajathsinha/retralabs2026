@@ -269,7 +269,7 @@ export async function createInnofulfillOrder(
   cartItems: CartLineItem[],
   total: number,
   paymentMethod: 'prepay' | 'cod',
-  deliveryOption?: 'normal' | 'fast',
+  deliveryMode: 'AIR' | 'SURFACE',
 ): Promise<InnofulfillResult> {
   const phone = cleanPhone(customer.phone);
   const pickupName = process.env.INNOFULFILL_PICKUP_NAME || 'RetraLabs';
@@ -299,7 +299,7 @@ export async function createInnofulfillOrder(
     orderStatus: 'CONFIRMED',
     parcelCategory: 'ECOMM',
     deliveryPromise: 'ECOMM',
-    deliveryMode: deliveryOption === 'fast' ? 'AIR' : 'SURFACE',
+    deliveryMode,
     autoManifest: true,
     addresses: [
       { type: 'PICKUP', zip: pickupZip, name: pickupName, phone: pickupPhone, email: 'orders@retralabs.in', street: pickupAddress, city: pickupCity, state: pickupState, country: 'India' },
@@ -522,11 +522,13 @@ export async function processLogistics(
   // the call threw, so PINs Innofulfill simply does not cover could end up
   // with neither carrier. Routing is now decided up front.
   let routing: { expressAvailable: boolean; provider: 'Innofulfill' | 'Shiprocket'; indeterminate: boolean; reason?: string };
+  let deliveryMode: 'AIR' | 'SURFACE' = 'AIR';
   try {
     // Dynamic import: delivery-shared imports getInnofulfillToken from this
     // module, so a static import here would be circular.
-    const { routeShipment } = await import('./delivery-shared');
+    const { routeShipment, resolveDeliveryMode } = await import('./delivery-shared');
     routing = await routeShipment(body.customer?.pincode || '', body.paymentMethod);
+    deliveryMode = resolveDeliveryMode(body.deliveryOption, body.customer?.state);
   } catch (routeErr) {
     console.warn('[Logistics] Routing check failed, will try Innofulfill first:', routeErr);
     routing = { expressAvailable: true, provider: 'Innofulfill', indeterminate: true };
@@ -547,7 +549,7 @@ export async function processLogistics(
         body.cartItems,
         body.total,
         body.paymentMethod,
-        body.deliveryOption,
+        deliveryMode,
       );
       result = {
         innofulfillOrderId: inno.innofulfillOrderId,

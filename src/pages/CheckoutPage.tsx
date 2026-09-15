@@ -742,14 +742,6 @@ export default function CheckoutPage() {
             </div>
           )}
 
-          {/* Innofulfill warning (debug) */}
-          {snap?.innofulfillWarning && (
-            <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-4">
-              <p className="text-sm font-bold text-red-900 mb-1">Innofulfill Error</p>
-              <p className="text-xs text-red-700 leading-relaxed break-words">{snap.innofulfillWarning}</p>
-            </div>
-          )}
-
           {/* Order details */}
           <div className="bg-white rounded-2xl border border-[#E5E7EB] p-5 mb-4 shadow-sm">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#9CA3AF] mb-4">Your Order Details</p>
