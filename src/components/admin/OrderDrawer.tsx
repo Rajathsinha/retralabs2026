@@ -15,6 +15,8 @@ import {
   Wand2,
   CheckCircle2,
   RefreshCw,
+  Pencil,
+  Save,
 } from 'lucide-react';
 import { useEffect, useState, useMemo } from 'react';
 import { StatusBadge, DeliveryBadge, PaymentBadge, PaymentStatusBadge } from './badges';
@@ -32,15 +34,32 @@ interface OrderDrawerProps {
 
 const AIRTABLE_URL = 'https://airtable.com/appzoLMmoFxy53cKx/tbly4OWpkoz6E7OW0/viwi9NXrMheloOfuD?blocks=hide';
 
-function Section({ icon: Icon, title, children }: { icon: React.ComponentType<{ className?: string }>; title: string; children: React.ReactNode }) {
+function Section({ icon: Icon, title, action, children }: { icon: React.ComponentType<{ className?: string }>; title: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="px-5 py-4 border-b border-slate-100">
-      <div className="flex items-center gap-2 mb-2.5">
-        <Icon className="w-4 h-4 text-slate-400" />
-        <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">{title}</h4>
+      <div className="flex items-center justify-between gap-2 mb-2.5">
+        <div className="flex items-center gap-2">
+          <Icon className="w-4 h-4 text-slate-400" />
+          <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">{title}</h4>
+        </div>
+        {action}
       </div>
       {children}
     </div>
+  );
+}
+
+function EditField({ label, value, onChange, type = 'text' }: { label: string; value: string; onChange: (v: string) => void; type?: string }) {
+  return (
+    <label className="block mb-2.5 last:mb-0">
+      <span className="block text-xs text-slate-500 mb-1">{label}</span>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full text-sm font-medium text-slate-900 border border-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10 transition-all"
+      />
+    </label>
   );
 }
 
@@ -90,6 +109,13 @@ export function OrderDrawer({
   const [sessionPushedShiprocket, setSessionPushedShiprocket] = useState(false);
   const [sessionPushedInnofulfill, setSessionPushedInnofulfill] = useState(false);
   const [pushSuccessMsg, setPushSuccessMsg] = useState<string | null>(null);
+  const [editingContact, setEditingContact] = useState(false);
+  const [savingContact, setSavingContact] = useState(false);
+  const [contactSaveError, setContactSaveError] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editAddress, setEditAddress] = useState('');
 
   useEffect(() => {
     setLocalRecord(record);
@@ -97,6 +123,8 @@ export function OrderDrawer({
     setSessionPushedShiprocket(false);
     setSessionPushedInnofulfill(false);
     setPushSuccessMsg(null);
+    setEditingContact(false);
+    setContactSaveError(null);
   }, [record]);
 
   useEffect(() => {
@@ -337,6 +365,45 @@ export function OrderDrawer({
     }
   };
 
+  const startEditingContact = () => {
+    setEditName(String(f['Name'] ?? ''));
+    setEditPhone(String(f['Phone'] ?? ''));
+    setEditEmail(String(f['Email'] ?? ''));
+    setEditAddress(String(f['Address'] ?? ''));
+    setContactSaveError(null);
+    setEditingContact(true);
+  };
+
+  const handleSaveContact = async () => {
+    if (!editName.trim() || !editAddress.trim()) {
+      setContactSaveError('Name and address cannot be empty.');
+      return;
+    }
+    setSavingContact(true);
+    setContactSaveError(null);
+    try {
+      const updates = {
+        Name: editName.trim(),
+        Phone: editPhone.trim(),
+        Email: editEmail.trim(),
+        Address: editAddress.trim(),
+      };
+      const res = await updateAdminOrders([{ id: activeRecord.id, fields: updates }]);
+      if (!res.success) {
+        throw new Error(res.error || 'Update failed');
+      }
+      setLocalRecord((prev) =>
+        prev ? { ...prev, fields: { ...prev.fields, ...updates } } : null
+      );
+      setEditingContact(false);
+      await onOrderUpdated?.();
+    } catch (err) {
+      setContactSaveError(String(err instanceof Error ? err.message : err));
+    } finally {
+      setSavingContact(false);
+    }
+  };
+
   const handleVerifyPayment = async () => {
     if (!window.confirm('Confirm that payment proof has been verified for this order?')) return;
     setVerifying(true);
@@ -463,15 +530,72 @@ export function OrderDrawer({
             </div>
           )}
 
-          <Section icon={User} title="Customer">
-            <Row label="Name" value={String(f['Name'] ?? '—')} />
-            <Row label="Phone" value={phone || '—'} />
-            <Row label="Email" value={String(f['Email'] ?? '—')} />
-            <Row label="Referral" value={String(f['Referral'] ?? '—')} />
+          <Section
+            icon={User}
+            title="Customer"
+            action={!editingContact && (
+              <button
+                type="button"
+                onClick={startEditingContact}
+                className="flex items-center gap-1 text-xs font-semibold text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
+              >
+                <Pencil className="w-3.5 h-3.5" /> Edit
+              </button>
+            )}
+          >
+            {editingContact ? (
+              <>
+                <EditField label="Name" value={editName} onChange={setEditName} />
+                <EditField label="Phone" value={editPhone} onChange={setEditPhone} type="tel" />
+                <EditField label="Email" value={editEmail} onChange={setEditEmail} type="email" />
+              </>
+            ) : (
+              <>
+                <Row label="Name" value={String(f['Name'] ?? '—')} />
+                <Row label="Phone" value={phone || '—'} />
+                <Row label="Email" value={String(f['Email'] ?? '—')} />
+                <Row label="Referral" value={String(f['Referral'] ?? '—')} />
+              </>
+            )}
           </Section>
 
           <Section icon={MapPin} title="Address">
-            <p className="text-sm text-slate-900 font-medium leading-relaxed">{address || '—'}</p>
+            {editingContact ? (
+              <>
+                <label className="block">
+                  <span className="block text-xs text-slate-500 mb-1">Street, city, state &amp; PIN code</span>
+                  <textarea
+                    value={editAddress}
+                    onChange={(e) => setEditAddress(e.target.value)}
+                    rows={3}
+                    className="w-full text-sm font-medium text-slate-900 border border-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10 transition-all resize-y"
+                  />
+                </label>
+                {contactSaveError && (
+                  <p className="mt-2 text-xs text-rose-600 bg-rose-50 rounded-lg px-3 py-2">{contactSaveError}</p>
+                )}
+                <div className="flex gap-2 mt-3">
+                  <button
+                    type="button"
+                    onClick={handleSaveContact}
+                    disabled={savingContact}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-[#2563EB] text-white text-sm font-semibold hover:bg-[#1D4ED8] transition-colors disabled:opacity-50"
+                  >
+                    <Save className="w-3.5 h-3.5" /> {savingContact ? 'Saving…' : 'Save'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setEditingContact(false); setContactSaveError(null); }}
+                    disabled={savingContact}
+                    className="px-3 py-2 rounded-lg border border-slate-300 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-slate-900 font-medium leading-relaxed">{address || '—'}</p>
+            )}
           </Section>
 
           <Section icon={FileText} title="Products">
