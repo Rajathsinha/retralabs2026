@@ -64,31 +64,51 @@ export const handler = async (event: any) => {
 
     // Airtable limits batch updates to 10 records per request
     for (let i = 0; i < updates.length; i += 10) {
-      const chunk = updates.slice(i, i + 10);
+      // Mutated in place if a field turns out not to exist in the base —
+      // stripped and retried rather than failing the whole chunk (which
+      // would otherwise also block every other field in the same save,
+      // e.g. losing a Name/Phone/Email edit just because a Pincode column
+      // doesn't exist yet).
+      const chunk = updates.slice(i, i + 10).map((u) => ({ id: u.id, fields: { ...u.fields } }));
       const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}`;
 
       try {
-        const res = await fetch(url, {
-          method: 'PATCH',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            records: chunk,
-            typecast: true,
-          }),
-        });
+        let lastErrMsg = '';
+        let ok = false;
+        for (let attempt = 0; attempt < 5; attempt++) {
+          const res = await fetch(url, {
+            method: 'PATCH',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              records: chunk,
+              typecast: true,
+            }),
+          });
 
-        if (!res.ok) {
+          if (res.ok) {
+            const resJson = await res.json().catch(() => ({}));
+            const count = Array.isArray(resJson.records) ? resJson.records.length : chunk.length;
+            totalUpdated += count;
+            ok = true;
+            break;
+          }
+
           const errJson = await res.json().catch(() => ({}));
-          const errMsg = errJson?.error?.message || errJson?.error || `Airtable HTTP ${res.status}`;
-          console.error(`[AdminUpdateOrders] Batch error: ${errMsg}`);
-          failedBatches.push({ ids: chunk.map((c) => c.id), error: errMsg });
-        } else {
-          const resJson = await res.json().catch(() => ({}));
-          const count = Array.isArray(resJson.records) ? resJson.records.length : chunk.length;
-          totalUpdated += count;
+          lastErrMsg = errJson?.error?.message || errJson?.error || `Airtable HTTP ${res.status}`;
+          const unknownMatch = String(lastErrMsg).match(/Unknown field name: ["']?([^"')]+)["']?/i);
+          if (unknownMatch) {
+            for (const rec of chunk) delete rec.fields[unknownMatch[1]];
+            continue;
+          }
+          break;
+        }
+
+        if (!ok) {
+          console.error(`[AdminUpdateOrders] Batch error: ${lastErrMsg}`);
+          failedBatches.push({ ids: chunk.map((c) => c.id), error: lastErrMsg });
         }
       } catch (batchErr) {
         const errMsg = batchErr instanceof Error ? batchErr.message : String(batchErr);
