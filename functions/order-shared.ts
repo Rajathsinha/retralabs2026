@@ -356,7 +356,7 @@ export async function createInnofulfillOrder(
 
 let cachedShiprocketToken: { token: string; expiresAt: number } | null = null;
 
-async function getShiprocketToken(): Promise<string | null> {
+export async function getShiprocketToken(): Promise<string | null> {
   const email = (process.env.SHIPROCKET_EMAIL || process.env.VITE_SHIPROCKET_EMAIL || '').trim();
   const password = (process.env.SHIPROCKET_PASSWORD || process.env.VITE_SHIPROCKET_PASSWORD || '').trim();
   if (!email || !password) return null;
@@ -367,9 +367,11 @@ async function getShiprocketToken(): Promise<string | null> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
   });
-  if (!res.ok) throw new Error(`Shiprocket auth failed: HTTP ${res.status}`);
-  const json: { token?: string } = await res.json().catch(() => ({}));
-  if (!json?.token) return null;
+  const json: { token?: string; message?: string; errors?: unknown } = await res.json().catch(() => ({}));
+  if (!res.ok || !json?.token) {
+    const detail = json?.message || (json?.errors ? JSON.stringify(json.errors) : `HTTP ${res.status}`);
+    throw new Error(`Shiprocket auth failed: ${detail}`);
+  }
   cachedShiprocketToken = { token: json.token, expiresAt: Date.now() + 9 * 24 * 60 * 60 * 1000 };
   return json.token;
 }

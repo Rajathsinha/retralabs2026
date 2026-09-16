@@ -1,4 +1,5 @@
 import { requireAdmin } from './admin-auth';
+import { getShiprocketToken } from './order-shared';
 
 
 const corsHeaders = {
@@ -43,23 +44,14 @@ export const handler = async (event) => {
     const record = await getRes.json();
     const f = record.fields;
 
-    // 3. Authenticate with Shiprocket
-    const email = (process.env.SHIPROCKET_EMAIL || process.env.VITE_SHIPROCKET_EMAIL || '').trim();
-    const password = (process.env.SHIPROCKET_PASSWORD || process.env.VITE_SHIPROCKET_PASSWORD || '').trim();
+    // 3. Authenticate with Shiprocket — via the shared, cached helper (token
+    // is reused for 9 days) rather than logging in fresh on every push.
+    // Shiprocket's login endpoint throttles repeated calls, so a separate
+    // uncached login here was the likely cause of intermittent auth failures.
     const pickupLocation = (process.env.SHIPROCKET_PICKUP_LOCATION || process.env.VITE_SHIPROCKET_PICKUP_LOCATION || 'Rajath').trim();
-
-    if (!email || !password) {
+    const shiprocketToken = await getShiprocketToken();
+    if (!shiprocketToken) {
       throw new Error('Shiprocket credentials are not configured');
-    }
-
-    const srAuth = await fetch('https://apiv2.shiprocket.in/v1/external/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    }).then(r => r.json());
-
-    if (!srAuth.token) {
-      throw new Error('Failed to authenticate with Shiprocket');
     }
 
     // 4. Create Shiprocket Order
@@ -122,7 +114,7 @@ export const handler = async (event) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${srAuth.token}`,
+        Authorization: `Bearer ${shiprocketToken}`,
       },
       body: JSON.stringify(srPayload),
     });
