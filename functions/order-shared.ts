@@ -1,3 +1,5 @@
+import { generateAwbAssignedEmail } from './email-template';
+
 export const PAYMENT_SESSION_SECONDS = 300;
 
 export const PAYMENT_STATUS = {
@@ -47,6 +49,7 @@ export interface OrderFields {
   'Shipment Status'?: string;
   'Shipment Created At'?: string;
   'Innofulfill Error'?: string;
+  'AWB Email Sent'?: string;
 }
 
 export interface CartLineItem {
@@ -565,6 +568,14 @@ export async function processLogistics(
         warning: null,
       };
       await applyLogisticsPatch(baseId, table, token, recordId, result, 'Innofulfill');
+      if (result.awbNumber && !existingJson?.fields?.['AWB Email Sent']) {
+        await sendAwbAssignedEmail(
+          baseId, table, token, recordId,
+          body.customer, orderId, result.awbNumber,
+          result.carrierDisplayName || result.carrierName || 'Innofulfill',
+          result.trackingUrl,
+        );
+      }
       return result;
     }
     if (routing.provider === 'Innofulfill') warning = 'Innofulfill credentials not configured';
@@ -591,6 +602,14 @@ export async function processLogistics(
         warning,
       };
       await applyLogisticsPatch(baseId, table, token, recordId, result, 'Shiprocket');
+      if (result.awbNumber && !existingJson?.fields?.['AWB Email Sent']) {
+        await sendAwbAssignedEmail(
+          baseId, table, token, recordId,
+          body.customer, orderId, result.awbNumber,
+          result.carrierDisplayName || result.carrierName || 'Shiprocket',
+          result.trackingUrl,
+        );
+      }
       return result;
     }
     warning = `${warning || 'Innofulfill failed'}; Shiprocket not configured`;
@@ -641,4 +660,58 @@ async function applyLogisticsPatch(
   }
   if (result.trackingUrl) updateFields['Tracking URL'] = result.trackingUrl;
   await patchAirtableRecord(baseId, table, token, recordId, updateFields);
+}
+
+/**
+ * Emails the customer their AWB/tracking number once one has actually been
+ * assigned. Never throws — a failed notification email must never break
+ * order or logistics processing, so failures are logged and swallowed.
+ * Callers are responsible for the "already sent" guard (an 'AWB Email Sent'
+ * field on the record) so this never fires twice for the same order.
+ */
+export async function sendAwbAssignedEmail(
+  baseId: string,
+  table: string,
+  token: string,
+  recordId: string,
+  customer: { name: string; email: string },
+  orderId: string,
+  awbNumber: string,
+  courierName: string,
+  trackingUrl?: string | null,
+): Promise<void> {
+  try {
+    const apiKey = (process.env.BREVO_API_KEY || '').trim();
+    if (!apiKey || !customer.email) return;
+
+    const htmlContent = generateAwbAssignedEmail({
+      orderId,
+      name: customer.name || 'Customer',
+      awbNumber,
+      courierName: courierName || 'Courier',
+      trackingUrl,
+    });
+
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: { accept: 'application/json', 'content-type': 'application/json', 'api-key': apiKey },
+      body: JSON.stringify({
+        sender: { name: 'RetraLabs', email: 'orders@retralabs.in' },
+        to: [{ email: customer.email, name: customer.name || 'Customer' }],
+        subject: `Your RetraLabs order #${orderId} has shipped — AWB ${awbNumber}`,
+        htmlContent,
+      }),
+    });
+
+    if (!res.ok) {
+      console.error(`[AwbEmail] Brevo send failed for ${orderId}: HTTP ${res.status}`);
+      return;
+    }
+
+    await patchAirtableRecord(baseId, table, token, recordId, {
+      'AWB Email Sent': new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error(`[AwbEmail] Failed to send for ${orderId}:`, err);
+  }
 }

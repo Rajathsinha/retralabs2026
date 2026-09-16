@@ -343,3 +343,117 @@ export function generateOrderConfirmationEmail(order: OrderData): string {
 </body>
 </html>`;
 }
+
+// ── AWB / shipment-dispatched email ─────────────────────────────────────────
+
+export interface AwbEmailData {
+  orderId: string;
+  name: string;
+  awbNumber: string;
+  courierName: string;
+  trackingUrl?: string | null;
+}
+
+export function generateAwbAssignedEmail(order: AwbEmailData): string {
+  const firstName = escapeHtml(order.name.split(' ')[0] || order.name);
+  const trackHref = order.trackingUrl || `https://retralabs.in/track?orderId=${encodeURIComponent(order.orderId)}`;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Your Order Has Shipped</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background-color:#f8fafc;">
+    <tr>
+      <td align="center" style="padding:24px 12px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="border-collapse:collapse;max-width:600px;width:100%;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+
+          <!-- Logo -->
+          <tr>
+            <td align="center" style="padding:32px 24px 20px;">
+              <img src="https://retralabs.in/favicon.png" alt="RetraLabs" width="48" height="48" style="display:block;margin:0 auto 8px;width:48px;height:48px;border-radius:10px;" />
+              <div style="font-size:28px;font-weight:800;color:#1e3a8a;letter-spacing:-0.5px;">RetraLabs</div>
+            </td>
+          </tr>
+
+          <!-- Shipped banner -->
+          <tr>
+            <td style="padding:0 24px;">
+              <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:20px;text-align:center;">
+                <div style="display:inline-block;width:40px;height:40px;background:#1e3a8a;border-radius:50%;line-height:40px;color:#ffffff;font-size:20px;font-weight:700;vertical-align:middle;">&#128666;</div>
+                <div style="font-size:20px;font-weight:700;color:#1e3a8a;margin-top:10px;">Your Order Has Shipped</div>
+                <div style="font-size:13px;color:#1d4ed8;margin-top:4px;">Order #${escapeHtml(order.orderId)}</div>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Greeting -->
+          <tr>
+            <td style="padding:28px 24px 8px;">
+              <div style="font-size:18px;font-weight:700;color:#0f172a;">Hi ${firstName},</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 24px 24px;">
+              <div style="font-size:15px;line-height:1.6;color:#475569;">
+                Your order is on its way. Here's your courier tracking number.
+              </div>
+            </td>
+          </tr>
+
+          <!-- AWB card -->
+          <tr>
+            <td style="padding:0 24px 8px;">
+              <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;">
+                ${infoCard([
+                  { label: 'AWB / Tracking No.', value: order.awbNumber },
+                  { label: 'Courier', value: order.courierName },
+                  { label: 'Order ID', value: order.orderId },
+                ])}
+              </div>
+            </td>
+          </tr>
+
+          <!-- Track Order CTA -->
+          <tr>
+            <td style="padding:24px 24px 8px;" align="center">
+              <a href="${trackHref}" style="display:inline-block;background:#1e3a8a;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:10px;">
+                Track Shipment
+              </a>
+            </td>
+          </tr>
+
+          <!-- Support section -->
+          <tr>
+            <td style="padding:24px;">
+              <div style="background:#1e3a8a;border-radius:12px;padding:24px;text-align:center;">
+                <div style="font-size:15px;font-weight:700;color:#ffffff;margin-bottom:8px;">Need Help?</div>
+                <div style="font-size:13px;color:#bfdbfe;line-height:1.6;">
+                  Reply to this email or reach us at<br>
+                  <a href="mailto:orders@retralabs.in" style="color:#ffffff;font-weight:600;text-decoration:underline;">orders@retralabs.in</a>
+                </div>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:24px;border-top:1px solid #e2e8f0;">
+              <div style="font-size:12px;color:#94a3b8;text-align:center;line-height:1.6;">
+                &copy; ${new Date().getFullYear()} RetraLabs. All rights reserved.<br>
+                This email was sent regarding your order #${escapeHtml(order.orderId)}.
+              </div>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
