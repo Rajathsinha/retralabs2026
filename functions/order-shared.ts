@@ -1,3 +1,5 @@
+import { generateAwbAssignedEmail } from './email-template';
+
 export const PAYMENT_SESSION_SECONDS = 300;
 
 export const PAYMENT_STATUS = {
@@ -47,6 +49,7 @@ export interface OrderFields {
   'Shipment Status'?: string;
   'Shipment Created At'?: string;
   'Innofulfill Error'?: string;
+  'AWB Email Sent'?: string;
 }
 
 export interface CartLineItem {
@@ -269,7 +272,7 @@ export async function createInnofulfillOrder(
   cartItems: CartLineItem[],
   total: number,
   paymentMethod: 'prepay' | 'cod',
-  deliveryOption?: 'normal' | 'fast',
+  deliveryMode: 'AIR' | 'SURFACE',
 ): Promise<InnofulfillResult> {
   const phone = cleanPhone(customer.phone);
   const pickupName = process.env.INNOFULFILL_PICKUP_NAME || 'RetraLabs';
@@ -299,7 +302,7 @@ export async function createInnofulfillOrder(
     orderStatus: 'CONFIRMED',
     parcelCategory: 'ECOMM',
     deliveryPromise: 'ECOMM',
-    deliveryMode: deliveryOption === 'fast' ? 'AIR' : 'SURFACE',
+    deliveryMode,
     autoManifest: true,
     addresses: [
       { type: 'PICKUP', zip: pickupZip, name: pickupName, phone: pickupPhone, email: 'orders@retralabs.in', street: pickupAddress, city: pickupCity, state: pickupState, country: 'India' },
@@ -356,7 +359,7 @@ export async function createInnofulfillOrder(
 
 let cachedShiprocketToken: { token: string; expiresAt: number } | null = null;
 
-async function getShiprocketToken(): Promise<string | null> {
+export async function getShiprocketToken(): Promise<string | null> {
   const email = (process.env.SHIPROCKET_EMAIL || process.env.VITE_SHIPROCKET_EMAIL || '').trim();
   const password = (process.env.SHIPROCKET_PASSWORD || process.env.VITE_SHIPROCKET_PASSWORD || '').trim();
   if (!email || !password) return null;
@@ -367,9 +370,11 @@ async function getShiprocketToken(): Promise<string | null> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
   });
-  if (!res.ok) throw new Error(`Shiprocket auth failed: HTTP ${res.status}`);
-  const json: { token?: string } = await res.json().catch(() => ({}));
-  if (!json?.token) return null;
+  const json: { token?: string; message?: string; errors?: unknown } = await res.json().catch(() => ({}));
+  if (!res.ok || !json?.token) {
+    const detail = json?.message || (json?.errors ? JSON.stringify(json.errors) : `HTTP ${res.status}`);
+    throw new Error(`Shiprocket auth failed: ${detail}`);
+  }
   cachedShiprocketToken = { token: json.token, expiresAt: Date.now() + 9 * 24 * 60 * 60 * 1000 };
   return json.token;
 }
@@ -522,11 +527,13 @@ export async function processLogistics(
   // the call threw, so PINs Innofulfill simply does not cover could end up
   // with neither carrier. Routing is now decided up front.
   let routing: { expressAvailable: boolean; provider: 'Innofulfill' | 'Shiprocket'; indeterminate: boolean; reason?: string };
+  let deliveryMode: 'AIR' | 'SURFACE' = 'AIR';
   try {
     // Dynamic import: delivery-shared imports getInnofulfillToken from this
     // module, so a static import here would be circular.
-    const { routeShipment } = await import('./delivery-shared');
+    const { routeShipment, resolveDeliveryMode } = await import('./delivery-shared');
     routing = await routeShipment(body.customer?.pincode || '', body.paymentMethod);
+    deliveryMode = resolveDeliveryMode(body.deliveryOption, body.customer?.state);
   } catch (routeErr) {
     console.warn('[Logistics] Routing check failed, will try Innofulfill first:', routeErr);
     routing = { expressAvailable: true, provider: 'Innofulfill', indeterminate: true };
@@ -547,7 +554,7 @@ export async function processLogistics(
         body.cartItems,
         body.total,
         body.paymentMethod,
-        body.deliveryOption,
+        deliveryMode,
       );
       result = {
         innofulfillOrderId: inno.innofulfillOrderId,
@@ -561,6 +568,14 @@ export async function processLogistics(
         warning: null,
       };
       await applyLogisticsPatch(baseId, table, token, recordId, result, 'Innofulfill');
+      if (result.awbNumber && !existingJson?.fields?.['AWB Email Sent']) {
+        await sendAwbAssignedEmail(
+          baseId, table, token, recordId,
+          body.customer, orderId, result.awbNumber,
+          result.carrierDisplayName || result.carrierName || 'Innofulfill',
+          result.trackingUrl,
+        );
+      }
       return result;
     }
     if (routing.provider === 'Innofulfill') warning = 'Innofulfill credentials not configured';
@@ -587,6 +602,14 @@ export async function processLogistics(
         warning,
       };
       await applyLogisticsPatch(baseId, table, token, recordId, result, 'Shiprocket');
+      if (result.awbNumber && !existingJson?.fields?.['AWB Email Sent']) {
+        await sendAwbAssignedEmail(
+          baseId, table, token, recordId,
+          body.customer, orderId, result.awbNumber,
+          result.carrierDisplayName || result.carrierName || 'Shiprocket',
+          result.trackingUrl,
+        );
+      }
       return result;
     }
     warning = `${warning || 'Innofulfill failed'}; Shiprocket not configured`;
@@ -637,4 +660,58 @@ async function applyLogisticsPatch(
   }
   if (result.trackingUrl) updateFields['Tracking URL'] = result.trackingUrl;
   await patchAirtableRecord(baseId, table, token, recordId, updateFields);
+}
+
+/**
+ * Emails the customer their AWB/tracking number once one has actually been
+ * assigned. Never throws — a failed notification email must never break
+ * order or logistics processing, so failures are logged and swallowed.
+ * Callers are responsible for the "already sent" guard (an 'AWB Email Sent'
+ * field on the record) so this never fires twice for the same order.
+ */
+export async function sendAwbAssignedEmail(
+  baseId: string,
+  table: string,
+  token: string,
+  recordId: string,
+  customer: { name: string; email: string },
+  orderId: string,
+  awbNumber: string,
+  courierName: string,
+  trackingUrl?: string | null,
+): Promise<void> {
+  try {
+    const apiKey = (process.env.BREVO_API_KEY || '').trim();
+    if (!apiKey || !customer.email) return;
+
+    const htmlContent = generateAwbAssignedEmail({
+      orderId,
+      name: customer.name || 'Customer',
+      awbNumber,
+      courierName: courierName || 'Courier',
+      trackingUrl,
+    });
+
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: { accept: 'application/json', 'content-type': 'application/json', 'api-key': apiKey },
+      body: JSON.stringify({
+        sender: { name: 'RetraLabs', email: 'orders@retralabs.in' },
+        to: [{ email: customer.email, name: customer.name || 'Customer' }],
+        subject: `Your RetraLabs order #${orderId} has shipped — AWB ${awbNumber}`,
+        htmlContent,
+      }),
+    });
+
+    if (!res.ok) {
+      console.error(`[AwbEmail] Brevo send failed for ${orderId}: HTTP ${res.status}`);
+      return;
+    }
+
+    await patchAirtableRecord(baseId, table, token, recordId, {
+      'AWB Email Sent': new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error(`[AwbEmail] Failed to send for ${orderId}:`, err);
+  }
 }

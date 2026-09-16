@@ -6,6 +6,7 @@ import {
   isFakeAwb,
   patchAirtableRecord,
   sanitizeAwb,
+  sendAwbAssignedEmail,
   SHIPMENT_STATUS,
 } from './order-shared';
 
@@ -154,6 +155,19 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
                 'Shipment Status': SHIPMENT_STATUS.AWB_ASSIGNED,
                 ...(courierName ? { 'Carrier Display Name': courierName, Courier: courierName } : {}),
               });
+              // AWB just became available (it was pending at order time) —
+              // notify the customer now rather than leaving them to keep
+              // checking Track Order themselves.
+              if (!f['AWB Email Sent']) {
+                // trackingUrl isn't resolved yet at this point in the handler
+                // (it's fetched further below) — the email template falls
+                // back to our own /track page when this is null.
+                await sendAwbAssignedEmail(
+                  baseId, table, token, recordId,
+                  { name: String(f.Name || 'Customer'), email: String(f.Email || '') },
+                  String(f.orderID || targetOrderId), awbNumber, courierName || 'Courier', null,
+                );
+              }
             }
           }
         }
