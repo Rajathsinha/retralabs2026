@@ -34,6 +34,21 @@ interface OrderDrawerProps {
 
 const AIRTABLE_URL = 'https://airtable.com/appzoLMmoFxy53cKx/tbly4OWpkoz6E7OW0/viwi9NXrMheloOfuD?blocks=hide';
 
+/**
+ * Best-effort PIN guess to pre-fill the edit form — mirrors
+ * extractPincodeFromAddress in functions/delivery-shared.ts (duplicated
+ * rather than shared, since this runs in the browser bundle and that one
+ * runs in the Cloudflare Functions bundle). Prefers a labelled "PIN: xxxxxx",
+ * falls back to the LAST bare 6-digit number so a stale PIN earlier in the
+ * text (e.g. left over from a previous edit) doesn't win over the real one.
+ */
+function guessPincode(address: string): string {
+  const labelled = address.match(/PIN:?\s*([1-9][0-9]{5})/i);
+  if (labelled) return labelled[1];
+  const bare = address.match(/\b[1-9][0-9]{5}\b/g);
+  return bare?.[bare.length - 1] ?? '';
+}
+
 function Section({ icon: Icon, title, action, children }: { icon: React.ComponentType<{ className?: string }>; title: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="px-5 py-4 border-b border-slate-100">
@@ -116,6 +131,7 @@ export function OrderDrawer({
   const [editPhone, setEditPhone] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editAddress, setEditAddress] = useState('');
+  const [editPincode, setEditPincode] = useState('');
 
   useEffect(() => {
     setLocalRecord(record);
@@ -369,7 +385,10 @@ export function OrderDrawer({
     setEditName(String(f['Name'] ?? ''));
     setEditPhone(String(f['Phone'] ?? ''));
     setEditEmail(String(f['Email'] ?? ''));
-    setEditAddress(String(f['Address'] ?? ''));
+    const rawAddress = String(f['Address'] ?? '');
+    setEditAddress(rawAddress);
+    const explicitPin = String(f['Pincode'] ?? f['PIN'] ?? '').trim();
+    setEditPincode(/^[1-9][0-9]{5}$/.test(explicitPin) ? explicitPin : guessPincode(rawAddress));
     setContactSaveError(null);
     setEditingContact(true);
   };
@@ -377,6 +396,10 @@ export function OrderDrawer({
   const handleSaveContact = async () => {
     if (!editName.trim() || !editAddress.trim()) {
       setContactSaveError('Name and address cannot be empty.');
+      return;
+    }
+    if (editPincode.trim() && !/^[1-9][0-9]{5}$/.test(editPincode.trim())) {
+      setContactSaveError('PIN code must be exactly 6 digits.');
       return;
     }
     setSavingContact(true);
@@ -387,6 +410,7 @@ export function OrderDrawer({
         Phone: editPhone.trim(),
         Email: editEmail.trim(),
         Address: editAddress.trim(),
+        Pincode: editPincode.trim(),
       };
       const res = await updateAdminOrders([{ id: activeRecord.id, fields: updates }]);
       if (!res.success) {
@@ -571,6 +595,7 @@ export function OrderDrawer({
                     className="w-full text-sm font-medium text-slate-900 border border-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10 transition-all resize-y"
                   />
                 </label>
+                <EditField label="PIN Code (used for courier serviceability — takes priority over any number in the address text above)" value={editPincode} onChange={setEditPincode} type="tel" />
                 {contactSaveError && (
                   <p className="mt-2 text-xs text-rose-600 bg-rose-50 rounded-lg px-3 py-2">{contactSaveError}</p>
                 )}

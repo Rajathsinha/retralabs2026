@@ -1,5 +1,6 @@
 import { requireAdmin } from './admin-auth';
 import { getShiprocketToken } from './order-shared';
+import { extractPincodeFromAddress } from './delivery-shared';
 
 
 const corsHeaders = {
@@ -82,7 +83,11 @@ export const handler = async (event) => {
       billing_last_name: '',
       billing_address: String(f['Address'] || 'No address'),
       billing_city: String(f['City'] || '').trim() || (String(f['Address'] || '').toLowerCase().includes('delhi') ? 'New Delhi' : 'Bengaluru'),
-      billing_pincode: String(f['Address'] || '').match(/\b\d{6}\b/)?.[0] || '110001',
+      billing_pincode: (() => {
+        const explicit = String(f['Pincode'] || f['PIN'] || '').trim();
+        if (/^[1-9][0-9]{5}$/.test(explicit)) return explicit;
+        return extractPincodeFromAddress(String(f['Address'] || '')) || '110001';
+      })(),
       billing_state: String(f['State'] || '').trim() || (String(f['Address'] || '').toLowerCase().includes('delhi') ? 'Delhi' : 'Karnataka'),
       billing_country: 'India',
       billing_email: String(f['Email'] || 'manual@retralabs.in'),

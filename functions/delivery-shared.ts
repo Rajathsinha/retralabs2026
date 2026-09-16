@@ -100,6 +100,26 @@ export function resolveDeliveryMode(
 /** A syntactically valid Indian PIN: six digits, first digit 1-9. */
 export const PINCODE_RE = /^[1-9][0-9]{5}$/;
 
+/**
+ * Pulls a PIN code out of a free-text address.
+ *
+ * Prefers an explicitly labelled "PIN: xxxxxx" (how checkout writes it —
+ * see CheckoutPage.tsx and email-template.ts). Falls back to the LAST bare
+ * 6-digit number in the text, not the first: addresses often contain other
+ * 6-digit-looking numbers earlier on (a stale PIN left over from an edit, a
+ * building/plot number, etc.), and the actual PIN is conventionally the
+ * last thing in an Indian address. Grabbing the first match silently picks
+ * up stale data after an address edit that appends a correction instead of
+ * replacing the old PIN in place.
+ */
+export function extractPincodeFromAddress(address: string | null | undefined): string | undefined {
+  const text = String(address ?? '');
+  const labelled = text.match(/PIN:?\s*([1-9][0-9]{5})/i);
+  if (labelled) return labelled[1];
+  const bare = text.match(/\b[1-9][0-9]{5}\b/g);
+  return bare?.[bare.length - 1];
+}
+
 export function isValidPincodeFormat(pincode: unknown): pincode is string {
   return typeof pincode === 'string' && PINCODE_RE.test(pincode.trim());
 }

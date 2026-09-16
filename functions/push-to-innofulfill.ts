@@ -6,7 +6,7 @@ import {
   getInnofulfillToken,
   patchAirtableRecord,
 } from './order-shared';
-import { innofulfillServiceable, resolveDeliveryMode } from './delivery-shared';
+import { innofulfillServiceable, resolveDeliveryMode, extractPincodeFromAddress } from './delivery-shared';
 
 export { getInnofulfillToken, createInnofulfillOrder };
 
@@ -61,7 +61,7 @@ export const handler = async (event: { httpMethod?: string; body?: string; heade
 
     // ── 2. Pincode Extraction & Validation ──────────────────────────────────
     const rawPincode = String(f.Pincode || f.PIN || '').trim();
-    const matchedPincode = String(f.Address || '').match(/\b\d{6}\b/)?.[0];
+    const matchedPincode = extractPincodeFromAddress(String(f.Address || ''));
     const pincode = /^\d{6}$/.test(rawPincode) ? rawPincode : (matchedPincode || '');
 
     if (!pincode) {
