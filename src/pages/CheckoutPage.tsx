@@ -216,6 +216,8 @@ export default function CheckoutPage() {
   const [showQrModal, setShowQrModal] = useState(false);
   const [paymentSession, setPaymentSession] = useState<{ recordId: string; orderId: string; expiresAt: string | null } | null>(null);
   const [startingPayment, setStartingPayment] = useState(false);
+  const [stillConnecting, setStillConnecting] = useState(false);
+  const stillConnectingTimer = useRef<number | null>(null);
   const [submitError,   setSubmitError]   = useState<string | null>(null); // fatal: order not saved
   const [notifyWarning, setNotifyWarning] = useState<string | null>(null); // order saved, confirmations failed
   const [orderSnapshot, setOrderSnapshot] = useState<{
@@ -484,8 +486,12 @@ export default function CheckoutPage() {
 
   const handleOpenQrModal = async () => {
     if (startingPayment) return;
+    // Set instantly, before any await, so the button reacts within a frame
+    // instead of leaving the screen looking frozen while the network call runs.
     setStartingPayment(true);
+    setStillConnecting(false);
     setSubmitError(null);
+    stillConnectingTimer.current = window.setTimeout(() => setStillConnecting(true), 5000);
     try {
       const itemsSummary = cart
         .map(i => `${i.product.name} ${i.variant.dosage_mg}mg x${i.quantity} = ₹${(i.variant.price_inr * i.quantity).toLocaleString('en-IN')}`)
@@ -500,9 +506,11 @@ export default function CheckoutPage() {
       });
       setShowQrModal(true);
     } catch (err) {
-      setSubmitError(`Could not start payment session — ${describeError(err)}`);
+      setSubmitError(`Could not start payment session — ${describeError(err)}. Please try again.`);
     } finally {
+      if (stillConnectingTimer.current) { window.clearTimeout(stillConnectingTimer.current); stillConnectingTimer.current = null; }
       setStartingPayment(false);
+      setStillConnecting(false);
     }
   };
 
@@ -615,8 +623,11 @@ export default function CheckoutPage() {
       setShowQrModal(false);
       setOrderSent(true);
     } catch (err) {
-      setShowQrModal(false);
-      setSubmitError(`Your payment reference (${txnRef}) was received but the order could not be saved — ${describeError(err)}. Please message us on WhatsApp with this reference so we can record your order manually.`);
+      // Don't close the modal or blank the screen — the customer's UTR and
+      // screenshot are still filled in. Surface the error inside the modal
+      // (via the rejected promise UpiQrModal awaits) so they can retry
+      // without re-entering everything, instead of vanishing into a dead end.
+      throw new Error(`Your payment reference (${txnRef}) was received but the order could not be saved — ${describeError(err)}. Please try again, or message us on WhatsApp with this reference so we can record your order manually.`);
     } finally {
       orderSaving.current = false;
     }
@@ -629,22 +640,49 @@ export default function CheckoutPage() {
     const snapDeliveryCharge = snap?.deliveryCharge ?? 0;
     const snapCodCharge = snap?.codCharge ?? 0;
     const snapTotal = snap?.total ?? 0;
+    // Prepay orders are never auto-confirmed — only an admin verifying the
+    // UTR/screenshot moves them to Confirmed. Never imply otherwise here.
+    const isPendingVerification = !isCod && Boolean(snap?.pendingReview);
     return (
       <div className="min-h-screen bg-[#f8fafc] px-4 py-12">
         <div className="max-w-lg mx-auto">
 
-          {/* Success header */}
+          {/* Status header */}
           <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-[#16a34a]/10 rounded-2xl flex items-center justify-center mx-auto mb-5 border border-[#16a34a]/20">
-              <Check className="w-8 h-8 text-[#16a34a]" />
+            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 border ${isPendingVerification ? 'bg-amber-50 border-amber-200' : 'bg-[#16a34a]/10 border-[#16a34a]/20'}`}>
+              {isPendingVerification ? <Clock className="w-8 h-8 text-[#D97706]" /> : <Check className="w-8 h-8 text-[#16a34a]" />}
             </div>
-            <h2 className="text-[26px] font-bold text-[#111111] mb-1.5 tracking-[-0.02em]">Order Placed</h2>
+            <h2 className="text-[26px] font-bold text-[#111111] mb-1.5 tracking-[-0.02em]">
+              {isCod ? 'Order Received' : isPendingVerification ? 'Order Received' : 'Order Confirmed'}
+            </h2>
             <p className="text-[#9CA3AF] text-sm">
               {isCod
                 ? 'Your COD order has been received. We will confirm shortly.'
-                : 'Your order has been received. Payment details sent separately.'}
+                : isPendingVerification
+                  ? "We've received your order and your payment reference."
+                  : 'Your payment has been verified and your order is confirmed.'}
             </p>
           </div>
+
+          {/* Payment Verification Pending — the one state prepay customers most need spelled out */}
+          {isPendingVerification && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-4">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Clock className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-amber-900 mb-1">Payment Verification Pending</p>
+                  <p className="text-xs text-amber-800 leading-relaxed">
+                    We'll manually verify your payment details and proceed with your order once the payment number/UTR matches our records.
+                  </p>
+                  <p className="text-xs font-semibold text-amber-900 leading-relaxed mt-1.5">
+                    Please don't place another order while verification is in progress.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Notification status */}
           {notifyWarning ? (
@@ -721,11 +759,11 @@ export default function CheckoutPage() {
                 </div>
                 <div>
                   <p className="text-sm font-bold text-[#111111]">
-                    {snap?.pendingReview ? 'Payment under review' : 'AWB: Awaiting shipment assignment'}
+                    {snap?.pendingReview ? 'Shipping starts after verification' : 'AWB: Awaiting shipment assignment'}
                   </p>
                   <p className="text-xs text-[#9CA3AF]">
                     {snap?.pendingReview
-                      ? "We're checking your payment reference and screenshot. Your order will ship once verified — usually within a few hours."
+                      ? 'Your order will ship as soon as your payment is verified — usually within a few hours.'
                       : 'Your document number is confirmed. The courier AWB will appear once Innofulfill assigns it.'}
                   </p>
                 </div>
@@ -928,29 +966,41 @@ export default function CheckoutPage() {
               <button
                 onClick={() => void handleOpenQrModal()}
                 disabled={startingPayment}
-                className="group w-full relative overflow-hidden flex items-center justify-between gap-4 p-5 bg-white hover:bg-[#f8fafc] border border-[#E5E7EB] hover:border-[#2563EB]/40 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md disabled:opacity-60"
+                aria-busy={startingPayment}
+                className="group w-full relative overflow-hidden flex items-center justify-between gap-4 p-5 bg-white hover:bg-[#f8fafc] border border-[#E5E7EB] hover:border-[#2563EB]/40 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md disabled:cursor-not-allowed disabled:hover:bg-white"
               >
-                <div className="flex items-center gap-4">
-                  <div className="relative w-14 h-14 bg-[#f8fafc] rounded-xl p-1.5 flex-shrink-0 border border-[#E5E7EB]">
-                    <img
-                      src="/retralabs-payment-qr.png"
-                      alt="UPI QR"
-                      className="w-full h-full rounded-lg object-cover"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                    />
-                    <div className="absolute inset-1.5 rounded-lg overflow-hidden pointer-events-none">
-                      <div className="absolute left-0 right-0 h-0.5 bg-[#2563EB] shadow-[0_0_8px_#2563EB] animate-[rl-scan-inline_2.5s_ease-in-out_infinite]" />
+                {startingPayment ? (
+                  <div className="flex w-full items-center justify-center gap-3 py-1">
+                    <div className="w-5 h-5 border-2 border-[#2563EB]/25 border-t-[#2563EB] rounded-full animate-spin flex-shrink-0" />
+                    <p className="text-sm font-bold text-[#111111]">
+                      {stillConnecting ? "Still connecting… Please don't refresh or click again." : 'Connecting to payment gateway…'}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-4">
+                      <div className="relative w-14 h-14 bg-[#f8fafc] rounded-xl p-1.5 flex-shrink-0 border border-[#E5E7EB]">
+                        <img
+                          src="/retralabs-payment-qr.png"
+                          alt="UPI QR"
+                          className="w-full h-full rounded-lg object-cover"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                        <div className="absolute inset-1.5 rounded-lg overflow-hidden pointer-events-none">
+                          <div className="absolute left-0 right-0 h-0.5 bg-[#2563EB] shadow-[0_0_8px_#2563EB] animate-[rl-scan-inline_2.5s_ease-in-out_infinite]" />
+                        </div>
+                      </div>
+                      <div className="text-left">
+                        <p className="text-sm font-bold text-[#111111]">Pay via UPI QR</p>
+                        <p className="text-xs text-[#9CA3AF] mt-0.5">Scan & pay · 5-min window</p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-left">
-                    <p className="text-sm font-bold text-[#111111]">Pay via UPI QR</p>
-                    <p className="text-xs text-[#9CA3AF] mt-0.5">Scan & pay · 5-min window</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 text-[#2563EB] group-hover:translate-x-1 transition-transform">
-                  <span className="text-xs font-bold uppercase tracking-wider">Open</span>
-                  <ArrowRight className="w-4 h-4" />
-                </div>
+                    <div className="flex items-center gap-2 text-[#2563EB] group-hover:translate-x-1 transition-transform">
+                      <span className="text-xs font-bold uppercase tracking-wider">Open</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </div>
+                  </>
+                )}
               </button>
 
               {/* UPI app deep links */}
