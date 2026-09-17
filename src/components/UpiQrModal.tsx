@@ -115,8 +115,13 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
   const [method, setMethod] = useState<PaymentMethod>('upi');
   const [tab, setTab] = useState<PaymentTab>('qr');
   const [toast, setToast] = useState('');
+  const [utrMissing, setUtrMissing] = useState(false);
+  const [confirmError, setConfirmError] = useState('');
+  const [stillProcessing, setStillProcessing] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const ocrAbortRef = useRef<AbortController | null>(null);
+  const utrFieldRef = useRef<HTMLInputElement>(null);
+  const stillProcessingTimer = useRef<number | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -130,9 +135,13 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
       setScreenshotUrl(null);
       setOcrStatus('idle');
       setFraudWarning('');
+      setUtrMissing(false);
+      setConfirmError('');
+      setStillProcessing(false);
     } else {
       setMounted(false);
       ocrAbortRef.current?.abort();
+      if (stillProcessingTimer.current) window.clearTimeout(stillProcessingTimer.current);
     }
   }, [isOpen]);
 
@@ -223,16 +232,42 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
   };
 
   const handleConfirm = useCallback(async () => {
-    if (!txnRef.trim() || confirming || stage === 'expired' || !screenshot) return;
+    if (confirming || stage === 'expired') return;
+
+    // Validate up front and tell the customer exactly what's missing —
+    // never just leave the button inert with no explanation.
+    if (!txnRef.trim()) {
+      setUtrMissing(true);
+      setConfirmError('');
+      utrFieldRef.current?.focus();
+      return;
+    }
+    setUtrMissing(false);
+    if (!screenshot) {
+      setConfirmError('Please upload a screenshot of your payment before submitting — it helps us verify faster.');
+      return;
+    }
+
+    setConfirmError('');
     setConfirming(true);
+    setStillProcessing(false);
     setStage('verifying');
+    // If this takes a while, say so rather than leaving the screen looking stuck.
+    stillProcessingTimer.current = window.setTimeout(() => setStillProcessing(true), 6000);
     try {
       await onConfirm(txnRef.trim(), screenshot, ocrStatus);
       setStage('success');
-    } catch {
+    } catch (err) {
       setStage('idle');
+      setConfirmError(
+        err instanceof Error && err.message
+          ? err.message
+          : "Something went wrong while submitting your payment details. Your UTR and screenshot are still here — please try again."
+      );
     } finally {
+      if (stillProcessingTimer.current) { window.clearTimeout(stillProcessingTimer.current); stillProcessingTimer.current = null; }
       setConfirming(false);
+      setStillProcessing(false);
     }
   }, [txnRef, confirming, stage, onConfirm, screenshot, ocrStatus]);
 
@@ -267,7 +302,7 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
   const ss = String(secondsLeft % 60).padStart(2, '0');
   const progress = ((COUNTDOWN_SECONDS - secondsLeft) / COUNTDOWN_SECONDS) * 100;
   const isLow = secondsLeft <= 30;
-  const canConfirm = Boolean(txnRef.trim() && !confirming && screenshot && stage !== 'expired');
+  const canConfirm = !confirming && stage !== 'expired';
 
   if (!isOpen) return null;
 
@@ -335,14 +370,23 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
                 <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
                   <div>
                     <label className="mb-1.5 block text-xs font-bold text-[#172033]">UPI reference / UTR number</label>
-                    <input value={txnRef} onChange={event => setTxnRef(event.target.value)} placeholder="Enter the reference from your payment app" className="w-full rounded-xl border border-[#d7e0e8] bg-white px-3.5 py-3 text-sm text-[#172033] outline-none transition placeholder:text-[#aab4c0] focus:border-[#20c9b5] focus:ring-4 focus:ring-[#20c9b5]/10" />
+                    <input
+                      ref={utrFieldRef}
+                      value={txnRef}
+                      onChange={event => { setTxnRef(event.target.value); if (utrMissing) setUtrMissing(false); }}
+                      placeholder="Enter the reference from your payment app"
+                      className={`w-full rounded-xl border bg-white px-3.5 py-3 text-sm text-[#172033] outline-none transition placeholder:text-[#aab4c0] focus:ring-4 ${utrMissing ? 'border-amber-400 focus:border-amber-400 focus:ring-amber-100' : 'border-[#d7e0e8] focus:border-[#20c9b5] focus:ring-[#20c9b5]/10'}`}
+                    />
+                    <p className="mt-1.5 text-[11px] leading-relaxed text-[#8a98a8]">Important: enter your UTR/payment reference number after completing the payment. Please place your order only once.</p>
                   </div>
-                  <div className="sm:self-end"><button onClick={() => fileRef.current?.click()} className={`flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-xs font-bold transition sm:w-auto ${screenshot ? 'border-[#20c9b5] bg-[#e9fbf8] text-[#167c73]' : 'border-dashed border-[#b9c7d3] bg-white text-[#526579] hover:border-[#20c9b5]'}`}><Upload size={15} />{screenshot ? 'Screenshot added' : 'Upload screenshot'}</button><input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={event => handleFileChange(event.target.files?.[0] || null)} /></div>
+                  <div className="sm:self-start"><button onClick={() => fileRef.current?.click()} className={`flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-xs font-bold transition sm:w-auto ${screenshot ? 'border-[#20c9b5] bg-[#e9fbf8] text-[#167c73]' : 'border-dashed border-[#b9c7d3] bg-white text-[#526579] hover:border-[#20c9b5]'}`}><Upload size={15} />{screenshot ? 'Screenshot added' : 'Upload screenshot'}</button><input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={event => handleFileChange(event.target.files?.[0] || null)} /></div>
                 </div>
                 {screenshot && <div className="mt-3 flex items-center gap-2 text-[11px] text-[#6b7280]"><FileImage size={14} className="text-[#20c9b5]" />{screenshot.name}{ocrStatus === 'scanning' && <span className="text-[#167c73]">Checking screenshot {ocrProgress}%</span>}{ocrStatus === 'matched' && <span className="font-bold text-[#16a34a]">Amount detected</span>}{ocrStatus === 'error' && <span className="text-amber-600">Manual review</span>}</div>}
                 {fraudWarning && <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-800"><AlertCircle size={15} className="mt-0.5 shrink-0" />{fraudWarning}</div>}
-                <button onClick={() => void handleConfirm()} disabled={!canConfirm} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#081426] px-4 py-3.5 text-sm font-bold text-white transition hover:bg-[#10233c] disabled:cursor-not-allowed disabled:opacity-40">{confirming ? <><Loader2 size={17} className="animate-spin" />Waiting for payment confirmation</> : <>I’ve paid — verify payment <ChevronRight size={17} /></>}</button>
-                <div className="mt-3 flex items-center justify-center gap-4 text-[11px] text-[#8a98a8]"><button onClick={() => { setTxnRef(''); setScreenshot(null); setScreenshotUrl(null); setOcrStatus('idle'); }} className="transition hover:text-[#172033]">Cancel payment</button><a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="transition hover:text-[#172033]">Need help?</a></div>
+                {utrMissing && <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-800"><AlertCircle size={15} className="mt-0.5 shrink-0" /><span><b>UTR number required.</b> Please enter your UTR/payment reference number before placing the order. This helps us manually verify your payment and prevents duplicate orders.</span></div>}
+                {confirmError && <div className="mt-3 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs leading-relaxed text-rose-800"><AlertCircle size={15} className="mt-0.5 shrink-0" />{confirmError}</div>}
+                <button onClick={() => void handleConfirm()} disabled={!canConfirm} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#081426] px-4 py-3.5 text-sm font-bold text-white transition hover:bg-[#10233c] disabled:cursor-not-allowed disabled:opacity-70">{confirming ? <><Loader2 size={17} className="animate-spin" />{stillProcessing ? 'Still processing… please don’t click again' : 'Processing your payment request… Please don’t click again'}</> : <>I’ve paid — verify payment <ChevronRight size={17} /></>}</button>
+                <div className="mt-3 flex items-center justify-center gap-4 text-[11px] text-[#8a98a8]"><button onClick={() => { setTxnRef(''); setScreenshot(null); setScreenshotUrl(null); setOcrStatus('idle'); setUtrMissing(false); setConfirmError(''); }} disabled={confirming} className="transition hover:text-[#172033] disabled:cursor-not-allowed disabled:opacity-40">Cancel payment</button><a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="transition hover:text-[#172033]">Need help?</a></div>
               </div>
             </section>
           </main>
@@ -381,5 +425,5 @@ function AppPaymentContent({ method, amount, onOpen }: { method: PaymentMethod; 
 
 function AppShortcut({ label, logo, onClick }: { label: string; logo: ReactNode; onClick: () => void }) { return <button onClick={onClick} className="rounded-xl border border-[#dfe6ed] bg-white px-2 py-3 text-center text-[11px] font-bold text-[#172033] transition hover:border-[#20c9b5] hover:bg-[#f4fffd]"><span className="mx-auto mb-1 flex h-7 w-7 items-center justify-center rounded-lg bg-[#eef2f6]">{logo}</span>{label}</button>; }
 function TrustItem({ icon, title, detail }: { icon: ReactNode; title: string; detail: string }) { return <div className="flex items-start gap-2"><span className="mt-0.5 text-[#20a995]">{icon}</span><span><b className="block text-[11px] text-[#172033]">{title}</b><small className="text-[10px] text-[#9ca3af]">{detail}</small></span></div>; }
-function SuccessState({ amount, onClose }: { amount: number; onClose: () => void }) { return <div className="bg-white px-6 py-16 text-center sm:px-12"><div className="mx-auto flex h-20 w-20 animate-[pop_0.45s_ease-out] items-center justify-center rounded-full bg-[#e9fbf8] text-[#16a34a]"><CheckCircle2 size={42} /></div><h2 className="mt-6 text-2xl font-bold text-[#172033]">Payment submitted</h2><p className="mt-2 text-sm text-[#6b7280]">Your payment of ₹{amount.toLocaleString('en-IN')} was received. We are reviewing the transaction and will confirm your order shortly.</p><button onClick={onClose} className="mt-7 rounded-xl bg-[#081426] px-7 py-3 text-sm font-bold text-white">Continue</button></div>; }
+function SuccessState({ amount, onClose }: { amount: number; onClose: () => void }) { return <div className="bg-white px-6 py-16 text-center sm:px-12"><div className="mx-auto flex h-20 w-20 animate-[pop_0.45s_ease-out] items-center justify-center rounded-full bg-[#e9fbf8] text-[#16a34a]"><CheckCircle2 size={42} /></div><h2 className="mt-6 text-2xl font-bold text-[#172033]">Payment verification pending</h2><p className="mt-2 text-sm text-[#6b7280]">Your payment reference for ₹{amount.toLocaleString('en-IN')} has been received. We'll manually verify it against your screenshot and confirm your order once it matches our records.</p><p className="mt-3 text-xs font-semibold text-[#9ca3af]">Please don't place another order while verification is in progress.</p><button onClick={onClose} className="mt-7 rounded-xl bg-[#081426] px-7 py-3 text-sm font-bold text-white">Continue</button></div>; }
 function ExpiredState({ onRestart }: { onRestart: () => void }) { return <div className="bg-white px-6 py-16 text-center sm:px-12"><div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-amber-50 text-amber-600"><AlertCircle size={34} /></div><h2 className="mt-5 text-2xl font-bold text-[#172033]">Payment window expired</h2><p className="mt-2 text-sm text-[#6b7280]">Restart the checkout to create a fresh payment session.</p><button onClick={onRestart} className="mt-6 rounded-xl bg-[#081426] px-7 py-3 text-sm font-bold text-white">Restart payment</button></div>; }
