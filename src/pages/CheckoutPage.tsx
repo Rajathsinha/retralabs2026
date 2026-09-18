@@ -1003,24 +1003,6 @@ export default function CheckoutPage() {
                 )}
               </button>
 
-              {/* UPI app deep links */}
-              <div className="grid grid-cols-2 gap-3">
-                <a
-                  href={`upi://pay?pa=retralabs@ptaxis&pn=RetraLabs&am=${grandTotal}&tn=RetraLabs%20Order`}
-                  className="flex items-center justify-center gap-2 p-3.5 bg-white hover:bg-[#f8fafc] border border-[#E5E7EB] hover:border-[#2563EB]/40 rounded-xl transition-all duration-200"
-                >
-                  <span className="text-sm font-bold text-[#2563EB]">₹</span>
-                  <span className="text-xs font-semibold text-[#374151]">Open in UPI App</span>
-                </a>
-                <a
-                  href={`upi://pay?pa=retralabs@ptaxis&pn=RetraLabs&am=${grandTotal}&tn=RetraLabs%20Order`}
-                  className="flex items-center justify-center gap-2 p-3.5 bg-white hover:bg-[#f8fafc] border border-[#E5E7EB] hover:border-[#2563EB]/40 rounded-xl transition-all duration-200"
-                >
-                  <MessageCircle className="w-4 h-4 text-[#16a34a]" />
-                  <span className="text-xs font-semibold text-[#374151]">Pay via WhatsApp</span>
-                </a>
-              </div>
-
               <style>{`
                 @keyframes rl-scan-inline {
                   0% { top: 0%; opacity: 0; }
