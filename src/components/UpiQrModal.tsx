@@ -8,14 +8,12 @@ import {
   HelpCircle,
   Clock3,
   Copy,
-  ExternalLink,
   FileImage,
   Loader2,
   LockKeyhole,
   MessageCircle,
   QrCode,
   ShieldCheck,
-  Smartphone,
   Upload,
   WalletCards,
   X,
@@ -23,13 +21,11 @@ import {
 import { PAYMENT_SESSION_SECONDS } from '../constants/payment';
 
 const UPI_ID = 'retralabs@ptaxis';
-const MERCHANT_NAME = 'RetraLabs';
 const COUNTDOWN_SECONDS = PAYMENT_SESSION_SECONDS;
+const SUPPORTED_APPS_LABEL = 'Google Pay • PhonePe • Paytm • BHIM • Any UPI app';
 
 type Stage = 'idle' | 'verifying' | 'success' | 'expired';
 type OcrStatus = 'idle' | 'scanning' | 'matched' | 'mismatch' | 'error';
-type PaymentMethod = 'upi' | 'paytm' | 'gpay' | 'whatsapp';
-type PaymentTab = 'qr' | 'upi';
 
 interface UpiQrModalProps {
   isOpen: boolean;
@@ -61,45 +57,6 @@ function verifyAmount(ocrText: string, payable: number): boolean {
   return extractAmounts(ocrText).some(value => Math.abs(value - payable) <= 1);
 }
 
-function PaytmLogo({ size = 18 }: { size?: number }) {
-  return <span className="font-black leading-none" style={{ fontSize: size, letterSpacing: '-0.04em' }}><span className="text-[#003384]">Pay</span><span className="text-[#00B9F1]">tm</span></span>;
-}
-
-function GooglePayLogo({ size = 18 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-    </svg>
-  );
-}
-
-function WhatsAppLogo({ size = 18 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="#25D366" aria-hidden="true">
-      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.149-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.149-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-    </svg>
-  );
-}
-
-function getBrandLogo(method: PaymentMethod, size: number): ReactNode {
-  switch (method) {
-    case 'paytm': return <PaytmLogo size={size} />;
-    case 'gpay': return <GooglePayLogo size={size} />;
-    case 'whatsapp': return <WhatsAppLogo size={size} />;
-    default: return <QrCode size={size} />;
-  }
-}
-
-const methodDetails: Record<PaymentMethod, { label: string; detail: string; icon: ReactNode }> = {
-  upi: { label: 'UPI / QR', detail: 'Recommended', icon: <QrCode size={18} /> },
-  paytm: { label: 'Paytm', detail: 'Pay with Paytm', icon: <PaytmLogo size={20} /> },
-  gpay: { label: 'Google Pay', detail: 'Pay with GPay', icon: <GooglePayLogo size={18} /> },
-  whatsapp: { label: 'WhatsApp Pay', detail: 'Pay in WhatsApp', icon: <WhatsAppLogo size={18} /> },
-};
-
 export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsappUrl }: UpiQrModalProps) {
   const [txnRef, setTxnRef] = useState('');
   const [screenshot, setScreenshot] = useState<File | null>(null);
@@ -112,8 +69,6 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
   const [ocrStatus, setOcrStatus] = useState<OcrStatus>('idle');
   const [ocrProgress, setOcrProgress] = useState(0);
   const [fraudWarning, setFraudWarning] = useState('');
-  const [method, setMethod] = useState<PaymentMethod>('upi');
-  const [tab, setTab] = useState<PaymentTab>('qr');
   const [toast, setToast] = useState('');
   const [utrMissing, setUtrMissing] = useState(false);
   const [confirmError, setConfirmError] = useState('');
@@ -128,8 +83,6 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
       setMounted(true);
       setStage('idle');
       setSecondsLeft(COUNTDOWN_SECONDS);
-      setMethod('upi');
-      setTab('qr');
       setTxnRef('');
       setScreenshot(null);
       setScreenshotUrl(null);
@@ -274,28 +227,8 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
   const copyUpiId = async () => {
     await navigator.clipboard.writeText(UPI_ID);
     setCopied(true);
-    showToast('UPI ID copied');
+    showToast('UPI ID copied ✓');
     window.setTimeout(() => setCopied(false), 2000);
-  };
-
-  const openPaymentApp = (selectedMethod: PaymentMethod) => {
-    setMethod(selectedMethod);
-    const upiParams = `pa=${UPI_ID}&pn=${MERCHANT_NAME}&am=${amount}&cu=INR&tn=RetraLabs%20Order`;
-    switch (selectedMethod) {
-      case 'paytm':
-        window.location.href = `paytmmp://pay?${upiParams}`;
-        break;
-      case 'gpay':
-        window.location.href = `tez://upi/pay?${upiParams}`;
-        break;
-      case 'whatsapp':
-        window.location.href = `https://wa.me/?text=${encodeURIComponent(`Please pay ₹${amount.toLocaleString('en-IN')} to UPI ID: ${UPI_ID} (RetraLabs) using WhatsApp Pay.`)}`;
-        break;
-      case 'upi':
-      default:
-        window.location.href = `upi://pay?${upiParams}`;
-        break;
-    }
   };
 
   const mm = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
@@ -346,38 +279,50 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
         ) : stage === 'expired' ? (
           <ExpiredState onRestart={() => { setStage('idle'); setSecondsLeft(COUNTDOWN_SECONDS); }} />
         ) : (
-          <main className="grid gap-0 lg:grid-cols-[220px_1fr]">
-            <aside className="border-b border-[#e5e7eb] bg-white p-4 lg:border-b-0 lg:border-r sm:p-5">
-              <p className="mb-3 px-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#9ca3af]">Choose a payment method</p>
-              <div className="flex gap-2 overflow-x-auto lg:block lg:space-y-2">
-                {(Object.keys(methodDetails) as PaymentMethod[]).map(option => {
-                  const detail = methodDetails[option];
-                  const selected = method === option;
-                  return <button key={option} onClick={() => setMethod(option)} className={`flex min-w-[142px] items-center gap-3 rounded-xl border p-3 text-left transition lg:w-full ${selected ? 'border-[#20c9b5] bg-[#e9fbf8] text-[#081426] shadow-[0_0_0_3px_rgba(32,201,181,0.08)]' : 'border-[#e5e7eb] bg-white text-[#172033] hover:border-[#b8c5d3]'}`}>
-                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${selected ? 'bg-[#081426] text-[#5eead4]' : 'bg-[#eef2f6] text-[#4b6174]'}`}>{detail.icon}</span>
-                    <span className="min-w-0"><span className="block whitespace-nowrap text-xs font-bold">{detail.label}</span><span className={`mt-0.5 block whitespace-nowrap text-[10px] ${selected ? 'text-[#167c73]' : 'text-[#9ca3af]'}`}>{detail.detail}</span></span>
-                  </button>;
-                })}
+          <main className="bg-[#f7f9fc] p-5 sm:p-8">
+            <div className="mx-auto max-w-[480px]">
+              <div className="mb-6 text-center">
+                <p className="text-[11px] font-bold uppercase tracking-[0.13em] text-[#20a995]">UPI Payment</p>
+                <h2 className="mt-1 text-2xl font-bold tracking-[-0.03em] text-[#172033]">Pay securely via UPI</h2>
               </div>
-              <div className="mt-5 hidden rounded-xl bg-[#f7f9fc] p-3 text-[11px] leading-relaxed text-[#6b7280] lg:block"><ShieldCheck size={15} className="mb-2 text-[#20c9b5]" /><b className="text-[#172033]">Safe and private</b><br />Your payment details are never stored on this device.</div>
-            </aside>
 
-            <section className="bg-[#f7f9fc] p-5 sm:p-7">
-              {method === 'upi' ? <UpiPaymentContent tab={tab} setTab={setTab} copied={copied} copyUpiId={() => void copyUpiId()} amount={amount} openPaymentApp={openPaymentApp} /> : <AppPaymentContent method={method} amount={amount} onOpen={() => openPaymentApp(method)} />}
+              {/* 1. Scan QR code — the primary, recommended path */}
+              <div>
+                <p className="mb-3 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-[#9ca3af]"><QrCode size={13} /> 1. Scan QR code</p>
+                <div className="text-center">
+                  <p className="text-sm font-semibold text-[#172033]">Scan this QR code with any UPI app</p>
+                  <div className="relative mx-auto mt-4 w-fit rounded-2xl border border-[#e0e6ec] bg-white p-4 shadow-[0_12px_30px_rgba(8,20,38,0.08)]">
+                    <img src="/retralabs-payment-qr.png" alt="RetraLabs UPI payment QR code" className="h-60 w-60 rounded-lg object-contain sm:h-64 sm:w-64" />
+                    <span className="pointer-events-none absolute inset-2 rounded-xl border-2 border-[#20c9b5]/40" />
+                  </div>
+                  <p className="mt-4 text-xs text-[#9ca3af]">{SUPPORTED_APPS_LABEL}</p>
+                </div>
+              </div>
+
+              <div className="my-6 flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.12em] text-[#9ca3af]"><div className="h-px flex-1 bg-[#e1e7ec]" />Or pay using UPI ID<div className="h-px flex-1 bg-[#e1e7ec]" /></div>
+
+              {/* 2. Or pay using UPI ID — manual fallback, no app deep links */}
+              <div>
+                <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-[#9ca3af]">2. Or pay using UPI ID</p>
+                <div className="flex items-center justify-between gap-2 rounded-xl border border-[#d7e0e8] bg-white p-3.5">
+                  <div><p className="text-[10px] text-[#9ca3af]">UPI ID</p><p className="mt-0.5 text-sm font-bold text-[#172033]">{UPI_ID}</p></div>
+                  <button onClick={() => void copyUpiId()} className="flex items-center gap-1.5 rounded-lg bg-[#e9fbf8] px-3 py-2 text-xs font-bold text-[#167c73]">{copied ? <Check size={14} /> : <Copy size={14} />}{copied ? 'Copied' : 'Copy UPI ID'}</button>
+                </div>
+              </div>
 
               <div className="mt-7 border-t border-[#e5e7eb] pt-5">
-                <div className="flex items-center gap-2"><div className="h-px flex-1 bg-[#dfe5eb]" /><span className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#9ca3af]">Confirm payment</span><div className="h-px flex-1 bg-[#dfe5eb]" /></div>
+                <div className="flex items-center gap-2"><div className="h-px flex-1 bg-[#dfe5eb]" /><span className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#9ca3af]">Already paid?</span><div className="h-px flex-1 bg-[#dfe5eb]" /></div>
                 <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
                   <div>
-                    <label className="mb-1.5 block text-xs font-bold text-[#172033]">UPI reference / UTR number</label>
+                    <label className="mb-1.5 block text-xs font-bold text-[#172033]">Enter your UPI Reference / UTR Number</label>
                     <input
                       ref={utrFieldRef}
                       value={txnRef}
                       onChange={event => { setTxnRef(event.target.value); if (utrMissing) setUtrMissing(false); }}
-                      placeholder="Enter the reference from your payment app"
+                      placeholder="Enter UTR / payment reference"
                       className={`w-full rounded-xl border bg-white px-3.5 py-3 text-sm text-[#172033] outline-none transition placeholder:text-[#aab4c0] focus:ring-4 ${utrMissing ? 'border-amber-400 focus:border-amber-400 focus:ring-amber-100' : 'border-[#d7e0e8] focus:border-[#20c9b5] focus:ring-[#20c9b5]/10'}`}
                     />
-                    <p className="mt-1.5 text-[11px] leading-relaxed text-[#8a98a8]">Important: enter your UTR/payment reference number after completing the payment. Please place your order only once.</p>
+                    <p className="mt-1.5 text-[11px] leading-relaxed text-[#8a98a8]">Enter the UTR/reference number shown in your UPI app after completing the payment. Please place your order only once.</p>
                   </div>
                   <div className="sm:self-start"><button onClick={() => fileRef.current?.click()} className={`flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-xs font-bold transition sm:w-auto ${screenshot ? 'border-[#20c9b5] bg-[#e9fbf8] text-[#167c73]' : 'border-dashed border-[#b9c7d3] bg-white text-[#526579] hover:border-[#20c9b5]'}`}><Upload size={15} />{screenshot ? 'Screenshot added' : 'Upload screenshot'}</button><input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={event => handleFileChange(event.target.files?.[0] || null)} /></div>
                 </div>
@@ -388,7 +333,7 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
                 <button onClick={() => void handleConfirm()} disabled={!canConfirm} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#081426] px-4 py-3.5 text-sm font-bold text-white transition hover:bg-[#10233c] disabled:cursor-not-allowed disabled:opacity-70">{confirming ? <><Loader2 size={17} className="animate-spin" />{stillProcessing ? 'Still processing… please don’t click again' : 'Processing your payment request… Please don’t click again'}</> : <>I’ve paid — verify payment <ChevronRight size={17} /></>}</button>
                 <div className="mt-3 flex items-center justify-center gap-4 text-[11px] text-[#8a98a8]"><button onClick={() => { setTxnRef(''); setScreenshot(null); setScreenshotUrl(null); setOcrStatus('idle'); setUtrMissing(false); setConfirmError(''); }} disabled={confirming} className="transition hover:text-[#172033] disabled:cursor-not-allowed disabled:opacity-40">Cancel payment</button><a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="transition hover:text-[#172033]">Need help?</a></div>
               </div>
-            </section>
+            </div>
           </main>
         )}
 
@@ -405,25 +350,6 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
   );
 }
 
-function UpiPaymentContent({ tab, setTab, copied, copyUpiId, amount, openPaymentApp }: { tab: PaymentTab; setTab: (tab: PaymentTab) => void; copied: boolean; copyUpiId: () => void; amount: number; openPaymentApp: (method: PaymentMethod) => void }) {
-  return <>
-    <div className="mb-6"><p className="text-[11px] font-bold uppercase tracking-[0.13em] text-[#20a995]">UPI payments</p><h2 className="mt-1 text-2xl font-bold tracking-[-0.03em] text-[#172033]">Choose a payment method</h2><p className="mt-1 text-sm text-[#6b7280]">All payments are secure and encrypted.</p></div>
-    <div className="mb-5 flex rounded-xl bg-[#e9eef3] p-1"><button onClick={() => setTab('qr')} className={`flex-1 rounded-lg px-3 py-2.5 text-xs font-bold transition ${tab === 'qr' ? 'bg-white text-[#172033] shadow-sm' : 'text-[#6b7280]'}`}>Scan QR code</button><button onClick={() => setTab('upi')} className={`flex-1 rounded-lg px-3 py-2.5 text-xs font-bold transition ${tab === 'upi' ? 'bg-white text-[#172033] shadow-sm' : 'text-[#6b7280]'}`}>Enter UPI ID</button></div>
-    {tab === 'qr' ? <>
-      <div className="text-center"><p className="text-sm font-semibold text-[#172033]">Scan this QR code with any UPI app</p><div className="relative mx-auto mt-4 w-fit rounded-2xl border border-[#e0e6ec] bg-white p-4 shadow-[0_12px_30px_rgba(8,20,38,0.08)]"><img src="/retralabs-payment-qr.png" alt="RetraLabs UPI payment QR code" className="h-48 w-48 rounded-lg object-contain sm:h-56 sm:w-56" /><span className="pointer-events-none absolute inset-2 rounded-xl border-2 border-[#20c9b5]/40" /></div><p className="mt-3 text-xs text-[#6b7280]">Or pay using any UPI app</p></div>
-      <div className="mt-5 grid grid-cols-3 gap-2"><AppShortcut label="Paytm" logo={<PaytmLogo size={20} />} onClick={() => openPaymentApp('paytm')} /><AppShortcut label="Google Pay" logo={<GooglePayLogo size={18} />} onClick={() => openPaymentApp('gpay')} /><AppShortcut label="WhatsApp Pay" logo={<WhatsAppLogo size={18} />} onClick={() => openPaymentApp('whatsapp')} /></div>
-      <div className="mt-5 flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.12em] text-[#9ca3af]"><div className="h-px flex-1 bg-[#e1e7ec]" />Or use UPI ID<div className="h-px flex-1 bg-[#e1e7ec]" /></div>
-      <div className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-[#d7e0e8] bg-white p-3"><div><p className="text-[10px] text-[#9ca3af]">UPI ID</p><p className="mt-0.5 text-sm font-bold text-[#172033]">{UPI_ID}</p></div><button onClick={copyUpiId} className="flex items-center gap-1.5 rounded-lg bg-[#e9fbf8] px-3 py-2 text-xs font-bold text-[#167c73]">{copied ? <Check size={14} /> : <Copy size={14} />}{copied ? 'Copied' : 'Copy'}</button></div>
-    </> : <div className="rounded-2xl border border-[#dfe6ed] bg-white p-5"><div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-[#e9fbf8] text-[#167c73]"><Smartphone size={22} /></div><h3 className="text-base font-bold text-[#172033]">Pay using your UPI ID</h3><p className="mt-1 text-sm text-[#6b7280]">Enter your UPI ID and continue in your payment app.</p><input placeholder="example@upi" className="mt-5 w-full rounded-xl border border-[#d7e0e8] px-3.5 py-3 text-sm outline-none focus:border-[#20c9b5]" /><button onClick={() => openPaymentApp('upi')} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#081426] py-3.5 text-sm font-bold text-white">Pay ₹{amount.toLocaleString('en-IN')} <ChevronRight size={16} /></button></div>}
-  </>;
-}
-
-function AppPaymentContent({ method, amount, onOpen }: { method: PaymentMethod; amount: number; onOpen: () => void }) {
-  const detail = methodDetails[method];
-  return <div><p className="text-[11px] font-bold uppercase tracking-[0.13em] text-[#20a995]">{detail.label}</p><h2 className="mt-1 text-2xl font-bold tracking-[-0.03em] text-[#172033]">Pay securely with {detail.label}</h2><p className="mt-1 text-sm text-[#6b7280]">You will be redirected to your payment app to complete ₹{amount.toLocaleString('en-IN')}.</p><div className="mt-6 rounded-2xl border border-[#dfe6ed] bg-white p-6 text-center"><div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#e9fbf8]">{getBrandLogo(method, 36)}</div><p className="mt-4 text-base font-bold text-[#172033]">{detail.label} payment</p><p className="mt-1 text-sm text-[#6b7280]">Complete the payment in the app, then return here to enter your reference number.</p><button onClick={onOpen} className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-[#081426] px-6 py-3.5 text-sm font-bold text-white transition hover:bg-[#10233c]">Open {detail.label} <ExternalLink size={15} /></button></div></div>;
-}
-
-function AppShortcut({ label, logo, onClick }: { label: string; logo: ReactNode; onClick: () => void }) { return <button onClick={onClick} className="rounded-xl border border-[#dfe6ed] bg-white px-2 py-3 text-center text-[11px] font-bold text-[#172033] transition hover:border-[#20c9b5] hover:bg-[#f4fffd]"><span className="mx-auto mb-1 flex h-7 w-7 items-center justify-center rounded-lg bg-[#eef2f6]">{logo}</span>{label}</button>; }
 function TrustItem({ icon, title, detail }: { icon: ReactNode; title: string; detail: string }) { return <div className="flex items-start gap-2"><span className="mt-0.5 text-[#20a995]">{icon}</span><span><b className="block text-[11px] text-[#172033]">{title}</b><small className="text-[10px] text-[#9ca3af]">{detail}</small></span></div>; }
 function SuccessState({ amount, onClose }: { amount: number; onClose: () => void }) { return <div className="bg-white px-6 py-16 text-center sm:px-12"><div className="mx-auto flex h-20 w-20 animate-[pop_0.45s_ease-out] items-center justify-center rounded-full bg-[#e9fbf8] text-[#16a34a]"><CheckCircle2 size={42} /></div><h2 className="mt-6 text-2xl font-bold text-[#172033]">Payment verification pending</h2><p className="mt-2 text-sm text-[#6b7280]">Your payment reference for ₹{amount.toLocaleString('en-IN')} has been received. We'll manually verify it against your screenshot and confirm your order once it matches our records.</p><p className="mt-3 text-xs font-semibold text-[#9ca3af]">Please don't place another order while verification is in progress.</p><button onClick={onClose} className="mt-7 rounded-xl bg-[#081426] px-7 py-3 text-sm font-bold text-white">Continue</button></div>; }
 function ExpiredState({ onRestart }: { onRestart: () => void }) { return <div className="bg-white px-6 py-16 text-center sm:px-12"><div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-amber-50 text-amber-600"><AlertCircle size={34} /></div><h2 className="mt-5 text-2xl font-bold text-[#172033]">Payment window expired</h2><p className="mt-2 text-sm text-[#6b7280]">Restart the checkout to create a fresh payment session.</p><button onClick={onRestart} className="mt-6 rounded-xl bg-[#081426] px-7 py-3 text-sm font-bold text-white">Restart payment</button></div>; }
