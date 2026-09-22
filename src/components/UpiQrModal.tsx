@@ -25,36 +25,13 @@ const COUNTDOWN_SECONDS = PAYMENT_SESSION_SECONDS;
 const SUPPORTED_APPS_LABEL = 'Google Pay • PhonePe • Paytm • BHIM • Any UPI app';
 
 type Stage = 'idle' | 'verifying' | 'success' | 'expired';
-type OcrStatus = 'idle' | 'scanning' | 'matched' | 'mismatch' | 'error';
 
 interface UpiQrModalProps {
   isOpen: boolean;
   onClose: () => void;
   amount: number;
-  onConfirm: (txnRef: string, screenshot: File | null, ocrAmountMatch?: OcrStatus) => Promise<void>;
+  onConfirm: (txnRef: string, screenshot: File | null) => Promise<void>;
   whatsappUrl: string;
-}
-
-function extractAmounts(text: string): number[] {
-  const amounts: number[] = [];
-  const patterns = [
-    /₹\s*([\d,]+\.?\d*)/gi,
-    /Rs\.?\s*([\d,]+\.?\d*)/gi,
-    /INR\s*([\d,]+\.?\d*)/gi,
-    /\b([\d]{1,3}(?:,\d{3})*(?:\.\d{1,2})?)\b/g,
-  ];
-  for (const pattern of patterns) {
-    let match: RegExpExecArray | null;
-    while ((match = pattern.exec(text)) !== null) {
-      const amount = parseFloat(match[1].replace(/,/g, ''));
-      if (!Number.isNaN(amount) && amount > 0) amounts.push(amount);
-    }
-  }
-  return amounts;
-}
-
-function verifyAmount(ocrText: string, payable: number): boolean {
-  return extractAmounts(ocrText).some(value => Math.abs(value - payable) <= 1);
 }
 
 export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsappUrl }: UpiQrModalProps) {
@@ -66,16 +43,15 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
   const [secondsLeft, setSecondsLeft] = useState(COUNTDOWN_SECONDS);
   const [stage, setStage] = useState<Stage>('idle');
   const [mounted, setMounted] = useState(false);
-  const [ocrStatus, setOcrStatus] = useState<OcrStatus>('idle');
-  const [ocrProgress, setOcrProgress] = useState(0);
-  const [fraudWarning, setFraudWarning] = useState('');
+  const [fileError, setFileError] = useState('');
   const [toast, setToast] = useState('');
   const [utrMissing, setUtrMissing] = useState(false);
+  const [screenshotMissing, setScreenshotMissing] = useState(false);
   const [confirmError, setConfirmError] = useState('');
   const [stillProcessing, setStillProcessing] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-  const ocrAbortRef = useRef<AbortController | null>(null);
   const utrFieldRef = useRef<HTMLInputElement>(null);
+  const screenshotButtonRef = useRef<HTMLButtonElement>(null);
   const stillProcessingTimer = useRef<number | null>(null);
 
   useEffect(() => {
@@ -86,14 +62,13 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
       setTxnRef('');
       setScreenshot(null);
       setScreenshotUrl(null);
-      setOcrStatus('idle');
-      setFraudWarning('');
+      setFileError('');
       setUtrMissing(false);
+      setScreenshotMissing(false);
       setConfirmError('');
       setStillProcessing(false);
     } else {
       setMounted(false);
-      ocrAbortRef.current?.abort();
       if (stillProcessingTimer.current) window.clearTimeout(stillProcessingTimer.current);
     }
   }, [isOpen]);
@@ -126,80 +101,44 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
     window.setTimeout(() => setToast(''), 2200);
   };
 
-  const runOcrCheck = useCallback(async (file: File) => {
-    ocrAbortRef.current?.abort();
-    const controller = new AbortController();
-    ocrAbortRef.current = controller;
-    setOcrStatus('scanning');
-    setOcrProgress(0);
-    setFraudWarning('');
-    let worker: { recognize: (image: File) => Promise<{ data: { text: string } }>; terminate: () => void } | null = null;
-
-    try {
-      const Tesseract = await import('tesseract.js');
-      if (controller.signal.aborted) return;
-      worker = await Tesseract.createWorker('eng', 1, {
-        workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@7.0.0/dist/worker.min.js',
-        langPath: 'https://tessdata.projectnaptha.com/4.0.0',
-        corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@7.0.0',
-        logger: (message: { status: string; progress: number }) => {
-          if (message.status === 'recognizing text' && !controller.signal.aborted) setOcrProgress(Math.round(message.progress * 100));
-        },
-      });
-      if (controller.signal.aborted) return;
-      const { data } = await worker.recognize(file);
-      if (controller.signal.aborted) return;
-      if (verifyAmount(data.text, amount)) {
-        setOcrStatus('matched');
-      } else {
-        setOcrStatus('mismatch');
-        setFraudWarning(`We couldn't automatically verify the amount. Please confirm you paid ₹${amount.toLocaleString('en-IN')}; your order will be manually reviewed.`);
-      }
-    } catch {
-      if (!controller.signal.aborted) {
-        setOcrStatus('error');
-        setFraudWarning('');
-      }
-    } finally {
-      if (worker) {
-        try { worker.terminate(); } catch { /* worker cleanup */ }
-      }
-    }
-  }, [amount]);
-
   const handleFileChange = (file: File | null) => {
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      setFraudWarning('Please upload a PNG or JPG payment screenshot.');
+      setFileError('Please upload a PNG or JPG payment screenshot.');
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
-      setFraudWarning('Screenshot is too large. Please use an image under 10MB.');
+      setFileError('Screenshot is too large. Please use an image under 10MB.');
       return;
     }
     if (screenshotUrl) URL.revokeObjectURL(screenshotUrl);
     setScreenshot(file);
     setScreenshotUrl(URL.createObjectURL(file));
-    setFraudWarning('');
-    void runOcrCheck(file);
+    setFileError('');
+    setScreenshotMissing(false);
   };
 
   const handleConfirm = useCallback(async () => {
     if (confirming || stage === 'expired') return;
 
     // Validate up front and tell the customer exactly what's missing —
-    // never just leave the button inert with no explanation.
+    // never just leave the button inert with no explanation. Both fields
+    // are mandatory; neither is auto-verified, an admin reviews them.
     if (!txnRef.trim()) {
       setUtrMissing(true);
+      setScreenshotMissing(false);
       setConfirmError('');
       utrFieldRef.current?.focus();
       return;
     }
     setUtrMissing(false);
     if (!screenshot) {
-      setConfirmError('Please upload a screenshot of your payment before submitting — it helps us verify faster.');
+      setScreenshotMissing(true);
+      setConfirmError('');
+      screenshotButtonRef.current?.focus();
       return;
     }
+    setScreenshotMissing(false);
 
     setConfirmError('');
     setConfirming(true);
@@ -208,7 +147,7 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
     // If this takes a while, say so rather than leaving the screen looking stuck.
     stillProcessingTimer.current = window.setTimeout(() => setStillProcessing(true), 6000);
     try {
-      await onConfirm(txnRef.trim(), screenshot, ocrStatus);
+      await onConfirm(txnRef.trim(), screenshot);
       setStage('success');
     } catch (err) {
       setStage('idle');
@@ -222,7 +161,7 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
       setConfirming(false);
       setStillProcessing(false);
     }
-  }, [txnRef, confirming, stage, onConfirm, screenshot, ocrStatus]);
+  }, [txnRef, confirming, stage, onConfirm, screenshot]);
 
   const copyUpiId = async () => {
     await navigator.clipboard.writeText(UPI_ID);
@@ -324,14 +263,24 @@ export default function UpiQrModal({ isOpen, onClose, amount, onConfirm, whatsap
                     />
                     <p className="mt-1.5 text-[11px] leading-relaxed text-[#8a98a8]">Enter the UTR/reference number shown in your UPI app after completing the payment. Please place your order only once.</p>
                   </div>
-                  <div className="sm:self-start"><button onClick={() => fileRef.current?.click()} className={`flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-xs font-bold transition sm:w-auto ${screenshot ? 'border-[#20c9b5] bg-[#e9fbf8] text-[#167c73]' : 'border-dashed border-[#b9c7d3] bg-white text-[#526579] hover:border-[#20c9b5]'}`}><Upload size={15} />{screenshot ? 'Screenshot added' : 'Upload screenshot'}</button><input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={event => handleFileChange(event.target.files?.[0] || null)} /></div>
+                  <div className="sm:self-start">
+                    <button
+                      ref={screenshotButtonRef}
+                      onClick={() => fileRef.current?.click()}
+                      className={`flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-xs font-bold transition sm:w-auto ${screenshot ? 'border-[#20c9b5] bg-[#e9fbf8] text-[#167c73]' : screenshotMissing ? 'border-amber-400 bg-amber-50 text-amber-700' : 'border-dashed border-[#b9c7d3] bg-white text-[#526579] hover:border-[#20c9b5]'}`}
+                    >
+                      <Upload size={15} />{screenshot ? 'Screenshot added' : 'Upload screenshot'}
+                    </button>
+                    <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={event => handleFileChange(event.target.files?.[0] || null)} />
+                  </div>
                 </div>
-                {screenshot && <div className="mt-3 flex items-center gap-2 text-[11px] text-[#6b7280]"><FileImage size={14} className="text-[#20c9b5]" />{screenshot.name}{ocrStatus === 'scanning' && <span className="text-[#167c73]">Checking screenshot {ocrProgress}%</span>}{ocrStatus === 'matched' && <span className="font-bold text-[#16a34a]">Amount detected</span>}{ocrStatus === 'error' && <span className="text-amber-600">Manual review</span>}</div>}
-                {fraudWarning && <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-800"><AlertCircle size={15} className="mt-0.5 shrink-0" />{fraudWarning}</div>}
+                {screenshot && <div className="mt-3 flex items-center gap-2 text-[11px] text-[#6b7280]"><FileImage size={14} className="text-[#20c9b5]" />{screenshot.name}</div>}
+                {fileError && <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-800"><AlertCircle size={15} className="mt-0.5 shrink-0" />{fileError}</div>}
                 {utrMissing && <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-800"><AlertCircle size={15} className="mt-0.5 shrink-0" /><span><b>UTR number required.</b> Please enter your UTR/payment reference number before placing the order. This helps us manually verify your payment and prevents duplicate orders.</span></div>}
+                {screenshotMissing && <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-800"><AlertCircle size={15} className="mt-0.5 shrink-0" /><span><b>Screenshot required.</b> Please upload a screenshot of your payment before placing the order.</span></div>}
                 {confirmError && <div className="mt-3 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs leading-relaxed text-rose-800"><AlertCircle size={15} className="mt-0.5 shrink-0" />{confirmError}</div>}
                 <button onClick={() => void handleConfirm()} disabled={!canConfirm} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#081426] px-4 py-3.5 text-sm font-bold text-white transition hover:bg-[#10233c] disabled:cursor-not-allowed disabled:opacity-70">{confirming ? <><Loader2 size={17} className="animate-spin" />{stillProcessing ? 'Still processing… please don’t click again' : 'Processing your payment request… Please don’t click again'}</> : <>I’ve paid — verify payment <ChevronRight size={17} /></>}</button>
-                <div className="mt-3 flex items-center justify-center gap-4 text-[11px] text-[#8a98a8]"><button onClick={() => { setTxnRef(''); setScreenshot(null); setScreenshotUrl(null); setOcrStatus('idle'); setUtrMissing(false); setConfirmError(''); }} disabled={confirming} className="transition hover:text-[#172033] disabled:cursor-not-allowed disabled:opacity-40">Cancel payment</button><a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="transition hover:text-[#172033]">Need help?</a></div>
+                <div className="mt-3 flex items-center justify-center gap-4 text-[11px] text-[#8a98a8]"><button onClick={() => { setTxnRef(''); setScreenshot(null); setScreenshotUrl(null); setFileError(''); setUtrMissing(false); setScreenshotMissing(false); setConfirmError(''); }} disabled={confirming} className="transition hover:text-[#172033] disabled:cursor-not-allowed disabled:opacity-40">Cancel payment</button><a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="transition hover:text-[#172033]">Need help?</a></div>
               </div>
             </div>
           </main>

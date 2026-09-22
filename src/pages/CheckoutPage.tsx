@@ -514,7 +514,7 @@ export default function CheckoutPage() {
     }
   };
 
-  const handleQrPaymentConfirmed = async (txnRef: string, screenshot: File | null, ocrAmountMatch?: string) => {
+  const handleQrPaymentConfirmed = async (txnRef: string, screenshot: File | null) => {
     if (orderSaving.current) return;
     orderSaving.current = true;
     setSubmitError(null);
@@ -546,7 +546,6 @@ export default function CheckoutPage() {
         orderId: paymentSession.orderId,
         transaction: txnRef,
         screenshot: screenshotPayload,
-        ocrAmountMatch,
         cartItems: cartSnapshot.map(i => ({
           name: i.product.name,
           variant: i.variant.vial_configuration || `${i.variant.dosage_mg}mg`,
@@ -1018,7 +1017,7 @@ export default function CheckoutPage() {
             isOpen={showQrModal}
             onClose={() => setShowQrModal(false)}
             amount={grandTotal}
-            onConfirm={(txnRef, screenshot, ocrStatus) => handleQrPaymentConfirmed(txnRef, screenshot, ocrStatus)}
+            onConfirm={(txnRef, screenshot) => handleQrPaymentConfirmed(txnRef, screenshot)}
             whatsappUrl={whatsappUrl}
           />
 
