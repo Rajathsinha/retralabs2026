@@ -1,0 +1,15 @@
+name = "retralabs2026"
+pages_build_output_dir = "dist"
+compatibility_date = "2025-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Durable Object holding the persistent MongoDB connection (see
+# functions/durable-objects/mongo-connection.ts) — keeps the TCP+TLS
+# handshake warm across requests instead of paying it on every call.
+[[durable_objects.bindings]]
+name = "MONGO_CONNECTION"
+class_name = "MongoConnectionDO"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["MongoConnectionDO"]
