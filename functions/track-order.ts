@@ -11,7 +11,9 @@ import {
 } from './order-shared';
 
 function cleanPhone(phone: string): string {
-  return (phone || '').replace(/\D/g, '').replace(/^91/, '').slice(-10).padStart(10, '0');
+  // Keep only the last 10 digits — see order-shared.ts's cleanPhone for why
+  // a separate "strip leading 91" step must never run first.
+  return (phone || '').replace(/\D/g, '').slice(-10).padStart(10, '0');
 }
 
 function cleanEmail(email: string): string {
