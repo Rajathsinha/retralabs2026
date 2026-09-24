@@ -1,0 +1,11 @@
+name = "retralabs2026"
+pages_build_output_dir = "dist"
+compatibility_date = "2025-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+# No Durable Object binding here yet. Cloudflare Pages Functions cannot
+# declare/own a Durable Object class themselves — a Pages "migrations"
+# block is rejected outright, and a DO binding on Pages must point at a
+# class defined in a separately deployed standalone Worker via
+# `script_name`. See functions/durable-objects/mongo-connection.ts for the
+# DO class this will eventually bind to, once that Worker exists.

@@ -1,14 +1,15 @@
 /**
  * Server-side OCR for payment screenshots, via Google Cloud Vision.
  *
- * The checkout UI already runs OCR in the customer's own browser (tesseract.js)
- * as a UX hint, but that check happens in JavaScript the customer controls —
- * it can be edited or skipped before the request is sent. This runs the same
- * kind of check from the server, against the screenshot the customer actually
- * uploaded, so it cannot be bypassed or faked from the browser.
+ * Runs against the screenshot the customer actually uploaded, purely as a
+ * background note for the admin — it never blocks, delays, or shows
+ * anything to the customer. The checkout UI itself no longer runs any
+ * client-side verification: the customer only has to enter the UTR and
+ * upload the screenshot, both mandatory, nothing is auto-checked against
+ * them before submitting.
  *
  * It is still only reading pixels in an image: a convincingly edited
- * screenshot reads the same as a real one. Treat this as a stronger pre-filter
+ * screenshot reads the same as a real one. Treat this as a pre-filter
  * that surfaces likely mismatches to the admin — never as proof of payment on
  * its own. The human clicking "Verify Payment" after looking at the actual
  * screenshot remains the real gate.

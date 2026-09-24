@@ -1,4 +1,4 @@
-import { Zap, Package, CreditCard, Banknote } from 'lucide-react';
+import { Zap, Package, CreditCard, Banknote, Truck, Clock3 } from 'lucide-react';
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; dot: string; label: string }> = {
   'New':                   { bg: 'bg-amber-50',   text: 'text-amber-700',   dot: 'bg-amber-500',   label: 'Pending' },
@@ -78,6 +78,26 @@ export function PaymentStatusBadge({ status }: { status: string }) {
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold ${style.bg} ${style.text}`}>
       {key.replace(/_/g, ' ') || 'UNKNOWN'}
+    </span>
+  );
+}
+
+/**
+ * Big, solid-color dispatch indicator — deliberately louder than the other
+ * badges on this page so "has this actually shipped yet?" is answerable at
+ * a glance across a whole page of orders, not just on click-in.
+ */
+export function DispatchBadge({ dispatched }: { dispatched: boolean }) {
+  return (
+    <span
+      className={`inline-flex w-full items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-extrabold uppercase tracking-wide ${
+        dispatched
+          ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/30'
+          : 'bg-rose-600 text-white shadow-sm shadow-rose-600/30'
+      }`}
+    >
+      {dispatched ? <Truck className="w-4 h-4" /> : <Clock3 className="w-4 h-4" />}
+      {dispatched ? 'Dispatched' : 'Not Dispatched'}
     </span>
   );
 }

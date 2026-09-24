@@ -180,7 +180,12 @@ export async function patchAirtableRecord(
 }
 
 export function cleanPhone(phone: string): string {
-  return (phone || '').replace(/\D/g, '').replace(/^91/, '').slice(-10).padStart(10, '0');
+  // Keep only the last 10 digits — this alone strips any country-code prefix
+  // (+91, 0091, a leading 0, any length), so a separate "strip leading 91"
+  // step must never run first: a real 10-digit Indian mobile number can
+  // legitimately start with 91 (e.g. 9105497005), and stripping it there
+  // corrupted the number into "00" + the remaining 8 digits.
+  return (phone || '').replace(/\D/g, '').slice(-10).padStart(10, '0');
 }
 
 export function getInnofulfillBase(): string {
