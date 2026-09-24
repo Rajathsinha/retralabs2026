@@ -79,15 +79,24 @@ const EMPTY_FILTERS: AdminFilters = {
 };
 
 async function fetchOrders(): Promise<AirtableRecord[]> {
+  let lastError: string | null = null;
+
   try {
     const res = await adminFetch('/api/list-orders');
     if (res.ok) {
       const json = await res.json();
-      if (Array.isArray(json.records) && json.records.length > 0) {
+      if (Array.isArray(json.records)) {
+        // An empty table is a legitimate, non-error state — return it as-is
+        // instead of falling through to the generic failure below.
         return json.records;
       }
+      lastError = 'list-orders returned an unexpected response shape (no records array)';
+    } else {
+      const body = await res.json().catch(() => null);
+      lastError = `list-orders failed (HTTP ${res.status})${body?.error ? `: ${body.error}` : ''}`;
     }
   } catch (err) {
+    lastError = err instanceof Error ? err.message : String(err);
     console.warn('API fetch failed, checking dev environment fallback:', err);
   }
 
@@ -95,7 +104,7 @@ async function fetchOrders(): Promise<AirtableRecord[]> {
     return getDevMockOrders();
   }
 
-  throw new Error('Airtable fetch failed (HTTP 500)');
+  throw new Error(lastError || 'Failed to load orders — unknown error');
 }
 
 function exportCsv(records: AirtableRecord[]) {
