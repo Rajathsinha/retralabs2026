@@ -16,7 +16,7 @@ import {
   Table as TableIcon,
   ChevronRight as ChevronRightIcon,
 } from 'lucide-react';
-import { StatusBadge } from './badges';
+import { StatusBadge, DispatchBadge } from './badges';
 import type { AirtableRecord } from './types';
 import {
   formatExactOrderTime,
@@ -167,7 +167,7 @@ export function OrdersTable({
       {viewMode === 'line' && pageRows.length > 0 && (
         <div className="space-y-2">
           {/* Header Row */}
-          <div className="hidden lg:grid grid-cols-12 gap-3 px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-400 bg-slate-100/70 rounded-xl border border-slate-200/60 items-center">
+          <div className="hidden lg:grid grid-cols-[repeat(14,minmax(0,1fr))] gap-3 px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-400 bg-slate-100/70 rounded-xl border border-slate-200/60 items-center">
             <div className="col-span-3 flex items-center gap-2">
               <input
                 type="checkbox"
@@ -180,10 +180,11 @@ export function OrdersTable({
             </div>
             <div className="col-span-2">City & State</div>
             <div className="col-span-2">Order & Items</div>
-            <div className="col-span-2">Exact Time Placed</div>
+            <div className="col-span-1">Exact Time Placed</div>
             <div className="col-span-1">Mode</div>
             <div className="col-span-1 text-right">Total Price</div>
             <div className="col-span-1 text-center">Status</div>
+            <div className="col-span-3 text-center">Dispatch</div>
           </div>
 
           {/* Line Items */}
@@ -200,6 +201,10 @@ export function OrdersTable({
             const pay = getPaymentMode(r);
             const status = String(f['Status'] || 'New');
             const awb = String(f['AWB Number'] || f['Tracking ID'] || '');
+            // "Dispatched" means an AWB/tracking number actually exists — a
+            // booking record alone (Innofulfill Order ID with no AWB yet)
+            // is still AWB_PENDING, not dispatched.
+            const dispatched = Boolean(awb);
             const courier = String(f['Courier Provider'] || f['Carrier Display Name'] || f['Courier'] || '');
 
             const custKey = phone || name;
@@ -215,7 +220,7 @@ export function OrdersTable({
                     : 'border-slate-200/90'
                 }`}
               >
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 items-center">
+                <div className="grid grid-cols-1 lg:grid-cols-[repeat(14,minmax(0,1fr))] gap-3 sm:gap-4 items-center">
                   {/* Col 1: Checkbox + Customer Name & Mobile */}
                   <div className="lg:col-span-3 flex items-start sm:items-center gap-3 min-w-0">
                     <div
@@ -317,7 +322,7 @@ export function OrdersTable({
                   </div>
 
                   {/* Col 4: Exact Time Placed */}
-                  <div className="lg:col-span-2 min-w-0" title={timeInfo.fullIst}>
+                  <div className="lg:col-span-1 min-w-0" title={timeInfo.fullIst}>
                     <div className="flex items-center gap-1 text-xs font-semibold text-slate-800">
                       <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                       <span className={timeInfo.isToday ? 'text-blue-700 font-bold' : ''}>
@@ -353,10 +358,17 @@ export function OrdersTable({
                     </span>
                   </div>
 
-                  {/* Col 7: Status & Arrow */}
-                  <div className="lg:col-span-1 flex items-center justify-between lg:justify-end gap-2">
+                  {/* Col 7: Status */}
+                  <div className="lg:col-span-1 flex items-center justify-start lg:justify-center">
                     <StatusBadge status={status} />
-                    <ChevronRightIcon className="w-4 h-4 text-slate-300 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
+                  </div>
+
+                  {/* Col 8: Dispatch — big, loud, red/green */}
+                  <div className="lg:col-span-3 flex items-center gap-2">
+                    <div className="flex-1">
+                      <DispatchBadge dispatched={dispatched} />
+                    </div>
+                    <ChevronRightIcon className="w-4 h-4 text-slate-300 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all shrink-0" />
                   </div>
                 </div>
 
@@ -435,6 +447,7 @@ export function OrdersTable({
                   </th>
                   <th className="px-3 py-3 text-left">Status</th>
                   <th className="px-3 py-3 text-left">AWB</th>
+                  <th className="px-3 py-3 text-center">Dispatch</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -449,6 +462,7 @@ export function OrdersTable({
                   const total = Number(f['Total (₹)'] || 0);
                   const pay = getPaymentMode(r);
                   const status = String(f['Status'] || 'New');
+                  const dispatched = Boolean(f['AWB Number'] || f['Tracking ID']);
                   const awb = String(f['AWB Number'] || f['Tracking ID'] || '—');
 
                   return (
@@ -510,6 +524,9 @@ export function OrdersTable({
                       </td>
                       <td className="px-3 py-3 font-mono text-xs text-slate-500 whitespace-nowrap">
                         {awb}
+                      </td>
+                      <td className="px-3 py-3">
+                        <DispatchBadge dispatched={dispatched} />
                       </td>
                     </tr>
                   );
