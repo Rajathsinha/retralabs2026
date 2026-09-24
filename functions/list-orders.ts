@@ -9,12 +9,15 @@ const corsHeaders = {
 
 export const handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
-
-  // Admin-only: this route exposes or mutates order data.
-  const denied = await requireAdmin(event);
-  if (denied) return denied;
     return { statusCode: 200, headers: corsHeaders, body: '' };
   }
+
+  // Admin-only: this route exposes or mutates order data. This check was
+  // previously nested inside the OPTIONS branch above by mistake, so it
+  // never ran for the real GET request — every visitor, authenticated or
+  // not, could read every customer's name, address, and phone number.
+  const denied = await requireAdmin(event);
+  if (denied) return denied;
 
   if (event.httpMethod !== 'GET') {
     return {
