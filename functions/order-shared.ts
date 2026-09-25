@@ -634,6 +634,72 @@ export async function processLogistics(
   return result;
 }
 
+/**
+ * Confirms a payment gateway (Cashfree) success and books the shipment, using
+ * only what is already stored on the Airtable record — there is no browser
+ * session to re-supply cart items when a webhook or a post-redirect status
+ * check runs, so this reconstructs a single declared-value line item the same
+ * way the manual "push to Innofulfill/Shiprocket" admin action already does.
+ * Idempotent: a record already CONFIRMED is left untouched.
+ */
+export async function confirmPaymentAndFulfill(
+  baseId: string,
+  table: string,
+  token: string,
+  recordId: string,
+  orderId: string,
+  fields: Record<string, unknown>,
+  paymentReference?: string,
+): Promise<{ alreadyConfirmed: boolean }> {
+  const currentStatus = String(fields['Payment Status'] || '').toUpperCase();
+  if (currentStatus === PAYMENT_STATUS.CONFIRMED) {
+    return { alreadyConfirmed: true };
+  }
+
+  await patchAirtableRecord(baseId, table, token, recordId, {
+    'Payment Status': PAYMENT_STATUS.CONFIRMED,
+    Status: 'PAYMENT_CONFIRMED',
+    ...(paymentReference ? { Transaction: paymentReference } : {}),
+  });
+
+  const total = Number(fields['Total (₹)'] || 0);
+  const address = String(fields.Address || '');
+  // Dynamic import: delivery-shared imports getInnofulfillToken from this
+  // module, so a static import here would be circular (see processLogistics).
+  const { extractPincodeFromAddress } = await import('./delivery-shared');
+  const pincode = extractPincodeFromAddress(address) || '';
+
+  if (!pincode) {
+    console.warn(`[Cashfree] ${orderId}: no PIN code found in stored address — skipping auto logistics, needs a manual push`);
+    return { alreadyConfirmed: false };
+  }
+
+  const isExpress = String(fields.Delivery || '').toLowerCase().includes('express');
+  const customer = {
+    name: String(fields.Name || 'Customer'),
+    email: String(fields.Email || 'orders@retralabs.in'),
+    phone: String(fields.Phone || ''),
+    address,
+    city: String(fields.City || '').trim() || 'Bengaluru',
+    state: String(fields.State || '').trim() || 'Karnataka',
+    pincode,
+  };
+  const declaredTotal = total >= 10000 ? 3000 : 1000;
+  const cartItems: CartLineItem[] = [{ name: 'Cosmetic Research use', variant: 'ONLINE', quantity: 1, unitPrice: declaredTotal }];
+
+  await processLogistics(baseId, table, token, recordId, orderId, {
+    cartItems,
+    customer,
+    paymentMethod: 'prepay',
+    deliveryOption: isExpress ? 'fast' : 'normal',
+    total,
+    deliveryCharge: 0,
+    codCharge: 0,
+  });
+
+  return { alreadyConfirmed: false };
+}
+
 async function applyLogisticsPatch(
   baseId: string,
   table: string,
