@@ -153,7 +153,9 @@ export default function CheckoutPage() {
     removeFromCart,
     updateQuantity,
     clearCart,
-    getTotal,
+    // Not getTotal(): it has no idea which payment method is selected and
+    // would re-apply a coupon that COD disqualifies. Totals here are built
+    // from netSubtotal instead.
     getSubtotal,
     getDiscount,
     getDiscountAmount,
@@ -181,9 +183,22 @@ export default function CheckoutPage() {
 
   const [paymentMethod, setPaymentMethod] = useState<'prepay' | 'cod'>('prepay');
 
+  /**
+   * Coupons are a prepaid-only incentive and never apply to COD orders.
+   *
+   * A code the customer already entered stays applied in the cart rather than
+   * being torn up, so switching back to online payment restores it — it just
+   * contributes nothing while COD is selected. Every total below is built from
+   * `netSubtotal` for that reason; the cart's own getTotal() knows nothing
+   * about the payment method and would silently re-apply the coupon.
+   */
+  const couponApplies = paymentMethod !== 'cod';
+  const couponAmount = couponApplies ? getCouponAmount() : 0;
+  const netSubtotal = getSubtotal() - getDiscountAmount() - couponAmount;
+
   const deliveryCharge = formData.delivery_option === 'fast' ? FAST_DELIVERY_CHARGE : 0;
-  const codCharge      = paymentMethod === 'cod' ? getCodCharge(getTotal() + deliveryCharge) : 0;
-  const grandTotal     = getTotal() + deliveryCharge + codCharge;
+  const codCharge      = paymentMethod === 'cod' ? getCodCharge(netSubtotal + deliveryCharge) : 0;
+  const grandTotal     = netSubtotal + deliveryCharge + codCharge;
 
   /* ── Restore saved contact details from localStorage ── */
   useEffect(() => {
@@ -398,6 +413,9 @@ export default function CheckoutPage() {
     setCouponStatus(result.success ? 'success' : 'error');
     setCouponMsg(result.message);
     if (result.success) setCouponInput('');
+    // A code applied while COD is selected doesn't need a message here: the
+    // input row is replaced by the applied-coupon chip, which carries the
+    // "not valid with COD" note.
   };
 
   /** Step 1 → 2: validate form and build WhatsApp URL, but don't open yet */
@@ -973,7 +991,18 @@ export default function CheckoutPage() {
             {/* Price breakdown */}
             <div className="space-y-2 text-sm mb-4 pb-4 border-b border-[#E5E7EB]">
               {getDiscount() > 0 && <div className="flex justify-between text-[#16a34a]"><span className="flex items-center gap-1.5"><Tag className="w-3.5 h-3.5" />5% Discount</span><span className="font-semibold">−{format(getDiscountAmount())}</span></div>}
-              {couponCode && getCouponAmount() > 0 && <div className="flex justify-between text-[#16a34a]"><span className="flex items-center gap-1.5"><Tag className="w-3.5 h-3.5" />Coupon ({couponCode})</span><span className="font-semibold">−{format(getCouponAmount())}</span></div>}
+              {couponCode && couponAmount > 0 && <div className="flex justify-between text-[#16a34a]"><span className="flex items-center gap-1.5"><Tag className="w-3.5 h-3.5" />Coupon ({couponCode})</span><span className="font-semibold">−{format(couponAmount)}</span></div>}
+              {/* A coupon that stops counting the moment COD is picked has to say so,
+                  or the total looks like it jumped for no reason. */}
+              {couponCode && !couponApplies && (
+                <div className="flex justify-between items-start gap-3 text-[#9CA3AF]">
+                  <span className="flex items-center gap-1.5"><Tag className="w-3.5 h-3.5 flex-shrink-0" />Coupon ({couponCode})</span>
+                  <span className="text-right text-xs font-semibold leading-tight">
+                    <span className="line-through">−{format(getCouponAmount())}</span>
+                    <span className="block text-[#D97706]">Not valid with COD</span>
+                  </span>
+                </div>
+              )}
               {deliveryCharge > 0 && <div className="flex justify-between text-[#D97706]"><span className="flex items-center gap-1.5"><Zap className="w-3.5 h-3.5" />Express Delivery</span><span className="font-semibold">+{format(deliveryCharge)}</span></div>}
               {isCodReview && <div className="flex justify-between text-[#D97706]"><span className="flex items-center gap-1.5"><Banknote className="w-3.5 h-3.5" />COD Fee</span><span className="font-semibold">+{format(codCharge)}</span></div>}
             </div>
@@ -1196,10 +1225,22 @@ export default function CheckoutPage() {
                             <X className="w-3.5 h-3.5" />
                           </button>
                         </div>
-                        <span className="font-semibold text-emerald-600">
-                          &minus;{format(getCouponAmount())}
-                        </span>
+                        {couponApplies ? (
+                          <span className="font-semibold text-emerald-600">
+                            &minus;{format(couponAmount)}
+                          </span>
+                        ) : (
+                          <span className="font-semibold text-slate-400 line-through">
+                            &minus;{format(getCouponAmount())}
+                          </span>
+                        )}
                       </div>
+                      {!couponApplies && (
+                        <p className="flex items-start gap-1.5 text-xs font-semibold text-amber-600 -mt-1">
+                          <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-px" />
+                          Coupons can't be used with Cash on Delivery. Switch to online payment to use this code.
+                        </p>
+                      )}
                     </>
                   ) : (
                     <div>
@@ -1261,11 +1302,11 @@ export default function CheckoutPage() {
                     </span>
                   </div>
 
-                  {(getDiscount() > 0 || getCouponAmount() > 0) && (
+                  {(getDiscount() > 0 || couponAmount > 0) && (
                     <div className="flex items-center gap-2 pt-1">
                       <Check className="w-4 h-4 text-emerald-500" />
                       <span className="text-sm text-emerald-600 font-medium">
-                        You saved {format(getDiscountAmount() + getCouponAmount())} in total
+                        You saved {format(getDiscountAmount() + couponAmount)} in total
                       </span>
                     </div>
                   )}
@@ -1560,10 +1601,12 @@ export default function CheckoutPage() {
                         <span className="text-sm font-bold">Cash on Delivery</span>
                       </div>
                       <p className={`text-xs ${paymentMethod === 'cod' ? 'text-orange-100' : 'text-slate-500'}`}>
-                        Pay in cash when it arrives
+                        {couponCode ? 'No coupons · pay in cash on arrival' : 'Pay in cash when it arrives'}
                       </p>
+                      {/* Quoted off the coupon-free subtotal, because picking COD is
+                          exactly what drops the coupon. */}
                       <span className={`text-base font-black ${paymentMethod === 'cod' ? 'text-white' : 'text-orange-600'}`}>
-                        +{format(getCodCharge(getTotal() + deliveryCharge))}
+                        +{format(getCodCharge(getSubtotal() - getDiscountAmount() + deliveryCharge))}
                       </span>
                       {paymentMethod === 'cod' && (
                         <div className="absolute top-2.5 right-2.5 w-5 h-5 bg-white rounded-full flex items-center justify-center">
