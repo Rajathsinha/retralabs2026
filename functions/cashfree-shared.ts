@@ -18,12 +18,13 @@ export interface CashfreeConfig {
 }
 
 export function getCashfreeConfig(): CashfreeConfig | null {
-  const clientId = (process.env.CASHFREE_CLIENT_ID || '').trim();
-  const clientSecret = (process.env.CASHFREE_CLIENT_SECRET || '').trim();
+  const clientId = (process.env.CASHFREE_CLIENT_ID || process.env.CASHFREE_APP_ID || '').trim();
+  const clientSecret = (process.env.CASHFREE_CLIENT_SECRET || process.env.CASHFREE_SECRET_KEY || '').trim();
   if (!clientId || !clientSecret) return null;
 
-  const envValue = (process.env.CASHFREE_ENV || 'production').trim().toLowerCase();
-  const mode: 'sandbox' | 'production' = envValue === 'sandbox' ? 'sandbox' : 'production';
+  const envValue = (process.env.CASHFREE_ENV || process.env.CASHFREE_ENVIRONMENT || 'production').trim().toLowerCase();
+  const isSandbox = ['sandbox', 'test', 'testing', 'staging'].includes(envValue);
+  const mode: 'sandbox' | 'production' = isSandbox ? 'sandbox' : 'production';
   const baseUrl = mode === 'sandbox' ? 'https://sandbox.cashfree.com/pg' : 'https://api.cashfree.com/pg';
 
   return { clientId, clientSecret, baseUrl, apiVersion: '2023-08-01', mode };
