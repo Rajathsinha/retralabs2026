@@ -8,6 +8,7 @@ import { getProductImageUrl, BAC_WATER_IMAGE_URL } from '../utils/imageUrl';
 import { shareCartToWhatsApp, CartShareData } from '../utils/cartShare';
 import { productDisplayName } from '../utils/productDisplayName';
 import { WHATSAPP_NUMBER } from '../constants/config';
+import PaymentMethodsStrip from './payments/PaymentMethodsStrip';
 
 export default function CartDrawer() {
   const navigate = useNavigate();
@@ -274,6 +275,8 @@ export default function CartDrawer() {
                     Proceed to Checkout
                     <ChevronRight className="w-4 h-4" />
                   </button>
+
+                  <PaymentMethodsStrip showSecureLine />
 
                   {/* Discuss on WhatsApp — shares a cart image / text summary */}
                   <button

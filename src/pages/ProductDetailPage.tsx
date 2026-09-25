@@ -13,6 +13,7 @@ import { productPath, productUrl, findProductByParam, isLegacyProductParam } fro
 import { canonicalUrl as toCanonicalUrl } from '../utils/siteUrl';
 import { GUIDES, CATEGORIES } from '../data/seoData';
 import TrustpilotRating from '../components/TrustpilotRating';
+import PaymentMethodsStrip from '../components/payments/PaymentMethodsStrip';
 import {
   ChevronRight, Star, Check, Package, Truck, Shield,
   ShieldCheck, FlaskConical, FileCheck,
@@ -534,6 +535,8 @@ export default function ProductDetailPage() {
               >
                 Buy Now — {format(totalPrice)}
               </button>
+
+              <PaymentMethodsStrip className="pt-1.5" showSecureLine />
             </div>
 
             {/* Feature strip */}

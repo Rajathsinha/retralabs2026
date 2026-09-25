@@ -57,6 +57,8 @@ export async function createCashfreeOrder(
   customer: { name: string; email: string; phone: string },
   returnUrl: string,
   notifyUrl: string,
+  /** Cashfree payment_methods CSV, e.g. "upi" or "cc,dc". Empty shows every method. */
+  paymentMethods?: string,
 ): Promise<CreateCashfreeOrderResult> {
   const res = await fetch(`${cfg.baseUrl}/orders`, {
     method: 'POST',
@@ -74,6 +76,7 @@ export async function createCashfreeOrder(
       order_meta: {
         return_url: returnUrl,
         notify_url: notifyUrl,
+        ...(paymentMethods ? { payment_methods: paymentMethods } : {}),
       },
     }),
   });

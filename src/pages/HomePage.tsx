@@ -1,13 +1,15 @@
 import { lazy, Suspense, useEffect, useRef, useState, useMemo } from 'react';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import {
-  ArrowRight, Star, CheckCircle, Zap, Truck, Lock, ShoppingBag, BookOpen,
+  ArrowRight, Star, Zap, Truck, Lock, ShoppingBag, BookOpen,
   FlaskConical, Shield, Package, Microscope,
   AlertTriangle, Calculator, Beaker, Syringe, Droplets, ChevronDown,
 } from 'lucide-react';
 import { PRODUCTS } from '../data/products';
 import ProductCard from '../components/ProductCard';
 import { useSEO } from '../hooks/useSEO';
+import PayYourWaySection from '../components/payments/PayYourWaySection';
+import PaymentMethodsStrip from '../components/payments/PaymentMethodsStrip';
 import { getLocalBusinessSchema, getServiceAreaSchema } from '../utils/localSeoSchemas';
 import { BUSINESS_NAP, TRUSTPILOT } from '../constants/config';
 import { canonicalUrl } from '../utils/siteUrl';
@@ -306,6 +308,12 @@ export default function HomePage() {
                     </div>
                   </a>
                 </div>
+
+                {/* Pay-your-way reassurance, right where the buying decision happens.
+                    The marks carry the message on their own — a sentence restating
+                    them would only add clutter, and on mobile it ran under the
+                    floating WhatsApp button. */}
+                <PaymentMethodsStrip className="mt-5 sm:mt-6 sm:items-start" />
               </div>
             </div>
 
@@ -485,44 +493,9 @@ export default function HomePage() {
         <TrustpilotSection />
       </Suspense>
 
-      {/* ═══════════════════ COD BANNER ═══════════════════ */}
-      <section style={{ padding: '48px 24px' }}>
-        <div className="max-w-[1440px] mx-auto px-0 lg:px-4">
-          <Reveal>
-            <div
-              className="bg-white border border-[#E5E7EB] px-8 lg:px-10 py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6"
-              style={{ borderRadius: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-[#DCFCE7] flex items-center justify-center flex-shrink-0">
-                  <CheckCircle className="w-4.5 h-4.5 text-[#16a34a]" strokeWidth={2} />
-                </div>
-                <div>
-                  <h3 className="text-[#111111] text-[15px] font-semibold leading-snug">
-                    Cash on Delivery (COD) Available
-                  </h3>
-                  <p className="text-[#6B7280] text-[13px] mt-0.5 leading-relaxed">
-                    Pay only when your package arrives. Available across every city in India.
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4 flex-shrink-0">
-                <span className="inline-flex items-center gap-1.5 bg-[#16a34a] text-white text-[12px] font-bold px-4 py-2 rounded-full">
-                  <CheckCircle className="w-3.5 h-3.5" strokeWidth={2.5} />
-                  COD
-                </span>
-                <button
-                  type="button"
-                  onClick={() => navigate('/catalogue/')}
-                  className="group text-[#16a34a] text-[14px] font-semibold hover:text-[#15803d] transition-colors flex items-center gap-1.5"
-                >
-                  Shop Now <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
-                </button>
-              </div>
-            </div>
-          </Reveal>
-        </div>
-      </section>
+      {/* ═══════════════════ PAY YOUR WAY ═══════════════════ */}
+      {/* Replaces the old COD-only banner: COD is now one of four ways to pay. */}
+      <PayYourWaySection />
 
       {/* ═══════════════════ FEATURE ICONS ═══════════════════ */}
       <section className="border-t border-[#E5E7EB] bg-[#F5F7FA]" style={{ paddingTop: 80, paddingBottom: 80, paddingLeft: 24, paddingRight: 24 }}>
