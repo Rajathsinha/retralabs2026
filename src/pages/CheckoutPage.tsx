@@ -2,7 +2,7 @@ import { useSEO } from '../hooks/useSEO';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getProductImageUrl, BAC_WATER_IMAGE_URL } from '../utils/imageUrl';
-import { Minus, Plus, Trash2, Check, MessageCircle, Tag, ShoppingBag, ArrowRight, X, GraduationCap, Zap, Clock, Banknote, Package, Truck, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Minus, Plus, Trash2, Check, MessageCircle, Tag, ShoppingBag, ArrowRight, X, GraduationCap, Zap, Clock, Banknote, Package, Truck, Loader2, AlertCircle, CheckCircle2, CreditCard, ShieldCheck } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { OrderFormData } from '../types';
@@ -10,7 +10,6 @@ import { productDisplayName } from '../utils/productDisplayName';
 import StateSelect from '../components/StateSelect';
 import { useDeliveryCheck } from '../hooks/useDeliveryCheck';
 import { canonicalRegion } from '../data/indianStates';
-import UpiQrModal from '../components/UpiQrModal';
 
 const FAST_DELIVERY_CHARGE = 800;
 const WHATSAPP_SUPPORT_NUMBER = '918217824384';
@@ -50,28 +49,38 @@ async function saveOrder(fields: Record<string, unknown>, screenshot?: { content
   };
 }
 
-async function confirmPayment(payload: Record<string, unknown>) {
-  const res = await fetch('/api/confirm-payment', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  const json = await res.json().catch(() => null);
-  if (!res.ok || !json?.success) {
-    throw new Error(json?.error || `Payment confirmation failed (HTTP ${res.status})`);
-  }
-  return json;
+// ── Cashfree Hosted Checkout ───────────────────────────────────────────────
+const CASHFREE_SDK_URL = 'https://sdk.cashfree.com/js/v3/cashfree.js';
+const PENDING_CF_ORDER_KEY = 'rl_cf_pending_order';
+
+interface PendingCashfreeOrder {
+  itemsSummaryFlat: string;
+  total: number;
+  cartItems: Array<{ name: string; config: string; qty: number; price: number }>;
+  deliveryOption: string;
+  deliveryCharge: number;
 }
 
-async function fileToBase64(file: File): Promise<string> {
+type CashfreeFactory = (opts: { mode: 'sandbox' | 'production' }) => {
+  checkout: (opts: { paymentSessionId: string; redirectTarget: string }) => Promise<unknown>;
+};
+
+function loadCashfreeSdk(): Promise<CashfreeFactory> {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      resolve(result.split(',')[1]);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+    const w = window as unknown as { Cashfree?: CashfreeFactory };
+    if (w.Cashfree) { resolve(w.Cashfree); return; }
+    const existing = document.querySelector(`script[src="${CASHFREE_SDK_URL}"]`);
+    if (existing) {
+      existing.addEventListener('load', () => resolve((window as unknown as { Cashfree: CashfreeFactory }).Cashfree));
+      existing.addEventListener('error', () => reject(new Error('Failed to load the payment gateway script')));
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = CASHFREE_SDK_URL;
+    script.async = true;
+    script.onload = () => resolve((window as unknown as { Cashfree: CashfreeFactory }).Cashfree);
+    script.onerror = () => reject(new Error('Failed to load the payment gateway script'));
+    document.head.appendChild(script);
   });
 }
 
@@ -92,7 +101,7 @@ function getCodCharge(orderTotal: number): number {
 export default function CheckoutPage() {
   const navigate = useNavigate();
   useSEO({ title: 'Checkout | RetraLabs', description: 'Secure checkout for your RetraLabs research order.', noindex: true });
-  const { format, currency } = useCurrency();
+  const { format } = useCurrency();
   const {
     cart,
     removeFromCart,
@@ -211,10 +220,7 @@ export default function CheckoutPage() {
   /* The pay button stays inert until every precondition holds. */
   const canPlaceOrder = contactValid && addressValid && consentsAccepted && !submitting;
   const [confirming, setConfirming] = useState(false);
-  const [whatsappUrl, setWhatsappUrl] = useState('');
   const [orderSent,   setOrderSent]   = useState(false);
-  const [showQrModal, setShowQrModal] = useState(false);
-  const [paymentSession, setPaymentSession] = useState<{ recordId: string; orderId: string; expiresAt: string | null } | null>(null);
   const [startingPayment, setStartingPayment] = useState(false);
   const [stillConnecting, setStillConnecting] = useState(false);
   const stillConnectingTimer = useRef<number | null>(null);
@@ -236,6 +242,84 @@ export default function CheckoutPage() {
     pendingReview?: boolean;
   } | null>(null);
   const orderSaving = useRef(false); // prevent double-save
+
+  /**
+   * Cashfree Hosted Checkout redirects the browser away from the site and
+   * back — a full page unload/reload, so nothing kept only in React state
+   * survives the round trip. Cart/order details needed for the confirmation
+   * screen are read back from sessionStorage; the payment outcome itself is
+   * never trusted from the redirect's own query string (anyone could craft
+   * one), only from a server-to-server status check.
+   */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('cf_return') !== '1') return;
+    const returnedOrderId = params.get('order_id');
+    window.history.replaceState({}, '', window.location.pathname);
+    if (!returnedOrderId) return;
+
+    let pending: PendingCashfreeOrder | null = null;
+    try {
+      const raw = sessionStorage.getItem(PENDING_CF_ORDER_KEY);
+      pending = raw ? (JSON.parse(raw) as PendingCashfreeOrder) : null;
+    } catch {
+      pending = null;
+    }
+
+    (async () => {
+      setConfirming(true);
+      setSubmitError(null);
+      try {
+        let statusJson: { success?: boolean; confirmed?: boolean; paymentStatus?: string; awbNumber?: string | null; innofulfillOrderId?: string | null; carrierDisplayName?: string | null; total?: number } | null = null;
+        // The webhook usually lands within a second or two of the redirect —
+        // poll briefly instead of showing "pending" for a payment that has
+        // already gone through.
+        for (let attempt = 0; attempt < 6; attempt++) {
+          const res = await fetch(`/api/cashfree-order-status?orderId=${encodeURIComponent(returnedOrderId)}`);
+          statusJson = await res.json().catch(() => null);
+          if (statusJson?.success && (statusJson.confirmed || statusJson.paymentStatus === 'PAYMENT_FAILED')) break;
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+        }
+
+        if (!statusJson?.success) {
+          setSubmitError(`We could not confirm your payment status. If you were charged, please contact support with your Order ID: ${returnedOrderId}.`);
+          return;
+        }
+
+        if (statusJson.paymentStatus === 'PAYMENT_FAILED') {
+          try { sessionStorage.removeItem(PENDING_CF_ORDER_KEY); } catch { /* best-effort */ }
+          navigate('/payment-failed');
+          return;
+        }
+
+        setOrderSnapshot({
+          items: pending?.itemsSummaryFlat || '',
+          total: pending?.total ?? statusJson.total ?? 0,
+          orderId: returnedOrderId,
+          awbNumber: statusJson.awbNumber || null,
+          innofulfillOrderId: statusJson.innofulfillOrderId || null,
+          innofulfillWarning: null,
+          carrierDisplayName: statusJson.carrierDisplayName || null,
+          cartItems: pending?.cartItems || [],
+          deliveryOption: pending?.deliveryOption || 'normal',
+          paymentMethod: 'prepay',
+          deliveryCharge: pending?.deliveryCharge || 0,
+          codCharge: 0,
+          pendingReview: !statusJson.confirmed,
+        });
+        try { sessionStorage.removeItem(PENDING_CF_ORDER_KEY); } catch { /* best-effort */ }
+        clearCart();
+        setOrderSent(true);
+        window.scrollTo({ top: 0, behavior: 'instant' });
+      } catch (err) {
+        setSubmitError(`Could not confirm your payment — ${describeError(err)}. If you were charged, please contact support with your Order ID: ${returnedOrderId}.`);
+      } finally {
+        setConfirming(false);
+      }
+    })();
+    // Runs once, right after Cashfree redirects back — not on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // coupon input state
   const [couponInput,  setCouponInput]  = useState('');
@@ -272,52 +356,6 @@ export default function CheckoutPage() {
     }
     setSubmitting(true);
 
-    const lines = cart.map(
-      (item) => {
-        const config = item.variant.vial_configuration || `${item.variant.dosage_mg}mg`;
-        return `• ${item.product.name} (${config}) — ₹${item.variant.price_inr.toLocaleString('en-IN')} × ${item.quantity}`;
-      }
-    );
-
-    const discountText =
-      getDiscountAmount() > 0
-        ? `\n*Subtotal:* ₹${getSubtotal().toLocaleString('en-IN')}\n*Peptide Discount:* -₹${getDiscountAmount().toLocaleString('en-IN')}`
-        : '';
-
-    const couponAmt = getCouponAmount();
-    const couponText = couponCode && couponAmt > 0
-      ? `\n*Coupon (${couponCode}):* -₹${couponAmt.toLocaleString('en-IN')}`
-      : '';
-
-    const referralLine = formData.referral_source
-      ? `\nFound us via: ${formData.referral_source}${formData.referral_source === 'Friend' && formData.referral_friend_name ? ` (referred by ${formData.referral_friend_name})` : ''}`
-      : '';
-
-    const deliveryLine = formData.delivery_option === 'fast'
-      ? `\n*Delivery: Express (1–2 days, major cities) — +₹${FAST_DELIVERY_CHARGE.toLocaleString('en-IN')}*`
-      : `\n*Delivery: Standard (3–4 days Tier 1/2 · 4–6 days remote) — Free*`;
-
-    const paymentLine = paymentMethod === 'cod'
-      ? `\n*Payment: Cash on Delivery — +₹${codCharge.toLocaleString('en-IN')} COD fee*`
-      : `\n*Payment: Online (UPI)*`;
-
-    const message =
-      `*New Order — RetraLabs.in*\n\n` +
-      `*Customer*\n` +
-      `Name: ${formData.customer_name}\n` +
-      `Email: ${formData.customer_email}\n` +
-      `Phone: ${formData.customer_phone}${referralLine}\n\n` +
-      `*Shipping Address*\n${formData.shipping_address}${formData.city ? `, ${formData.city}` : ''}${formData.state ? `, ${formData.state}` : ''}${formData.pincode ? `, PIN: ${formData.pincode}` : ''}\n\n` +
-      `*Items*\n${lines.join('\n')}` +
-      `${discountText}` +
-      `${couponText}` +
-      `${deliveryLine}` +
-      `${paymentLine}\n\n` +
-      `*Total: ₹${grandTotal.toLocaleString('en-IN')}*` +
-      (currency.code !== 'INR' ? ` (~${format(grandTotal)})` : '') +
-      (paymentMethod === 'cod' ? `\n\n⚠️ COD order — please confirm availability before dispatching.` : `\n\nPayment via UPI preferred (INR).`);
-
-    setWhatsappUrl(`https://wa.me/918217824384?text=${encodeURIComponent(message)}`);
     setTimeout(() => {
       setOrderReady(true);
       setSubmitting(false);
@@ -484,7 +522,7 @@ export default function CheckoutPage() {
     },
   });
 
-  const handleOpenQrModal = async () => {
+  const handlePayWithCashfree = async () => {
     if (startingPayment) return;
     // Set instantly, before any await, so the button reacts within a frame
     // instead of leaving the screen looking frozen while the network call runs.
@@ -493,142 +531,59 @@ export default function CheckoutPage() {
     setSubmitError(null);
     stillConnectingTimer.current = window.setTimeout(() => setStillConnecting(true), 5000);
     try {
-      const itemsSummary = cart
+      const cartSnapshot = cart.map(item => ({ ...item }));
+      const snapFormData = { ...formData };
+      const snapDeliveryCharge = deliveryCharge;
+      const snapTotal = grandTotal;
+
+      const itemsSummary = cartSnapshot
         .map(i => `${i.product.name} ${i.variant.dosage_mg}mg x${i.quantity} = ₹${(i.variant.price_inr * i.quantity).toLocaleString('en-IN')}`)
         .join('\n');
-      const payload = buildOrderPayload(formData, grandTotal, deliveryCharge, 0, 'prepay', itemsSummary, true);
+      const payload = buildOrderPayload(snapFormData, snapTotal, snapDeliveryCharge, 0, 'prepay', itemsSummary, true);
       const result = await saveOrder(payload.fields, undefined, payload.extra);
       if (!result.recordId || !result.orderId) throw new Error('Failed to start payment session');
-      setPaymentSession({
-        recordId: result.recordId,
-        orderId: result.orderId,
-        expiresAt: result.paymentSessionExpiresAt || null,
+
+      const cfRes = await fetch('/api/create-cashfree-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recordId: result.recordId,
+          orderId: result.orderId,
+          amount: snapTotal,
+          customer: {
+            name: snapFormData.customer_name,
+            email: snapFormData.customer_email,
+            phone: snapFormData.customer_phone,
+          },
+        }),
       });
-      setShowQrModal(true);
+      const cfJson: { success?: boolean; paymentSessionId?: string; mode?: 'sandbox' | 'production'; error?: string } = await cfRes.json().catch(() => ({}));
+      if (!cfRes.ok || !cfJson?.success || !cfJson?.paymentSessionId) {
+        throw new Error(cfJson?.error || `Could not start payment (HTTP ${cfRes.status})`);
+      }
+
+      // Persist everything needed to render the confirmation screen once
+      // Cashfree redirects the browser back here — a hosted-checkout redirect
+      // unloads the page, so nothing kept only in React state survives it.
+      const pending: PendingCashfreeOrder = {
+        itemsSummaryFlat: cartSnapshot.map(i => `${i.product.name} ${i.variant.dosage_mg}mg x${i.quantity}`).join(', '),
+        total: snapTotal,
+        cartItems: cartSnapshot.map(i => ({ name: i.product.name, config: i.variant.vial_configuration || `${i.variant.dosage_mg}mg`, qty: i.quantity, price: i.variant.price_inr })),
+        deliveryOption: snapFormData.delivery_option,
+        deliveryCharge: snapDeliveryCharge,
+      };
+      try { sessionStorage.setItem(PENDING_CF_ORDER_KEY, JSON.stringify(pending)); } catch { /* best-effort */ }
+
+      const Cashfree = await loadCashfreeSdk();
+      const cashfree = Cashfree({ mode: cfJson.mode === 'sandbox' ? 'sandbox' : 'production' });
+      await cashfree.checkout({ paymentSessionId: cfJson.paymentSessionId, redirectTarget: '_self' });
+      // Execution normally stops here — the browser navigates to Cashfree.
     } catch (err) {
-      setSubmitError(`Could not start payment session — ${describeError(err)}. Please try again.`);
+      setSubmitError(`Could not start payment — ${describeError(err)}. Please try again.`);
     } finally {
       if (stillConnectingTimer.current) { window.clearTimeout(stillConnectingTimer.current); stillConnectingTimer.current = null; }
       setStartingPayment(false);
       setStillConnecting(false);
-    }
-  };
-
-  const handleQrPaymentConfirmed = async (txnRef: string, screenshot: File | null) => {
-    if (orderSaving.current) return;
-    orderSaving.current = true;
-    setSubmitError(null);
-    setNotifyWarning(null);
-
-    // Capture everything before any awaits
-    const cartSnapshot = cart.map(item => ({ ...item }));
-    const snapTotal = grandTotal;
-    const snapDeliveryCharge = deliveryCharge;
-    const snapFormData = { ...formData };
-
-    const itemsSummaryFlat = cartSnapshot
-      .map(i => `${i.product.name} ${i.variant.dosage_mg}mg x${i.quantity}`)
-      .join(', ');
-
-    let screenshotPayload: { contentType: string; filename: string; base64: string } | undefined;
-    if (screenshot) {
-      const base64 = await fileToBase64(screenshot);
-      screenshotPayload = { contentType: screenshot.type, filename: screenshot.name, base64 };
-    }
-
-    if (!paymentSession?.recordId) {
-      throw new Error('Payment session expired. Please restart checkout.');
-    }
-
-    try {
-      const confirmed = await confirmPayment({
-        recordId: paymentSession.recordId,
-        orderId: paymentSession.orderId,
-        transaction: txnRef,
-        screenshot: screenshotPayload,
-        cartItems: cartSnapshot.map(i => ({
-          name: i.product.name,
-          variant: i.variant.vial_configuration || `${i.variant.dosage_mg}mg`,
-          quantity: i.quantity,
-          unitPrice: i.variant.price_inr,
-        })),
-        customer: {
-          name: snapFormData.customer_name,
-          email: snapFormData.customer_email,
-          phone: snapFormData.customer_phone,
-          address: snapFormData.shipping_address,
-          city: snapFormData.city,
-          state: snapFormData.state,
-          pincode: snapFormData.pincode,
-        },
-        paymentMethod: 'prepay',
-        deliveryOption: snapFormData.delivery_option,
-        total: snapTotal,
-        deliveryCharge: snapDeliveryCharge,
-        codCharge: 0,
-      });
-
-      const finalOrderId = confirmed.orderId || paymentSession.orderId;
-
-      // Non-critical: customer email — surface failures without blocking
-      const snapSubtotal = cartSnapshot.reduce((s, i) => s + i.variant.price_inr * i.quantity, 0);
-      const snapDiscount = snapSubtotal - snapTotal + snapDeliveryCharge;
-      const emailResult = await sendOrderConfirmationEmail({
-        orderId: finalOrderId,
-        name: snapFormData.customer_name,
-        email: snapFormData.customer_email,
-        phone: snapFormData.customer_phone,
-        address: snapFormData.shipping_address,
-        city: snapFormData.city,
-        state: snapFormData.state,
-        pincode: snapFormData.pincode,
-        items: cartSnapshot.map(i => ({
-          name: i.product.name,
-          variant: i.variant.vial_configuration || `${i.variant.dosage_mg}mg`,
-          quantity: i.quantity,
-          unitPrice: i.variant.price_inr,
-        })),
-        subtotal: snapSubtotal,
-        discount: snapDiscount,
-        deliveryCharge: snapDeliveryCharge,
-        codCharge: 0,
-        total: snapTotal,
-        paymentMethod: 'UPI QR',
-        orderDate: new Date().toISOString(),
-      });
-      if (!emailResult.success) {
-        setNotifyWarning(`Email: ${emailResult.error}`);
-      }
-      if (!confirmed.innofulfillOrderId && confirmed.innofulfillWarning) {
-        setNotifyWarning(prev => prev ? `${prev}; Logistics: ${confirmed.innofulfillWarning}` : `Logistics: ${confirmed.innofulfillWarning}`);
-      }
-
-      setOrderSnapshot({
-        items: itemsSummaryFlat,
-        total: snapTotal,
-        orderId: finalOrderId,
-        awbNumber: confirmed.awbNumber || null,
-        innofulfillOrderId: confirmed.innofulfillOrderId || null,
-        innofulfillWarning: confirmed.innofulfillWarning || null,
-        cartItems: cartSnapshot.map(i => ({ name: i.product.name, config: i.variant.vial_configuration || `${i.variant.dosage_mg}mg`, qty: i.quantity, price: i.variant.price_inr })),
-        deliveryOption: snapFormData.delivery_option,
-        paymentMethod: 'prepay',
-        deliveryCharge: snapDeliveryCharge,
-        codCharge: 0,
-        pendingReview: confirmed.paymentStatus !== 'PAYMENT_CONFIRMED',
-      });
-      clearCart();
-      setPaymentSession(null);
-      setShowQrModal(false);
-      setOrderSent(true);
-    } catch (err) {
-      // Don't close the modal or blank the screen — the customer's UTR and
-      // screenshot are still filled in. Surface the error inside the modal
-      // (via the rejected promise UpiQrModal awaits) so they can retry
-      // without re-entering everything, instead of vanishing into a dead end.
-      throw new Error(`Your payment reference (${txnRef}) was received but the order could not be saved — ${describeError(err)}. Please try again, or message us on WhatsApp with this reference so we can record your order manually.`);
-    } finally {
-      orderSaving.current = false;
     }
   };
 
@@ -639,8 +594,9 @@ export default function CheckoutPage() {
     const snapDeliveryCharge = snap?.deliveryCharge ?? 0;
     const snapCodCharge = snap?.codCharge ?? 0;
     const snapTotal = snap?.total ?? 0;
-    // Prepay orders are never auto-confirmed — only an admin verifying the
-    // UTR/screenshot moves them to Confirmed. Never imply otherwise here.
+    // Cashfree normally confirms within the poll window in the return-page
+    // effect above, so this is a rare fallback — the webhook hasn't landed
+    // yet. It is never a manual admin review step anymore.
     const isPendingVerification = !isCod && Boolean(snap?.pendingReview);
     return (
       <div className="min-h-screen bg-[#f8fafc] px-4 py-12">
@@ -658,12 +614,12 @@ export default function CheckoutPage() {
               {isCod
                 ? 'Your COD order has been received. We will confirm shortly.'
                 : isPendingVerification
-                  ? "We've received your order and your payment reference."
-                  : 'Your payment has been verified and your order is confirmed.'}
+                  ? "We've received your order and are confirming your payment."
+                  : 'Your payment has been confirmed and your order is placed.'}
             </p>
           </div>
 
-          {/* Payment Verification Pending — the one state prepay customers most need spelled out */}
+          {/* Confirming payment — a rare fallback for when the payment gateway's confirmation is still catching up */}
           {isPendingVerification && (
             <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-4">
               <div className="flex items-start gap-3">
@@ -671,12 +627,12 @@ export default function CheckoutPage() {
                   <Clock className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-amber-900 mb-1">Payment Verification Pending</p>
+                  <p className="text-sm font-bold text-amber-900 mb-1">Confirming your payment</p>
                   <p className="text-xs text-amber-800 leading-relaxed">
-                    We'll manually verify your payment details and proceed with your order once the payment number/UTR matches our records.
+                    Your payment is still being confirmed by the payment gateway. This page will update automatically — no action needed from you.
                   </p>
                   <p className="text-xs font-semibold text-amber-900 leading-relaxed mt-1.5">
-                    Please don't place another order while verification is in progress.
+                    Please don't place another order while this confirms.
                   </p>
                 </div>
               </div>
@@ -961,9 +917,9 @@ export default function CheckoutPage() {
                 <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#E5E7EB] to-transparent" />
               </div>
 
-              {/* Primary CTA — opens premium QR modal */}
+              {/* Primary CTA — redirects to Cashfree's hosted payment page */}
               <button
-                onClick={() => void handleOpenQrModal()}
+                onClick={() => void handlePayWithCashfree()}
                 disabled={startingPayment}
                 aria-busy={startingPayment}
                 className="group w-full relative overflow-hidden flex items-center justify-between gap-4 p-5 bg-white hover:bg-[#f8fafc] border border-[#E5E7EB] hover:border-[#2563EB]/40 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md disabled:cursor-not-allowed disabled:hover:bg-white"
@@ -978,48 +934,23 @@ export default function CheckoutPage() {
                 ) : (
                   <>
                     <div className="flex items-center gap-4">
-                      <div className="relative w-14 h-14 bg-[#f8fafc] rounded-xl p-1.5 flex-shrink-0 border border-[#E5E7EB]">
-                        <img
-                          src="/retralabs-payment-qr.png"
-                          alt="UPI QR"
-                          className="w-full h-full rounded-lg object-cover"
-                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                        />
-                        <div className="absolute inset-1.5 rounded-lg overflow-hidden pointer-events-none">
-                          <div className="absolute left-0 right-0 h-0.5 bg-[#2563EB] shadow-[0_0_8px_#2563EB] animate-[rl-scan-inline_2.5s_ease-in-out_infinite]" />
-                        </div>
+                      <div className="relative w-14 h-14 bg-[#f8fafc] rounded-xl flex items-center justify-center flex-shrink-0 border border-[#E5E7EB]">
+                        <CreditCard className="w-6 h-6 text-[#2563EB]" />
                       </div>
                       <div className="text-left">
-                        <p className="text-sm font-bold text-[#111111]">Pay via UPI QR</p>
-                        <p className="text-xs text-[#9CA3AF] mt-0.5">Scan & pay · 5-min window</p>
+                        <p className="text-sm font-bold text-[#111111]">Pay Now</p>
+                        <p className="text-xs text-[#9CA3AF] mt-0.5 flex items-center gap-1"><ShieldCheck className="w-3 h-3" />Secured by Cashfree · UPI, Cards & more</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 text-[#2563EB] group-hover:translate-x-1 transition-transform">
-                      <span className="text-xs font-bold uppercase tracking-wider">Open</span>
+                      <span className="text-xs font-bold uppercase tracking-wider">Proceed</span>
                       <ArrowRight className="w-4 h-4" />
                     </div>
                   </>
                 )}
               </button>
-
-              <style>{`
-                @keyframes rl-scan-inline {
-                  0% { top: 0%; opacity: 0; }
-                  10% { opacity: 1; }
-                  90% { opacity: 1; }
-                  100% { top: 100%; opacity: 0; }
-                }
-              `}</style>
             </div>
           )}
-
-          <UpiQrModal
-            isOpen={showQrModal}
-            onClose={() => setShowQrModal(false)}
-            amount={grandTotal}
-            onConfirm={(txnRef, screenshot) => handleQrPaymentConfirmed(txnRef, screenshot)}
-            whatsappUrl={whatsappUrl}
-          />
 
           <button
             onClick={() => { setOrderReady(false); window.scrollTo({ top: 0, behavior: 'instant' }); }}
