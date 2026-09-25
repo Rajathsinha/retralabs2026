@@ -2,7 +2,7 @@ import { useSEO } from '../hooks/useSEO';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getProductImageUrl, BAC_WATER_IMAGE_URL } from '../utils/imageUrl';
-import { Minus, Plus, Trash2, Check, MessageCircle, Tag, ShoppingBag, ArrowRight, X, GraduationCap, Zap, Clock, Banknote, Package, Truck, Loader2, AlertCircle, CheckCircle2, CreditCard, ShieldCheck } from 'lucide-react';
+import { Minus, Plus, Trash2, Check, MessageCircle, Tag, ShoppingBag, ArrowRight, X, GraduationCap, Zap, Clock, Banknote, Package, Truck, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { OrderFormData } from '../types';
@@ -59,6 +59,49 @@ interface PendingCashfreeOrder {
   cartItems: Array<{ name: string; config: string; qty: number; price: number }>;
   deliveryOption: string;
   deliveryCharge: number;
+  /** Everything the confirmation email needs, minus the order ID. */
+  email: Omit<OrderEmailParams, 'orderId' | 'orderDate'>;
+}
+
+interface CashfreeStatus {
+  success?: boolean;
+  confirmed?: boolean;
+  paymentStatus?: string;
+  awbNumber?: string | null;
+  innofulfillOrderId?: string | null;
+  carrierDisplayName?: string | null;
+  total?: number;
+}
+
+/**
+ * Asks our own server what actually happened to a Cashfree order.
+ *
+ * The webhook is what confirms a payment, and it can land a moment after the
+ * customer is back with us, so this polls briefly rather than declaring a
+ * successful payment unconfirmed. Stops early once the answer is final.
+ */
+async function pollCashfreeStatus(orderId: string, attempts: number): Promise<CashfreeStatus | null> {
+  let latest: CashfreeStatus | null = null;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const res = await fetch(`/api/cashfree-order-status?orderId=${encodeURIComponent(orderId)}`);
+    latest = await res.json().catch(() => null);
+    if (latest?.success && (latest.confirmed || latest.paymentStatus === 'PAYMENT_FAILED')) return latest;
+    if (attempt < attempts - 1) await new Promise((resolve) => setTimeout(resolve, 1500));
+  }
+  return latest;
+}
+
+function readPendingCashfreeOrder(): PendingCashfreeOrder | null {
+  try {
+    const raw = sessionStorage.getItem(PENDING_CF_ORDER_KEY);
+    return raw ? (JSON.parse(raw) as PendingCashfreeOrder) : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearPendingCashfreeOrder() {
+  try { sessionStorage.removeItem(PENDING_CF_ORDER_KEY); } catch { /* best-effort */ }
 }
 
 type CashfreeFactory = (opts: { mode: 'sandbox' | 'production' }) => {
@@ -85,7 +128,10 @@ function loadCashfreeSdk(): Promise<CashfreeFactory> {
 }
 
 // ── Brevo transactional email (via Netlify Function) ──────────────────────────
-import { sendOrderConfirmationEmail } from '../utils/brevoEmail';
+import { sendOrderConfirmationEmail, type OrderEmailParams } from '../utils/brevoEmail';
+import PaymentConsole from '../components/payments/PaymentConsole';
+import PaymentMethodsStrip from '../components/payments/PaymentMethodsStrip';
+import { PAYMENT_METHODS, type PaymentMethodId } from '../components/payments/methods';
 
 function describeError(err: unknown): string {
   if (err instanceof Error) return err.message;
@@ -221,6 +267,17 @@ export default function CheckoutPage() {
   const canPlaceOrder = contactValid && addressValid && consentsAccepted && !submitting;
   const [confirming, setConfirming] = useState(false);
   const [orderSent,   setOrderSent]   = useState(false);
+  /**
+   * Which method the payment console has selected. Picking COD here has to
+   * feed back into `paymentMethod`, because that is what adds the COD fee —
+   * the amount on the console must be the amount actually charged.
+   */
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethodId>('upi');
+  const handleSelectMethod = (id: PaymentMethodId) => {
+    setSelectedMethod(id);
+    setPaymentMethod(id === 'cod' ? 'cod' : 'prepay');
+    setSubmitError(null);
+  };
   const [startingPayment, setStartingPayment] = useState(false);
   const [stillConnecting, setStillConnecting] = useState(false);
   const stillConnectingTimer = useRef<number | null>(null);
@@ -244,12 +301,56 @@ export default function CheckoutPage() {
   const orderSaving = useRef(false); // prevent double-save
 
   /**
-   * Cashfree Hosted Checkout redirects the browser away from the site and
-   * back — a full page unload/reload, so nothing kept only in React state
-   * survives the round trip. Cart/order details needed for the confirmation
-   * screen are read back from sessionStorage; the payment outcome itself is
-   * never trusted from the redirect's own query string (anyone could craft
-   * one), only from a server-to-server status check.
+   * Shows the confirmation screen for a paid Cashfree order, and sends the
+   * customer their receipt.
+   *
+   * The email goes from here rather than the webhook because only the browser
+   * still holds the itemised cart — Airtable keeps a text summary, not line
+   * items. A customer who closes the tab the instant they pay can therefore
+   * miss the email; their order is still confirmed and fulfilled by the
+   * webhook, which is the part that must not depend on the browser.
+   */
+  const showCashfreeConfirmation = async (
+    orderId: string,
+    pending: PendingCashfreeOrder | null,
+    status: CashfreeStatus,
+  ) => {
+    setOrderSnapshot({
+      items: pending?.itemsSummaryFlat || '',
+      total: pending?.total ?? status.total ?? 0,
+      orderId,
+      awbNumber: status.awbNumber || null,
+      innofulfillOrderId: status.innofulfillOrderId || null,
+      innofulfillWarning: null,
+      carrierDisplayName: status.carrierDisplayName || null,
+      cartItems: pending?.cartItems || [],
+      deliveryOption: pending?.deliveryOption || 'normal',
+      paymentMethod: 'prepay',
+      deliveryCharge: pending?.deliveryCharge || 0,
+      codCharge: 0,
+      pendingReview: !status.confirmed,
+    });
+    clearPendingCashfreeOrder();
+    clearCart();
+    setOrderSent(true);
+    window.scrollTo({ top: 0, behavior: 'instant' });
+
+    if (pending?.email) {
+      const emailResult = await sendOrderConfirmationEmail({
+        ...pending.email,
+        orderId,
+        orderDate: new Date().toISOString(),
+      });
+      if (!emailResult.success) setNotifyWarning(`Email: ${emailResult.error}`);
+    }
+  };
+
+  /**
+   * Cashfree can also finish the payment by navigating the browser away and
+   * back (net banking and some UPI apps always do). That is a full page
+   * unload, so cart details for the confirmation screen come back from
+   * sessionStorage — and the outcome is never taken from the redirect's own
+   * query string, which anyone could craft, only from our server.
    */
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -258,59 +359,24 @@ export default function CheckoutPage() {
     window.history.replaceState({}, '', window.location.pathname);
     if (!returnedOrderId) return;
 
-    let pending: PendingCashfreeOrder | null = null;
-    try {
-      const raw = sessionStorage.getItem(PENDING_CF_ORDER_KEY);
-      pending = raw ? (JSON.parse(raw) as PendingCashfreeOrder) : null;
-    } catch {
-      pending = null;
-    }
+    const pending = readPendingCashfreeOrder();
 
     (async () => {
       setConfirming(true);
       setSubmitError(null);
       try {
-        let statusJson: { success?: boolean; confirmed?: boolean; paymentStatus?: string; awbNumber?: string | null; innofulfillOrderId?: string | null; carrierDisplayName?: string | null; total?: number } | null = null;
-        // The webhook usually lands within a second or two of the redirect —
-        // poll briefly instead of showing "pending" for a payment that has
-        // already gone through.
-        for (let attempt = 0; attempt < 6; attempt++) {
-          const res = await fetch(`/api/cashfree-order-status?orderId=${encodeURIComponent(returnedOrderId)}`);
-          statusJson = await res.json().catch(() => null);
-          if (statusJson?.success && (statusJson.confirmed || statusJson.paymentStatus === 'PAYMENT_FAILED')) break;
-          await new Promise((resolve) => setTimeout(resolve, 1500));
-        }
+        const status = await pollCashfreeStatus(returnedOrderId, 6);
 
-        if (!statusJson?.success) {
+        if (!status?.success) {
           setSubmitError(`We could not confirm your payment status. If you were charged, please contact support with your Order ID: ${returnedOrderId}.`);
           return;
         }
-
-        if (statusJson.paymentStatus === 'PAYMENT_FAILED') {
-          try { sessionStorage.removeItem(PENDING_CF_ORDER_KEY); } catch { /* best-effort */ }
+        if (status.paymentStatus === 'PAYMENT_FAILED') {
+          clearPendingCashfreeOrder();
           navigate('/payment-failed');
           return;
         }
-
-        setOrderSnapshot({
-          items: pending?.itemsSummaryFlat || '',
-          total: pending?.total ?? statusJson.total ?? 0,
-          orderId: returnedOrderId,
-          awbNumber: statusJson.awbNumber || null,
-          innofulfillOrderId: statusJson.innofulfillOrderId || null,
-          innofulfillWarning: null,
-          carrierDisplayName: statusJson.carrierDisplayName || null,
-          cartItems: pending?.cartItems || [],
-          deliveryOption: pending?.deliveryOption || 'normal',
-          paymentMethod: 'prepay',
-          deliveryCharge: pending?.deliveryCharge || 0,
-          codCharge: 0,
-          pendingReview: !statusJson.confirmed,
-        });
-        try { sessionStorage.removeItem(PENDING_CF_ORDER_KEY); } catch { /* best-effort */ }
-        clearCart();
-        setOrderSent(true);
-        window.scrollTo({ top: 0, behavior: 'instant' });
+        await showCashfreeConfirmation(returnedOrderId, pending, status);
       } catch (err) {
         setSubmitError(`Could not confirm your payment — ${describeError(err)}. If you were charged, please contact support with your Order ID: ${returnedOrderId}.`);
       } finally {
@@ -355,6 +421,8 @@ export default function CheckoutPage() {
       return;
     }
     setSubmitting(true);
+    // Carry the choice made in the form through to the payment console.
+    setSelectedMethod(paymentMethod === 'cod' ? 'cod' : 'upi');
 
     setTimeout(() => {
       setOrderReady(true);
@@ -524,6 +592,7 @@ export default function CheckoutPage() {
 
   const handlePayWithCashfree = async () => {
     if (startingPayment) return;
+    if (selectedMethod === 'cod') { void handleConfirmOrder(); return; }
     // Set instantly, before any await, so the button reacts within a frame
     // instead of leaving the screen looking frozen while the network call runs.
     setStartingPayment(true);
@@ -543,6 +612,14 @@ export default function CheckoutPage() {
       const result = await saveOrder(payload.fields, undefined, payload.extra);
       if (!result.recordId || !result.orderId) throw new Error('Failed to start payment session');
 
+      const snapSubtotal = cartSnapshot.reduce((s, i) => s + i.variant.price_inr * i.quantity, 0);
+      const emailItems = cartSnapshot.map(i => ({
+        name: i.product.name,
+        variant: i.variant.vial_configuration || `${i.variant.dosage_mg}mg`,
+        quantity: i.quantity,
+        unitPrice: i.variant.price_inr,
+      }));
+
       const cfRes = await fetch('/api/create-cashfree-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -550,6 +627,9 @@ export default function CheckoutPage() {
           recordId: result.recordId,
           orderId: result.orderId,
           amount: snapTotal,
+          // Open Cashfree on the method the customer already chose here, rather
+          // than making them pick twice.
+          paymentMethods: PAYMENT_METHODS.find(m => m.id === selectedMethod)?.cashfreeCodes.join(',') || '',
           customer: {
             name: snapFormData.customer_name,
             email: snapFormData.customer_email,
@@ -562,22 +642,63 @@ export default function CheckoutPage() {
         throw new Error(cfJson?.error || `Could not start payment (HTTP ${cfRes.status})`);
       }
 
-      // Persist everything needed to render the confirmation screen once
-      // Cashfree redirects the browser back here — a hosted-checkout redirect
-      // unloads the page, so nothing kept only in React state survives it.
+      // Net banking and some UPI apps finish by navigating the browser away and
+      // back, which unloads this page — so everything the confirmation screen
+      // and receipt email need is stashed where it survives that round trip.
       const pending: PendingCashfreeOrder = {
         itemsSummaryFlat: cartSnapshot.map(i => `${i.product.name} ${i.variant.dosage_mg}mg x${i.quantity}`).join(', '),
         total: snapTotal,
         cartItems: cartSnapshot.map(i => ({ name: i.product.name, config: i.variant.vial_configuration || `${i.variant.dosage_mg}mg`, qty: i.quantity, price: i.variant.price_inr })),
         deliveryOption: snapFormData.delivery_option,
         deliveryCharge: snapDeliveryCharge,
+        email: {
+          name: snapFormData.customer_name,
+          email: snapFormData.customer_email,
+          phone: snapFormData.customer_phone,
+          address: snapFormData.shipping_address,
+          city: snapFormData.city,
+          state: snapFormData.state,
+          pincode: snapFormData.pincode,
+          items: emailItems,
+          subtotal: snapSubtotal,
+          discount: snapSubtotal - snapTotal + snapDeliveryCharge,
+          deliveryCharge: snapDeliveryCharge,
+          codCharge: 0,
+          total: snapTotal,
+          paymentMethod: PAYMENT_METHODS.find(m => m.id === selectedMethod)?.label || 'Online',
+        },
       };
       try { sessionStorage.setItem(PENDING_CF_ORDER_KEY, JSON.stringify(pending)); } catch { /* best-effort */ }
 
       const Cashfree = await loadCashfreeSdk();
       const cashfree = Cashfree({ mode: cfJson.mode === 'sandbox' ? 'sandbox' : 'production' });
-      await cashfree.checkout({ paymentSessionId: cfJson.paymentSessionId, redirectTarget: '_self' });
-      // Execution normally stops here — the browser navigates to Cashfree.
+
+      // '_modal' keeps the payment on our own page instead of throwing the
+      // customer onto a bare gateway page. The resolved value is deliberately
+      // ignored: Cashfree's own guidance is to confirm server-side regardless,
+      // and treating our status endpoint as the only authority means a change
+      // in the SDK's client-side result shape can't mis-report a payment.
+      await cashfree.checkout({ paymentSessionId: cfJson.paymentSessionId, redirectTarget: '_modal' });
+
+      // Reached only when the modal completed in place. If the method needed a
+      // full redirect the browser has already left, and the cf_return effect
+      // above picks it up on the way back.
+      setStillConnecting(false);
+      const status = await pollCashfreeStatus(result.orderId, 3);
+      if (status?.success && status.paymentStatus === 'PAYMENT_FAILED') {
+        clearPendingCashfreeOrder();
+        navigate('/payment-failed');
+        return;
+      }
+      if (status?.success && status.confirmed) {
+        await showCashfreeConfirmation(result.orderId, pending, status);
+        return;
+      }
+      // Modal dismissed, or payment abandoned — say so plainly and leave them
+      // on the console to try again, rather than implying an order was placed.
+      setSubmitError(
+        `Your payment wasn't completed, so no order has been placed and you have not been charged. You can try again — your Order ID is ${result.orderId} if you need to contact support.`,
+      );
     } catch (err) {
       setSubmitError(`Could not start payment — ${describeError(err)}. Please try again.`);
     } finally {
@@ -894,63 +1015,23 @@ export default function CheckoutPage() {
             </div>
           )}
 
-          {/* Payment options */}
-          {isCodReview ? (
-            <div className="space-y-3 mb-6">
-              <button
-                onClick={handleConfirmOrder}
-                disabled={confirming}
-                className="w-full flex items-center justify-center gap-3 bg-[#111111] hover:bg-[#1a1a1a] disabled:opacity-50 text-white font-bold text-base py-4 rounded-xl transition-all duration-200 hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.3)]"
-              >
-                {confirming ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <><Check className="w-5 h-5" />Confirm COD Order</>
-                )}
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-4 mb-6">
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#E5E7EB] to-transparent" />
-                <span className="text-xs text-[#9CA3AF] uppercase tracking-wider font-semibold px-2">Secure Checkout</span>
-                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#E5E7EB] to-transparent" />
-              </div>
-
-              {/* Primary CTA — redirects to Cashfree's hosted payment page */}
-              <button
-                onClick={() => void handlePayWithCashfree()}
-                disabled={startingPayment}
-                aria-busy={startingPayment}
-                className="group w-full relative overflow-hidden flex items-center justify-between gap-4 p-5 bg-white hover:bg-[#f8fafc] border border-[#E5E7EB] hover:border-[#2563EB]/40 rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md disabled:cursor-not-allowed disabled:hover:bg-white"
-              >
-                {startingPayment ? (
-                  <div className="flex w-full items-center justify-center gap-3 py-1">
-                    <div className="w-5 h-5 border-2 border-[#2563EB]/25 border-t-[#2563EB] rounded-full animate-spin flex-shrink-0" />
-                    <p className="text-sm font-bold text-[#111111]">
-                      {stillConnecting ? "Still connecting… Please don't refresh or click again." : 'Connecting to payment gateway…'}
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex items-center gap-4">
-                      <div className="relative w-14 h-14 bg-[#f8fafc] rounded-xl flex items-center justify-center flex-shrink-0 border border-[#E5E7EB]">
-                        <CreditCard className="w-6 h-6 text-[#2563EB]" />
-                      </div>
-                      <div className="text-left">
-                        <p className="text-sm font-bold text-[#111111]">Pay Now</p>
-                        <p className="text-xs text-[#9CA3AF] mt-0.5 flex items-center gap-1"><ShieldCheck className="w-3 h-3" />Secured by Cashfree · UPI, Cards & more</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 text-[#2563EB] group-hover:translate-x-1 transition-transform">
-                      <span className="text-xs font-bold uppercase tracking-wider">Proceed</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </div>
-                  </>
-                )}
-              </button>
-            </div>
-          )}
+          {/* Payment console — the heaviest element on the page, by design */}
+          <div className="mb-5">
+            <PaymentConsole
+              formattedAmount={format(grandTotal)}
+              selected={selectedMethod}
+              onSelect={handleSelectMethod}
+              onPay={() => void handlePayWithCashfree()}
+              busy={startingPayment || confirming}
+              busyLabel={
+                stillConnecting
+                  ? "Still connecting… don't refresh"
+                  : selectedMethod === 'cod'
+                    ? 'Placing your order…'
+                    : 'Opening secure payment…'
+              }
+            />
+          </div>
 
           <button
             onClick={() => { setOrderReady(false); window.scrollTo({ top: 0, behavior: 'instant' }); }}
@@ -980,7 +1061,7 @@ export default function CheckoutPage() {
             <div>
               <h3 className="text-base font-bold text-blue-900 mb-1">How ordering works</h3>
               <p className="text-sm text-blue-800 leading-relaxed">
-                Fill in your details below, then confirm on WhatsApp. Pay online via <strong>UPI (no extra charge)</strong> or choose <strong>Cash on Delivery</strong> — a small COD fee applies based on order value.
+                Fill in your details below, then pay securely by <strong>UPI, card or net banking (no extra charge)</strong> — or choose <strong>Cash on Delivery</strong>, where a small COD fee applies based on order value.
               </p>
             </div>
           </div>
@@ -1452,7 +1533,7 @@ export default function CheckoutPage() {
                         <span className="text-sm font-bold">Pay Online</span>
                       </div>
                       <p className={`text-xs ${paymentMethod === 'prepay' ? 'text-slate-300' : 'text-slate-500'}`}>
-                        UPI / Bank transfer via WhatsApp
+                        UPI, cards & net banking
                       </p>
                       <span className={`text-base font-black ${paymentMethod === 'prepay' ? 'text-emerald-400' : 'text-emerald-600'}`}>
                         FREE
@@ -1602,6 +1683,8 @@ export default function CheckoutPage() {
                     </>
                   )}
                 </button>
+
+                <PaymentMethodsStrip className="mt-4" showSecureLine />
               </form>
 
               {/* Express Delivery Terms Modal */}

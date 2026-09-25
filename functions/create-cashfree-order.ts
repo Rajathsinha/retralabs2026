@@ -7,7 +7,20 @@ interface CreateCashfreeOrderBody {
   recordId?: string;
   orderId?: string;
   amount?: number;
+  paymentMethods?: string;
   customer?: { name: string; email: string; phone: string };
+}
+
+/** Only Cashfree's own method codes, so a crafted request can't inject order_meta values. */
+const ALLOWED_PAYMENT_METHODS = new Set(['cc', 'dc', 'ccc', 'ppc', 'nb', 'upi', 'app', 'paylater', 'emi', 'paypal', 'banktransfer']);
+
+function sanitizePaymentMethods(raw: string | undefined): string {
+  if (!raw) return '';
+  return raw
+    .split(',')
+    .map(code => code.trim().toLowerCase())
+    .filter(code => ALLOWED_PAYMENT_METHODS.has(code))
+    .join(',');
 }
 
 /**
@@ -45,6 +58,7 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
       body.customer || { name: 'Customer', email: '', phone: '' },
       returnUrl,
       notifyUrl,
+      sanitizePaymentMethods(body.paymentMethods),
     );
 
     return {

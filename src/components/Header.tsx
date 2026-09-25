@@ -8,8 +8,9 @@ import SearchModal from './SearchModal';
 import { BUSINESS_NAP } from '../constants/config';
 
 const MARQUEE_ITEMS = [
+  { dot: '#22D3EE', text: 'Now Live · UPI · Cards · Net Banking · COD' },
   { dot: '#22C55E', text: 'Free Shipping Across India' },
-  { dot: '#3B82F6', text: 'Cash on Delivery Available' },
+  { dot: '#3B82F6', text: 'Secure Payments Powered by Cashfree' },
   { dot: '#F59E0B', text: 'Fastest Delivery · 1–2 Days' },
   { dot: '#22C55E', text: '99%+ HPLC Verified Purity' },
   { dot: '#3B82F6', text: 'Direct Manufacturer Sourcing' },
