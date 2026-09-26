@@ -136,19 +136,17 @@ export default function TrackOrderPage() {
     if (!order || deliveredOrCancelled) return;
 
     const REFRESH_MS = 45000;
-    let timer: number | undefined;
-
     const tick = () => {
       if (document.visibilityState === 'visible') void fetchOrder(true);
     };
-    timer = window.setInterval(tick, REFRESH_MS);
+    const timer = window.setInterval(tick, REFRESH_MS);
 
     // Catch up immediately when they come back to the tab.
     const onVisible = () => { if (document.visibilityState === 'visible') void fetchOrder(true); };
     document.addEventListener('visibilitychange', onVisible);
 
     return () => {
-      if (timer) window.clearInterval(timer);
+      window.clearInterval(timer);
       document.removeEventListener('visibilitychange', onVisible);
     };
     // Re-armed when the tracked order or its finality changes, not on every render.
