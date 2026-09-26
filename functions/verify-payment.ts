@@ -3,7 +3,7 @@ import {
   PAYMENT_STATUS,
   corsHeaders,
   getAirtableConfig,
-  isPaymentConfirmed,
+  recordIsPaid,
   patchAirtableRecord,
   processLogistics,
   type CartLineItem,
@@ -63,10 +63,9 @@ export const handler = async (event: { httpMethod?: string; body?: string; heade
 
     const recordJson: { fields?: Record<string, string | number> } = await recordRes.json();
     const fields = recordJson.fields || {};
-    const paymentStatus = String(fields['Payment Status'] || '');
     const orderId = String(fields.orderID || '');
 
-    if (isPaymentConfirmed(paymentStatus)) {
+    if (recordIsPaid(fields)) {
       return {
         statusCode: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -74,9 +73,10 @@ export const handler = async (event: { httpMethod?: string; body?: string; heade
       };
     }
 
-    if (paymentStatus !== PAYMENT_STATUS.PROOF_SUBMITTED && paymentStatus !== PAYMENT_STATUS.PENDING) {
-      return { statusCode: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' }, body: JSON.stringify({ error: `Cannot verify payment from status ${paymentStatus || 'unknown'}` }) };
-    }
+    // Previously this gated on a "Payment Status" field the Orders table
+    // doesn't have, so it read as empty and refused every order with
+    // "Cannot verify payment from status unknown". Anything not already paid
+    // is fair game for an admin to confirm by hand.
 
     await patchAirtableRecord(baseId, table, token, body.recordId, {
       'Payment Status': PAYMENT_STATUS.CONFIRMED,

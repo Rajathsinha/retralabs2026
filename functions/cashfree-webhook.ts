@@ -3,8 +3,8 @@ import {
   confirmPaymentAndFulfill,
   corsHeaders,
   getAirtableConfig,
-  isPaymentConfirmed,
   patchAirtableRecord,
+  recordIsPaid,
 } from './order-shared';
 import { getCashfreeConfig, verifyCashfreeWebhookSignature } from './cashfree-shared';
 
@@ -97,8 +97,8 @@ export const handler = async (event: { httpMethod?: string; body?: string; heade
         : payload?.data?.payment?.bank_reference || undefined;
       await confirmPaymentAndFulfill(baseId, table, token, record.id, orderId, fields, txnRef);
     } else if (payload.type === 'PAYMENT_FAILED_WEBHOOK' || paymentStatus === 'FAILED') {
-      const currentStatus = String(fields['Payment Status'] || '');
-      if (!isPaymentConfirmed(currentStatus)) {
+      // A failed attempt after a successful one must never undo the success.
+      if (!recordIsPaid(fields)) {
         await patchAirtableRecord(baseId, table, token, record.id, {
           'Payment Status': PAYMENT_STATUS.FAILED,
           Status: 'PAYMENT_FAILED',
