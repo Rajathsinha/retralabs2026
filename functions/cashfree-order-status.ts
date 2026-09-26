@@ -35,7 +35,10 @@ const TERMINAL_FAILURE_STATUSES = new Set(['EXPIRED', 'TERMINATED', 'TERMINATION
  * to this order?") instead of trusting the redirect's own query string,
  * which anyone could tamper with. Idempotent either way.
  */
-export const handler = async (event: { httpMethod?: string; queryStringParameters?: Record<string, string> }) => {
+export const handler = async (
+  event: { httpMethod?: string; queryStringParameters?: Record<string, string> },
+  context?: { waitUntil?: (work: Promise<unknown>) => void },
+) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers: corsHeaders, body: '' };
   }
@@ -62,13 +65,22 @@ export const handler = async (event: { httpMethod?: string; queryStringParameter
     let fields = record.fields || {};
     let paymentStatus = String(fields['Payment Status'] || '');
 
+    // Distinguishes "Cashfree says they haven't paid" from "we couldn't reach
+    // Cashfree to ask". Collapsing those two into one answer is what let the
+    // checkout tell paying customers they hadn't been charged.
+    let verified = true;
+
     if (!isPaymentConfirmed(paymentStatus)) {
       const cfg = getCashfreeConfig();
+      if (!cfg) verified = false;
       if (cfg) {
         try {
           const cfOrder = await fetchCashfreeOrder(cfg, orderId);
           if (cfOrder.orderStatus === 'PAID') {
-            await confirmPaymentAndFulfill(baseId, table, token, record.id, orderId, fields);
+            await confirmPaymentAndFulfill(
+              baseId, table, token, record.id, orderId, fields, undefined,
+              context?.waitUntil?.bind(context),
+            );
             const freshRes = await fetch(
               `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}/${record.id}`,
               { headers: { Authorization: `Bearer ${token}` } },
@@ -86,7 +98,8 @@ export const handler = async (event: { httpMethod?: string; queryStringParameter
             paymentStatus = PAYMENT_STATUS.FAILED;
           }
         } catch (cfErr) {
-          console.warn(`[CashfreeOrderStatus] Cashfree lookup failed for ${orderId}:`, cfErr);
+          verified = false;
+          console.error(`[CashfreeOrderStatus] Cashfree lookup failed for ${orderId}:`, cfErr);
         }
       }
     }
@@ -99,6 +112,7 @@ export const handler = async (event: { httpMethod?: string; queryStringParameter
         orderId,
         paymentStatus,
         confirmed: isPaymentConfirmed(paymentStatus),
+        verified,
         awbNumber: fields['AWB Number'] || null,
         innofulfillOrderId: fields['Innofulfill Order ID'] || null,
         shipmentStatus: fields['Shipment Status'] || null,

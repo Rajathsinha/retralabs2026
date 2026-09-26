@@ -650,12 +650,22 @@ export async function confirmPaymentAndFulfill(
   orderId: string,
   fields: Record<string, unknown>,
   paymentReference?: string,
+  /**
+   * Hands the shipment booking off to run after the response is sent
+   * (Cloudflare's ctx.waitUntil). Booking a carrier means an auth call, a
+   * serviceability check and a create call — tens of seconds — and a customer
+   * waiting to be told their payment went through must never sit behind that.
+   * Omit it on server-to-server paths, where blocking costs nobody anything.
+   */
+  runInBackground?: (work: Promise<unknown>) => void,
 ): Promise<{ alreadyConfirmed: boolean }> {
   const currentStatus = String(fields['Payment Status'] || '').toUpperCase();
   if (currentStatus === PAYMENT_STATUS.CONFIRMED) {
     return { alreadyConfirmed: true };
   }
 
+  // Payment state first and on its own, so the customer's "am I confirmed?"
+  // poll can be answered the moment this lands, whatever fulfilment does next.
   await patchAirtableRecord(baseId, table, token, recordId, {
     'Payment Status': PAYMENT_STATUS.CONFIRMED,
     Status: 'PAYMENT_CONFIRMED',
@@ -687,7 +697,7 @@ export async function confirmPaymentAndFulfill(
   const declaredTotal = total >= 10000 ? 3000 : 1000;
   const cartItems: CartLineItem[] = [{ name: 'Cosmetic Research use', variant: 'ONLINE', quantity: 1, unitPrice: declaredTotal }];
 
-  await processLogistics(baseId, table, token, recordId, orderId, {
+  const booking = processLogistics(baseId, table, token, recordId, orderId, {
     cartItems,
     customer,
     paymentMethod: 'prepay',
@@ -696,6 +706,15 @@ export async function confirmPaymentAndFulfill(
     deliveryCharge: 0,
     codCharge: 0,
   });
+
+  if (runInBackground) {
+    // Failures still land on the record via processLogistics' own error
+    // handling; catch here only so an unhandled rejection can't take the
+    // worker down after the response has gone.
+    runInBackground(booking.catch(err => console.error(`[Fulfil] ${orderId}:`, err)));
+  } else {
+    await booking;
+  }
 
   return { alreadyConfirmed: false };
 }

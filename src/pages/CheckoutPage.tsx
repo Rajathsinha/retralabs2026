@@ -66,6 +66,8 @@ interface PendingCashfreeOrder {
 interface CashfreeStatus {
   success?: boolean;
   confirmed?: boolean;
+  /** False when we couldn't reach Cashfree to ask — not the same as "unpaid". */
+  verified?: boolean;
   paymentStatus?: string;
   awbNumber?: string | null;
   innofulfillOrderId?: string | null;
@@ -80,13 +82,18 @@ interface CashfreeStatus {
  * customer is back with us, so this polls briefly rather than declaring a
  * successful payment unconfirmed. Stops early once the answer is final.
  */
-async function pollCashfreeStatus(orderId: string, attempts: number): Promise<CashfreeStatus | null> {
+async function pollCashfreeStatus(
+  orderId: string,
+  attempts: number,
+  delayMs = 1500,
+): Promise<CashfreeStatus | null> {
   let latest: CashfreeStatus | null = null;
   for (let attempt = 0; attempt < attempts; attempt++) {
-    const res = await fetch(`/api/cashfree-order-status?orderId=${encodeURIComponent(orderId)}`);
-    latest = await res.json().catch(() => null);
+    const res = await fetch(`/api/cashfree-order-status?orderId=${encodeURIComponent(orderId)}`)
+      .catch(() => null);
+    latest = res ? await res.json().catch(() => null) : null;
     if (latest?.success && (latest.confirmed || latest.paymentStatus === 'PAYMENT_FAILED')) return latest;
-    if (attempt < attempts - 1) await new Promise((resolve) => setTimeout(resolve, 1500));
+    if (attempt < attempts - 1) await new Promise((resolve) => setTimeout(resolve, delayMs));
   }
   return latest;
 }
@@ -293,6 +300,15 @@ export default function CheckoutPage() {
     setPaymentMethod(id === 'cod' ? 'cod' : 'prepay');
     setSubmitError(null);
   };
+  /**
+   * Set when a payment finished in the modal but no confirmation has arrived
+   * yet. Deliberately not an error: we cannot tell an abandoned checkout from
+   * a payment still clearing, so the UI must not claim either.
+   */
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState<{
+    orderId: string;
+    pending: PendingCashfreeOrder;
+  } | null>(null);
   const [startingPayment, setStartingPayment] = useState(false);
   const [stillConnecting, setStillConnecting] = useState(false);
   const stillConnectingTimer = useRef<number | null>(null);
@@ -380,10 +396,12 @@ export default function CheckoutPage() {
       setConfirming(true);
       setSubmitError(null);
       try {
-        const status = await pollCashfreeStatus(returnedOrderId, 6);
+        // Same generous wait as the modal path: a customer coming back from
+        // their bank has certainly paid, so never rush to call it unconfirmed.
+        const status = await pollCashfreeStatus(returnedOrderId, 10, 2000);
 
         if (!status?.success) {
-          setSubmitError(`We could not confirm your payment status. If you were charged, please contact support with your Order ID: ${returnedOrderId}.`);
+          setSubmitError(`We couldn't reach our payment system to confirm order ${returnedOrderId}. If you completed the payment, don't pay again — contact support with this Order ID and we'll sort it out.`);
           return;
         }
         if (status.paymentStatus === 'PAYMENT_FAILED') {
@@ -702,7 +720,12 @@ export default function CheckoutPage() {
       // full redirect the browser has already left, and the cf_return effect
       // above picks it up on the way back.
       setStillConnecting(false);
-      const status = await pollCashfreeStatus(result.orderId, 3);
+
+      // Confirmation arrives by webhook and can take a good few seconds —
+      // longer for UPI, where the customer approves in a separate app. Waiting
+      // ~20s here costs nothing; giving up early is what made us tell paying
+      // customers their payment had failed.
+      const status = await pollCashfreeStatus(result.orderId, 10, 2000);
       if (status?.success && status.paymentStatus === 'PAYMENT_FAILED') {
         clearPendingCashfreeOrder();
         navigate('/payment-failed');
@@ -712,11 +735,28 @@ export default function CheckoutPage() {
         await showCashfreeConfirmation(result.orderId, pending, status);
         return;
       }
-      // Modal dismissed, or payment abandoned — say so plainly and leave them
-      // on the console to try again, rather than implying an order was placed.
-      setSubmitError(
-        `Your payment wasn't completed, so no order has been placed and you have not been charged. You can try again — your Order ID is ${result.orderId} if you need to contact support.`,
-      );
+
+      /*
+       * Still nothing. We genuinely do not know which happened: the customer
+       * may have closed the modal without paying, or they may have paid and
+       * the confirmation is still in flight. Cashfree reports both as an
+       * open order, so anything we assert here about their money is a guess —
+       * and guessing "you have not been charged" is the one that makes people
+       * pay twice. Say what we know, and keep checking in the background.
+       */
+      const placedOrderId = result.orderId;
+      setAwaitingConfirmation({ orderId: placedOrderId, pending });
+      void (async () => {
+        const later = await pollCashfreeStatus(placedOrderId, 40, 3000);
+        if (later?.success && later.confirmed) {
+          setAwaitingConfirmation(null);
+          await showCashfreeConfirmation(placedOrderId, pending, later);
+        } else if (later?.success && later.paymentStatus === 'PAYMENT_FAILED') {
+          setAwaitingConfirmation(null);
+          clearPendingCashfreeOrder();
+          navigate('/payment-failed');
+        }
+      })();
     } catch (err) {
       setSubmitError(`Could not start payment — ${describeError(err)}. Please try again.`);
     } finally {
@@ -1030,6 +1070,32 @@ export default function CheckoutPage() {
               </div>
             </div>
           </div>
+
+          {/* Payment sent, confirmation not in yet. Never phrased as a failure
+              and never as a success — we don't know which it is, and the
+              customer's money is the thing at stake in guessing wrong. */}
+          {awaitingConfirmation && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-5" role="status" aria-live="polite">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Clock className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-amber-900 mb-1">Waiting for your bank to confirm</p>
+                  <p className="text-xs text-amber-800 leading-relaxed">
+                    We haven't had confirmation for order <span className="font-bold">{awaitingConfirmation.orderId}</span> yet.
+                    We're still checking — this page will update on its own.
+                  </p>
+                  <p className="text-xs font-bold text-amber-900 leading-relaxed mt-1.5">
+                    If you completed the payment, please don't pay again. We'll email you as soon as it confirms.
+                  </p>
+                  <p className="text-xs text-amber-800 leading-relaxed mt-1.5">
+                    If you closed the payment window without paying, you can pay below.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Error banner */}
           {submitError && (
