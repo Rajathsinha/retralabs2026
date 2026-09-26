@@ -185,7 +185,23 @@ export async function patchAirtableRecord(
   recordId: string,
   fields: Record<string, unknown>,
 ): Promise<boolean> {
-  for (let attempt = 0; attempt < 5; attempt++) {
+  /*
+   * Airtable rejects a write naming a column the table doesn't have, and only
+   * ever names one such column per response — so dropping them costs one round
+   * trip each. The cap used to be 5, which is fewer than the number of columns
+   * some writes carry that this base has never had (the shipment patch alone
+   * carries eight). Those writes ran out of attempts and saved nothing at all,
+   * silently: booked shipments never got their AWB or carrier stored, so the
+   * admin table and order tracking both stayed empty.
+   *
+   * The cap is now above any payload we send, and dropped columns get logged
+   * rather than vanishing.
+   */
+  const dropped: string[] = [];
+
+  for (let attempt = 0; attempt < 20; attempt++) {
+    if (Object.keys(fields).length === 0) break;
+
     const res = await fetch(
       `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(table)}/${recordId}`,
       {
@@ -194,17 +210,24 @@ export async function patchAirtableRecord(
         body: JSON.stringify({ fields, typecast: true }),
       },
     );
-    if (res.ok) return true;
+    if (res.ok) {
+      if (dropped.length) {
+        console.warn(`[Airtable] Saved ${recordId} without missing columns: ${dropped.join(', ')}`);
+      }
+      return true;
+    }
     const json: { error?: string | { message?: string } } = await res.json().catch(() => ({}));
     const detail = typeof json?.error === 'string' ? json.error : json?.error?.message || `HTTP ${res.status}`;
     const unknownMatch = detail.match(/Unknown field name: ["']?([^"')]+)["']?/i);
     if (unknownMatch) {
+      dropped.push(unknownMatch[1]);
       delete fields[unknownMatch[1]];
       continue;
     }
     console.error('[Airtable] PATCH failed:', detail);
     return false;
   }
+  console.error(`[Airtable] Gave up patching ${recordId}; dropped: ${dropped.join(', ')}`);
   return false;
 }
 

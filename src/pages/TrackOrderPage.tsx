@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useSEO } from '../hooks/useSEO';
-import { Search, Package, Truck, Clock, XCircle, AlertCircle, ArrowRight, ShieldCheck, MapPin } from 'lucide-react';
+import { Search, Package, Truck, Clock, XCircle, AlertCircle, ArrowRight, ShieldCheck, MapPin, RefreshCw } from 'lucide-react';
 
 interface TrackingTimelineEvent {
   status?: string;
@@ -64,37 +64,53 @@ export default function TrackOrderPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [order, setOrder] = useState<OrderData | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const handleTrack = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!orderId.trim() || !phoneOrEmail.trim()) {
+  /**
+   * Fetches the order. Every call re-reads the courier's live status server
+   * side, so this doubles as the refresh.
+   *
+   * `background` keeps the current result on screen while it refetches —
+   * a silent poll must never blank out the status the customer is reading.
+   */
+  const fetchOrder = async (background = false) => {
+    const id = orderId.trim();
+    const contact = phoneOrEmail.trim();
+    if (!id || !contact) {
       setError('Please enter both your order / document number and phone number or email address.');
       return;
     }
-    setLoading(true);
+    if (background) setRefreshing(true);
+    else { setLoading(true); setOrder(null); }
     setError(null);
-    setOrder(null);
 
     try {
       const res = await fetch('/api/track-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId: orderId.trim(),
-          phoneOrEmail: phoneOrEmail.trim(),
-        }),
+        body: JSON.stringify({ orderId: id, phoneOrEmail: contact }),
       });
       const json = await res.json().catch(() => null);
       if (!res.ok || !json?.success) {
-        setError(json?.error || `Tracking failed (HTTP ${res.status})`);
+        // A failed background refresh keeps the last good status rather than
+        // replacing it with an error the customer can do nothing about.
+        if (!background) setError(json?.error || `Tracking failed (HTTP ${res.status})`);
         return;
       }
       setOrder(json.order as OrderData);
+      setLastUpdated(new Date());
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to track order. Please try again.');
+      if (!background) setError(err instanceof Error ? err.message : 'Failed to track order. Please try again.');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const handleTrack = (e: React.FormEvent) => {
+    e.preventDefault();
+    void fetchOrder(false);
   };
 
   useEffect(() => {
@@ -105,6 +121,39 @@ export default function TrackOrderPage() {
   }, [searchParams, order, loading]);
 
   const terminalStatus = order ? isTerminalStatus(order.status) : false;
+  const deliveredOrCancelled =
+    terminalStatus ||
+    /delivered|cancel|rto|returned/i.test(order?.trackingStatus || order?.shipmentStatus || '');
+
+  /**
+   * Keeps the courier status live while the customer is watching it.
+   *
+   * Stops once the parcel has arrived — there is nothing further to learn —
+   * and pauses while the tab is hidden, so a page left open in a background
+   * tab doesn't keep hitting the courier's API all day.
+   */
+  useEffect(() => {
+    if (!order || deliveredOrCancelled) return;
+
+    const REFRESH_MS = 45000;
+    let timer: number | undefined;
+
+    const tick = () => {
+      if (document.visibilityState === 'visible') void fetchOrder(true);
+    };
+    timer = window.setInterval(tick, REFRESH_MS);
+
+    // Catch up immediately when they come back to the tab.
+    const onVisible = () => { if (document.visibilityState === 'visible') void fetchOrder(true); };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      if (timer) window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+    // Re-armed when the tracked order or its finality changes, not on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order?.orderId, deliveredOrCancelled]);
   const documentNumber = order?.documentNumber || order?.orderId || '';
   const awbLabel = order?.awbNumber || order?.awbDisplay || 'Awaiting shipment assignment';
   const courierLabel = order?.carrierDisplayName || order?.courierName || order?.logisticsProvider || '—';
@@ -216,6 +265,38 @@ export default function TrackOrderPage() {
                   {order.statusMessage}
                 </div>
               )}
+
+              {/* Live status footer — tells them the number they're reading is
+                  current, and lets them force a check without re-entering
+                  their details. */}
+              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
+                <span className="flex items-center gap-2 text-xs text-slate-400" aria-live="polite">
+                  {deliveredOrCancelled ? (
+                    <>Final status — no longer updating</>
+                  ) : (
+                    <>
+                      <span className="relative flex w-2 h-2" aria-hidden="true">
+                        <span className={`absolute inline-flex w-full h-full rounded-full bg-emerald-400 ${refreshing ? 'animate-ping' : 'opacity-60'}`} />
+                        <span className="relative inline-flex w-2 h-2 rounded-full bg-emerald-500" />
+                      </span>
+                      {refreshing
+                        ? 'Checking courier…'
+                        : lastUpdated
+                          ? `Live · updated ${lastUpdated.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`
+                          : 'Live'}
+                    </>
+                  )}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void fetchOrder(true)}
+                  disabled={refreshing}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-500 disabled:opacity-50 transition-colors"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+                  Refresh
+                </button>
+              </div>
             </div>
 
             {order.awbNumber && order.trackingUrl && (
