@@ -28,6 +28,10 @@ interface OrderData {
   carrierDisplayName?: string | null;
   logisticsProvider?: string | null;
   innofulfillOrderId: string | null;
+  /** Innofulfill's document number, e.g. RETR0000000187. Null for Shiprocket. */
+  innofulfillDocNo?: string | null;
+  /** 'Innofulfill', or null when the parcel went out via Shiprocket. */
+  carrier?: string | null;
   shipmentStatus: string | null;
   statusMessage: string | null;
   trackingStatus: string | null;
@@ -153,9 +157,18 @@ export default function TrackOrderPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order?.orderId, deliveredOrCancelled]);
   const documentNumber = order?.documentNumber || order?.orderId || '';
-  const awbLabel = order?.awbNumber || order?.awbDisplay || 'Awaiting shipment assignment';
-  const courierLabel = order?.carrierDisplayName || order?.courierName || order?.logisticsProvider || '—';
-  const shipmentStatusLabel = order?.trackingStatus || order?.shipmentStatus || order?.status || '—';
+  // Shiprocket parcels carry no carrier detail on this page by design — the
+  // server sends nulls for them, so there is nothing courier-shaped to show.
+  const viaShiprocket = Boolean(order) && !order?.carrier && !order?.awbNumber && !order?.awbDisplay;
+  const awbLabel = order?.awbNumber || order?.innofulfillDocNo || order?.awbDisplay || 'Awaiting shipment assignment';
+  const courierLabel = order?.carrierDisplayName || order?.courierName || order?.carrier || '—';
+  // A Shiprocket parcel has no courier feed here, and its internal
+  // shipmentStatus ("AWB_PENDING") and Status ("Created in Shiprocket") would
+  // both leak plumbing at the customer. It is only ever marked Shiprocket once
+  // the booking succeeded, so "Dispatched" is both cleaner and true.
+  const shipmentStatusLabel = viaShiprocket
+    ? 'Dispatched'
+    : order?.trackingStatus || order?.shipmentStatus || order?.status || '—';
   const timeline = (order?.trackingTimeline || []).filter((event) => event.status || event.description);
 
   return (
@@ -238,14 +251,18 @@ export default function TrackOrderPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
-                <div>
-                  <p className="text-xs text-slate-400 mb-0.5">AWB</p>
-                  <p className="text-sm font-semibold text-slate-700 font-mono">{awbLabel}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-400 mb-0.5">Courier</p>
-                  <p className="text-sm font-semibold text-slate-700">{courierLabel}</p>
-                </div>
+                {!viaShiprocket && (
+                  <>
+                    <div>
+                      <p className="text-xs text-slate-400 mb-0.5">AWB / Reference</p>
+                      <p className="text-sm font-semibold text-slate-700 font-mono">{awbLabel}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400 mb-0.5">Courier</p>
+                      <p className="text-sm font-semibold text-slate-700">{courierLabel}</p>
+                    </div>
+                  </>
+                )}
                 <div>
                   <p className="text-xs text-slate-400 mb-0.5">Status</p>
                   <p className={`text-sm font-semibold ${terminalStatus ? 'text-red-600' : 'text-emerald-600'}`}>
@@ -310,7 +327,7 @@ export default function TrackOrderPage() {
               </a>
             )}
 
-            {!order.awbNumber && (
+            {!order.awbNumber && !viaShiprocket && (
               <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 shadow-sm">
                 <div className="flex items-start gap-3.5">
                   <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-sm mt-0.5">
@@ -328,7 +345,9 @@ export default function TrackOrderPage() {
               </div>
             )}
 
-            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+            {/* Courier events come from Innofulfill only, so there is no
+                timeline to offer for a parcel that went out via Shiprocket. */}
+            <div className={`bg-white rounded-2xl border border-slate-200 p-5 shadow-sm ${viaShiprocket ? 'hidden' : ''}`}>
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
                   <Package className="w-5 h-5 text-blue-600" />
