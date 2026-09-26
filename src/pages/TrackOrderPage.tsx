@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useSEO } from '../hooks/useSEO';
-import { Search, Package, Truck, Clock, XCircle, AlertCircle, ArrowRight, ShieldCheck, MapPin } from 'lucide-react';
+import { Search, Package, Truck, Clock, XCircle, AlertCircle, ArrowRight, ShieldCheck, MapPin, RefreshCw } from 'lucide-react';
 
 interface TrackingTimelineEvent {
   status?: string;
@@ -28,6 +28,10 @@ interface OrderData {
   carrierDisplayName?: string | null;
   logisticsProvider?: string | null;
   innofulfillOrderId: string | null;
+  /** Innofulfill's document number, e.g. RETR0000000187. Null for Shiprocket. */
+  innofulfillDocNo?: string | null;
+  /** 'Innofulfill', or null when the parcel went out via Shiprocket. */
+  carrier?: string | null;
   shipmentStatus: string | null;
   statusMessage: string | null;
   trackingStatus: string | null;
@@ -64,37 +68,53 @@ export default function TrackOrderPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [order, setOrder] = useState<OrderData | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const handleTrack = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!orderId.trim() || !phoneOrEmail.trim()) {
+  /**
+   * Fetches the order. Every call re-reads the courier's live status server
+   * side, so this doubles as the refresh.
+   *
+   * `background` keeps the current result on screen while it refetches —
+   * a silent poll must never blank out the status the customer is reading.
+   */
+  const fetchOrder = async (background = false) => {
+    const id = orderId.trim();
+    const contact = phoneOrEmail.trim();
+    if (!id || !contact) {
       setError('Please enter both your order / document number and phone number or email address.');
       return;
     }
-    setLoading(true);
+    if (background) setRefreshing(true);
+    else { setLoading(true); setOrder(null); }
     setError(null);
-    setOrder(null);
 
     try {
       const res = await fetch('/api/track-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId: orderId.trim(),
-          phoneOrEmail: phoneOrEmail.trim(),
-        }),
+        body: JSON.stringify({ orderId: id, phoneOrEmail: contact }),
       });
       const json = await res.json().catch(() => null);
       if (!res.ok || !json?.success) {
-        setError(json?.error || `Tracking failed (HTTP ${res.status})`);
+        // A failed background refresh keeps the last good status rather than
+        // replacing it with an error the customer can do nothing about.
+        if (!background) setError(json?.error || `Tracking failed (HTTP ${res.status})`);
         return;
       }
       setOrder(json.order as OrderData);
+      setLastUpdated(new Date());
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to track order. Please try again.');
+      if (!background) setError(err instanceof Error ? err.message : 'Failed to track order. Please try again.');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const handleTrack = (e: React.FormEvent) => {
+    e.preventDefault();
+    void fetchOrder(false);
   };
 
   useEffect(() => {
@@ -105,10 +125,50 @@ export default function TrackOrderPage() {
   }, [searchParams, order, loading]);
 
   const terminalStatus = order ? isTerminalStatus(order.status) : false;
+  const deliveredOrCancelled =
+    terminalStatus ||
+    /delivered|cancel|rto|returned/i.test(order?.trackingStatus || order?.shipmentStatus || '');
+
+  /**
+   * Keeps the courier status live while the customer is watching it.
+   *
+   * Stops once the parcel has arrived — there is nothing further to learn —
+   * and pauses while the tab is hidden, so a page left open in a background
+   * tab doesn't keep hitting the courier's API all day.
+   */
+  useEffect(() => {
+    if (!order || deliveredOrCancelled) return;
+
+    const REFRESH_MS = 45000;
+    const tick = () => {
+      if (document.visibilityState === 'visible') void fetchOrder(true);
+    };
+    const timer = window.setInterval(tick, REFRESH_MS);
+
+    // Catch up immediately when they come back to the tab.
+    const onVisible = () => { if (document.visibilityState === 'visible') void fetchOrder(true); };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+    // Re-armed when the tracked order or its finality changes, not on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order?.orderId, deliveredOrCancelled]);
   const documentNumber = order?.documentNumber || order?.orderId || '';
-  const awbLabel = order?.awbNumber || order?.awbDisplay || 'Awaiting shipment assignment';
-  const courierLabel = order?.carrierDisplayName || order?.courierName || order?.logisticsProvider || '—';
-  const shipmentStatusLabel = order?.trackingStatus || order?.shipmentStatus || order?.status || '—';
+  // Shiprocket parcels carry no carrier detail on this page by design — the
+  // server sends nulls for them, so there is nothing courier-shaped to show.
+  const viaShiprocket = Boolean(order) && !order?.carrier && !order?.awbNumber && !order?.awbDisplay;
+  const awbLabel = order?.awbNumber || order?.innofulfillDocNo || order?.awbDisplay || 'Awaiting shipment assignment';
+  const courierLabel = order?.carrierDisplayName || order?.courierName || order?.carrier || '—';
+  // A Shiprocket parcel has no courier feed here, and its internal
+  // shipmentStatus ("AWB_PENDING") and Status ("Created in Shiprocket") would
+  // both leak plumbing at the customer. It is only ever marked Shiprocket once
+  // the booking succeeded, so "Dispatched" is both cleaner and true.
+  const shipmentStatusLabel = viaShiprocket
+    ? 'Dispatched'
+    : order?.trackingStatus || order?.shipmentStatus || order?.status || '—';
   const timeline = (order?.trackingTimeline || []).filter((event) => event.status || event.description);
 
   return (
@@ -191,14 +251,18 @@ export default function TrackOrderPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
-                <div>
-                  <p className="text-xs text-slate-400 mb-0.5">AWB</p>
-                  <p className="text-sm font-semibold text-slate-700 font-mono">{awbLabel}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-400 mb-0.5">Courier</p>
-                  <p className="text-sm font-semibold text-slate-700">{courierLabel}</p>
-                </div>
+                {!viaShiprocket && (
+                  <>
+                    <div>
+                      <p className="text-xs text-slate-400 mb-0.5">AWB / Reference</p>
+                      <p className="text-sm font-semibold text-slate-700 font-mono">{awbLabel}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400 mb-0.5">Courier</p>
+                      <p className="text-sm font-semibold text-slate-700">{courierLabel}</p>
+                    </div>
+                  </>
+                )}
                 <div>
                   <p className="text-xs text-slate-400 mb-0.5">Status</p>
                   <p className={`text-sm font-semibold ${terminalStatus ? 'text-red-600' : 'text-emerald-600'}`}>
@@ -216,6 +280,38 @@ export default function TrackOrderPage() {
                   {order.statusMessage}
                 </div>
               )}
+
+              {/* Live status footer — tells them the number they're reading is
+                  current, and lets them force a check without re-entering
+                  their details. */}
+              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
+                <span className="flex items-center gap-2 text-xs text-slate-400" aria-live="polite">
+                  {deliveredOrCancelled ? (
+                    <>Final status — no longer updating</>
+                  ) : (
+                    <>
+                      <span className="relative flex w-2 h-2" aria-hidden="true">
+                        <span className={`absolute inline-flex w-full h-full rounded-full bg-emerald-400 ${refreshing ? 'animate-ping' : 'opacity-60'}`} />
+                        <span className="relative inline-flex w-2 h-2 rounded-full bg-emerald-500" />
+                      </span>
+                      {refreshing
+                        ? 'Checking courier…'
+                        : lastUpdated
+                          ? `Live · updated ${lastUpdated.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`
+                          : 'Live'}
+                    </>
+                  )}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void fetchOrder(true)}
+                  disabled={refreshing}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-500 disabled:opacity-50 transition-colors"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+                  Refresh
+                </button>
+              </div>
             </div>
 
             {order.awbNumber && order.trackingUrl && (
@@ -231,7 +327,7 @@ export default function TrackOrderPage() {
               </a>
             )}
 
-            {!order.awbNumber && (
+            {!order.awbNumber && !viaShiprocket && (
               <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 shadow-sm">
                 <div className="flex items-start gap-3.5">
                   <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-sm mt-0.5">
@@ -249,7 +345,9 @@ export default function TrackOrderPage() {
               </div>
             )}
 
-            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+            {/* Courier events come from Innofulfill only, so there is no
+                timeline to offer for a parcel that went out via Shiprocket. */}
+            <div className={`bg-white rounded-2xl border border-slate-200 p-5 shadow-sm ${viaShiprocket ? 'hidden' : ''}`}>
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
                   <Package className="w-5 h-5 text-blue-600" />

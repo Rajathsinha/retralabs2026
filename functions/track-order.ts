@@ -28,6 +28,59 @@ function innofulfillHeaders(token?: string): Record<string, string> {
   return headers;
 }
 
+/** First non-empty value among the given keys. Their payloads vary by endpoint. */
+function pickString(source: Record<string, unknown> | undefined, ...names: string[]): string | undefined {
+  if (!source) return undefined;
+  for (const name of names) {
+    const value = source[name];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'number') return String(value);
+  }
+  return undefined;
+}
+
+/**
+ * Pulls an order's live record from Innofulfill.
+ *
+ * Looks it up by Innofulfill's own id when we have one stored, then falls back
+ * to our order number — which is what we send them as `referenceId` at booking
+ * time, and what their portal lists under "Reference ID". That fallback is what
+ * makes orders trackable at all right now: shipment writes to Airtable were
+ * failing silently for months, so almost no order has an Innofulfill id stored
+ * even though the booking itself went through.
+ */
+async function fetchInnofulfillOrder(
+  token: string,
+  innofulfillOrderId: string | null,
+  referenceId: string,
+): Promise<Record<string, unknown> | null> {
+  const base = getInnofulfillBase();
+  const queries = [
+    innofulfillOrderId ? `orderId=${encodeURIComponent(innofulfillOrderId)}` : '',
+    referenceId ? `referenceId=${encodeURIComponent(referenceId)}` : '',
+  ].filter(Boolean);
+
+  for (const query of queries) {
+    try {
+      const res = await fetch(`${base}/gateway/booking-service/orders?${query}`, {
+        headers: innofulfillHeaders(token),
+      });
+      if (!res.ok) continue;
+      const json: { data?: Array<Record<string, unknown>> | Record<string, unknown> } = await res.json();
+      const raw = (Array.isArray(json?.data) ? json.data[0] : json?.data || json) as Record<string, unknown> | undefined;
+      if (!raw || typeof raw !== 'object' || !Object.keys(raw).length) continue;
+      // The field names below are read off their portal's columns rather than a
+      // spec. Logging the real keys once lets the mapping be corrected against
+      // a live response instead of guessed at again.
+      console.log(`[TrackOrder] Innofulfill order via ${query}: ${Object.keys(raw).join(', ')}`);
+      return raw;
+    } catch (err) {
+      console.warn(`[TrackOrder] Innofulfill lookup failed (${query}):`, err);
+    }
+  }
+  return null;
+}
+
 function shipmentMessage(shipmentStatus: string, awbNumber: string | null, innofulfillOrderId: string | null): string {
   if (!innofulfillOrderId && shipmentStatus === SHIPMENT_STATUS.NOT_CREATED) {
     return 'Shipment not created yet';
@@ -127,54 +180,77 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
     let shipmentStatus = f['Shipment Status'] ? String(f['Shipment Status']) : (innofulfillOrderId ? SHIPMENT_STATUS.AWB_PENDING : SHIPMENT_STATUS.NOT_CREATED);
     const provider = f['Courier Provider'] ? String(f['Courier Provider']) : 'Innofulfill';
 
-    if ((!awbNumber || shipmentStatus === SHIPMENT_STATUS.AWB_PENDING) && innofulfillOrderId) {
+    // Only Innofulfill shipments are tracked. Shiprocket parcels are handled
+    // off-site, so no carrier detail is shown for them at all.
+    const isShiprocket = provider === 'Shiprocket';
+
+    /** Innofulfill's own order status — "Ready for Dispatch", "Cancelled", etc. */
+    let innofulfillStatus: string | null = null;
+    /** Innofulfill's document number, e.g. RETR0000000187. */
+    let innofulfillDocNo: string | null = null;
+
+    if (!isShiprocket) {
       try {
         const innoToken = await getInnofulfillToken();
         if (innoToken) {
-          const orderCheckRes = await fetch(
-            `${getInnofulfillBase()}/gateway/booking-service/orders?orderId=${encodeURIComponent(innofulfillOrderId)}`,
-            { headers: innofulfillHeaders(innoToken) },
+          const orderData = await fetchInnofulfillOrder(
+            innoToken,
+            innofulfillOrderId,
+            String(f.orderID || targetOrderId),
           );
-          if (orderCheckRes.ok) {
-            const orderCheckJson: { data?: Array<Record<string, unknown>> | Record<string, unknown> } = await orderCheckRes.json();
-            const orderData = Array.isArray(orderCheckJson?.data) ? orderCheckJson.data[0] : orderCheckJson?.data || orderCheckJson;
-            const shipment = (orderData?.shipments as Array<Record<string, unknown>> | undefined)?.[0] || orderData || {};
+          if (orderData) {
+            const shipment =
+              (orderData.shipments as Array<Record<string, unknown>> | undefined)?.[0] || orderData;
+
+            innofulfillStatus =
+              pickString(orderData, 'orderStatus', 'status', 'currentStatus', 'orderState') ||
+              pickString(shipment, 'shipmentStatus', 'status', 'currentStatus') ||
+              null;
+
+            innofulfillDocNo =
+              pickString(orderData, 'documentNo', 'documentNumber', 'docNo', 'orderNumber', 'orderNo') ||
+              null;
+
             const assignedAwb = sanitizeAwb(
-              (shipment?.awbNumber as string | undefined) ||
-              (orderData?.awbNumber as string | undefined) ||
-              (shipment?.trackingNumber as string | undefined),
+              pickString(shipment, 'awbNumber', 'trackingNumber', 'awb') ||
+              pickString(orderData, 'awbNumber', 'trackingNumber'),
             );
+            const resolvedId = pickString(orderData, 'orderId', 'id');
+            courierName =
+              pickString(shipment, 'carrierDisplayName', 'carrierName') ||
+              pickString(orderData, 'carrierDisplayName', 'carrierName') ||
+              courierName;
+
             if (assignedAwb) {
               awbNumber = assignedAwb;
               shipmentStatus = SHIPMENT_STATUS.AWB_ASSIGNED;
-              courierName =
-                (typeof shipment?.carrierDisplayName === 'string' && shipment.carrierDisplayName) ||
-                (typeof orderData?.carrierDisplayName === 'string' && orderData.carrierDisplayName) ||
-                courierName;
-              await patchAirtableRecord(baseId, table, token, recordId, {
-                'AWB Number': awbNumber,
-                'Tracking ID': awbNumber,
-                'Shipment Status': SHIPMENT_STATUS.AWB_ASSIGNED,
-                ...(courierName ? { 'Carrier Display Name': courierName, Courier: courierName } : {}),
-              });
-              // AWB just became available (it was pending at order time) —
-              // notify the customer now rather than leaving them to keep
-              // checking Track Order themselves.
-              if (!f['AWB Email Sent']) {
-                // trackingUrl isn't resolved yet at this point in the handler
-                // (it's fetched further below) — the email template falls
-                // back to our own /track page when this is null.
-                await sendAwbAssignedEmail(
-                  baseId, table, token, recordId,
-                  { name: String(f.Name || 'Customer'), email: String(f.Email || '') },
-                  String(f.orderID || targetOrderId), awbNumber, courierName || 'Courier', null,
-                );
-              }
+            }
+
+            // Backfill whatever the booking failed to store, so the admin table
+            // and the next lookup don't have to rediscover it.
+            const patch: Record<string, unknown> = {};
+            if (assignedAwb) {
+              patch['AWB Number'] = assignedAwb;
+              patch['Tracking ID'] = assignedAwb;
+            }
+            if (resolvedId && !innofulfillOrderId) patch['Innofulfill Order ID'] = resolvedId;
+            if (Object.keys(patch).length) {
+              await patchAirtableRecord(baseId, table, token, recordId, patch);
+            }
+
+            // AWB just became available (it was pending at order time) — notify
+            // the customer rather than leaving them to keep checking this page.
+            if (assignedAwb && !f['AWB Email Sent']) {
+              await sendAwbAssignedEmail(
+                baseId, table, token, recordId,
+                { name: String(f.Name || 'Customer'), email: String(f.Email || '') },
+                String(f.orderID || targetOrderId), assignedAwb, courierName || 'Innofulfill', null,
+              );
             }
           }
         }
       } catch (pollErr) {
-        console.warn('[TrackOrder] AWB poll error:', pollErr);
+        console.warn('[TrackOrder] Innofulfill status poll error:', pollErr);
       }
     }
 
@@ -182,70 +258,41 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
     let trackingTimeline: Array<{ status?: string; date?: string; location?: string }> | null = null;
     let trackingUrl = f['Tracking URL'] ? String(f['Tracking URL']) : null;
 
-    if (awbNumber) {
-      if (provider === 'Shiprocket') {
-        try {
-          const email = (process.env.SHIPROCKET_EMAIL || process.env.VITE_SHIPROCKET_EMAIL || '').trim();
-          const password = (process.env.SHIPROCKET_PASSWORD || process.env.VITE_SHIPROCKET_PASSWORD || '').trim();
-          if (email && password) {
-            const srAuth: { token?: string } = await fetch('https://apiv2.shiprocket.in/v1/external/auth/login', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email, password }),
-            }).then((r) => r.json()).catch(() => ({}));
-            if (srAuth?.token) {
-              const trackRes = await fetch(
-                `https://apiv2.shiprocket.in/v1/external/courier/track/awb/${encodeURIComponent(awbNumber)}`,
-                { headers: { Authorization: `Bearer ${srAuth.token}` } },
-              );
-              if (trackRes.ok) {
-                const trackJson: { tracking_data?: Record<string, unknown> } = await trackRes.json();
-                const trackData = trackJson?.tracking_data || trackJson;
-                trackingStatus = (trackData?.current_status as string | undefined) || null;
-                const activities = trackData?.shipment_track_activities;
-                trackingTimeline = Array.isArray(activities)
-                  ? activities.map((act: { activity?: string; status?: string; date?: string; location?: string }) => ({
-                      status: act.activity || act.status,
-                      date: act.date,
-                      location: act.location,
-                    }))
-                  : null;
-                if (trackData?.track_url) trackingUrl = String(trackData.track_url);
-              }
-            }
+    if (awbNumber && !isShiprocket) {
+      try {
+        const innoToken = await getInnofulfillToken();
+        if (innoToken) {
+          const trackRes = await fetch(
+            `${getInnofulfillBase()}/gateway/booking-service/shipments/track?awb=${encodeURIComponent(awbNumber)}`,
+            { headers: innofulfillHeaders(innoToken) },
+          );
+          if (trackRes.ok) {
+            const trackJson: { data?: Record<string, unknown> } = await trackRes.json();
+            const trackData = trackJson?.data || trackJson;
+            trackingStatus = (trackData?.status as string | undefined) || (trackData?.shipmentStatus as string | undefined) || null;
+            trackingTimeline = Array.isArray(trackData?.trackingHistory)
+              ? (trackData.trackingHistory as Array<{ status?: string; date?: string; location?: string; timestamp?: string }>).map((event) => ({
+                  status: event.status,
+                  date: event.date || event.timestamp,
+                  location: event.location,
+                }))
+              : null;
+            if (trackData?.trackingUrl) trackingUrl = String(trackData.trackingUrl);
           }
-        } catch (srErr) {
-          console.warn('[TrackOrder] Shiprocket tracking error:', srErr);
         }
-      } else {
-        try {
-          const innoToken = await getInnofulfillToken();
-          if (innoToken) {
-            const trackRes = await fetch(
-              `${getInnofulfillBase()}/gateway/booking-service/shipments/track?awb=${encodeURIComponent(awbNumber)}`,
-              { headers: innofulfillHeaders(innoToken) },
-            );
-            if (trackRes.ok) {
-              const trackJson: { data?: Record<string, unknown> } = await trackRes.json();
-              const trackData = trackJson?.data || trackJson;
-              trackingStatus = (trackData?.status as string | undefined) || (trackData?.shipmentStatus as string | undefined) || null;
-              trackingTimeline = Array.isArray(trackData?.trackingHistory)
-                ? (trackData.trackingHistory as Array<{ status?: string; date?: string; location?: string; timestamp?: string }>).map((event) => ({
-                    status: event.status,
-                    date: event.date || event.timestamp,
-                    location: event.location,
-                  }))
-                : null;
-              if (trackData?.trackingUrl) trackingUrl = String(trackData.trackingUrl);
-            }
-          }
-        } catch {
-          // non-critical
-        }
+      } catch {
+        // non-critical
       }
     }
 
-    const statusMessage = shipmentMessage(shipmentStatus, awbNumber, innofulfillOrderId);
+    // Innofulfill's own order status is the more meaningful signal — it moves
+    // through Ready for Dispatch / Pickup Rescheduled / Inscanned well before
+    // any AWB scan event exists.
+    if (innofulfillStatus) trackingStatus = innofulfillStatus;
+
+    const statusMessage = isShiprocket
+      ? 'Your order has been dispatched. We will share tracking details with you directly by email or WhatsApp.'
+      : shipmentMessage(shipmentStatus, awbNumber, innofulfillOrderId);
 
     return {
       statusCode: 200,
@@ -263,15 +310,21 @@ export const handler = async (event: { httpMethod?: string; body?: string }) => 
           payment: f.Payment ? String(f.Payment) : null,
           delivery: f.Delivery ? String(f.Delivery) : null,
           name: f.Name ? String(f.Name) : null,
-          awbNumber,
-          awbDisplay: awbNumber || (innofulfillOrderId ? 'Awaiting shipment assignment' : null),
-          courierName,
-          innofulfillOrderId,
+          // Shiprocket parcels expose no carrier detail here by design.
+          awbNumber: isShiprocket ? null : awbNumber,
+          awbDisplay: isShiprocket
+            ? null
+            : awbNumber || innofulfillDocNo || (innofulfillOrderId ? 'Awaiting shipment assignment' : null),
+          courierName: isShiprocket ? null : courierName,
+          innofulfillOrderId: isShiprocket ? null : innofulfillOrderId,
+          /** Innofulfill's document number, e.g. RETR0000000187. */
+          innofulfillDocNo: isShiprocket ? null : innofulfillDocNo,
+          carrier: isShiprocket ? null : 'Innofulfill',
           shipmentStatus,
           statusMessage,
-          trackingStatus,
-          trackingTimeline,
-          trackingUrl,
+          trackingStatus: isShiprocket ? null : trackingStatus,
+          trackingTimeline: isShiprocket ? null : trackingTimeline,
+          trackingUrl: isShiprocket ? null : trackingUrl,
         },
       }),
     };
