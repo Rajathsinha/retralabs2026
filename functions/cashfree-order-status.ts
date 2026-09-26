@@ -3,8 +3,9 @@ import {
   confirmPaymentAndFulfill,
   corsHeaders,
   getAirtableConfig,
-  isPaymentConfirmed,
   patchAirtableRecord,
+  recordIsFailed,
+  recordIsPaid,
 } from './order-shared';
 import { getCashfreeConfig, fetchCashfreeOrder } from './cashfree-shared';
 
@@ -63,14 +64,13 @@ export const handler = async (
     }
 
     let fields = record.fields || {};
-    let paymentStatus = String(fields['Payment Status'] || '');
 
     // Distinguishes "Cashfree says they haven't paid" from "we couldn't reach
     // Cashfree to ask". Collapsing those two into one answer is what let the
     // checkout tell paying customers they hadn't been charged.
     let verified = true;
 
-    if (!isPaymentConfirmed(paymentStatus)) {
+    if (!recordIsPaid(fields)) {
       const cfg = getCashfreeConfig();
       if (!cfg) verified = false;
       if (cfg) {
@@ -88,14 +88,13 @@ export const handler = async (
             if (freshRes.ok) {
               const freshJson: { fields?: Record<string, unknown> } = await freshRes.json();
               fields = freshJson.fields || fields;
-              paymentStatus = String(fields['Payment Status'] || '');
             }
-          } else if (TERMINAL_FAILURE_STATUSES.has(cfOrder.orderStatus) && !isPaymentConfirmed(paymentStatus)) {
+          } else if (TERMINAL_FAILURE_STATUSES.has(cfOrder.orderStatus)) {
             await patchAirtableRecord(baseId, table, token, record.id, {
               'Payment Status': PAYMENT_STATUS.FAILED,
               Status: 'PAYMENT_FAILED',
             });
-            paymentStatus = PAYMENT_STATUS.FAILED;
+            fields = { ...fields, Status: 'PAYMENT_FAILED' };
           }
         } catch (cfErr) {
           verified = false;
@@ -104,14 +103,21 @@ export const handler = async (
       }
     }
 
+    const paid = recordIsPaid(fields);
+    const failed = !paid && recordIsFailed(fields);
+
     return {
       statusCode: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         success: true,
         orderId,
-        paymentStatus,
-        confirmed: isPaymentConfirmed(paymentStatus),
+        paymentStatus: paid
+          ? PAYMENT_STATUS.CONFIRMED
+          : failed
+            ? PAYMENT_STATUS.FAILED
+            : PAYMENT_STATUS.PENDING,
+        confirmed: paid,
         verified,
         awbNumber: fields['AWB Number'] || null,
         innofulfillOrderId: fields['Innofulfill Order ID'] || null,

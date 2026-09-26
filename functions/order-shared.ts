@@ -86,6 +86,35 @@ export function sanitizeAwb(awb: string | null | undefined): string | undefined 
   return value;
 }
 
+/**
+ * Whether a stored order record represents a paid order.
+ *
+ * The Orders table has no "Payment Status" column, and patchAirtableRecord
+ * drops writes to fields that don't exist — so every write of it has gone
+ * nowhere and every read came back empty, which made `confirmed` permanently
+ * false and left paying customers stuck on "we haven't had confirmation".
+ *
+ * Payment state really lives in `Status`. Fulfilment later overwrites that
+ * with "Created in <carrier>", which only ever happens after payment is
+ * confirmed, so those count as paid too.
+ */
+export function recordIsPaid(fields: Record<string, unknown>): boolean {
+  const paymentStatus = String(fields['Payment Status'] ?? '').toUpperCase();
+  if (paymentStatus === PAYMENT_STATUS.CONFIRMED) return true;
+  if (paymentStatus === PAYMENT_STATUS.FAILED) return false;
+
+  const status = String(fields.Status ?? '').toUpperCase();
+  if (status === 'PAYMENT_FAILED') return false;
+  return status === 'PAYMENT_CONFIRMED' || status.startsWith('CREATED IN');
+}
+
+/** True only when the record is explicitly marked failed. */
+export function recordIsFailed(fields: Record<string, unknown>): boolean {
+  const paymentStatus = String(fields['Payment Status'] ?? '').toUpperCase();
+  if (paymentStatus === PAYMENT_STATUS.FAILED) return true;
+  return String(fields.Status ?? '').toUpperCase() === 'PAYMENT_FAILED';
+}
+
 export function isPaymentConfirmed(paymentStatus: string | null | undefined, paymentMethod?: string): boolean {
   const status = (paymentStatus || '').toUpperCase();
   if (status === PAYMENT_STATUS.CONFIRMED) return true;
@@ -659,8 +688,7 @@ export async function confirmPaymentAndFulfill(
    */
   runInBackground?: (work: Promise<unknown>) => void,
 ): Promise<{ alreadyConfirmed: boolean }> {
-  const currentStatus = String(fields['Payment Status'] || '').toUpperCase();
-  if (currentStatus === PAYMENT_STATUS.CONFIRMED) {
+  if (recordIsPaid(fields)) {
     return { alreadyConfirmed: true };
   }
 
