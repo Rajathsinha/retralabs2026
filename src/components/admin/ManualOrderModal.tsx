@@ -21,10 +21,13 @@ import {
 } from '../../utils/addressParser';
 import { ALL_REGION_NAMES } from '../../data/indianStates';
 import { adminFetch } from '../../utils/adminAuth';
+import type { CloneSeed } from '../../utils/cloneOrder';
 
 interface ManualOrderModalProps {
   onClose: () => void;
   onOrdersCreated: () => void;
+  /** Set when repeating an order — prefills the customer, never the products. */
+  clone?: CloneSeed | null;
 }
 
 interface OrderResultItem {
@@ -72,12 +75,16 @@ const PRODUCT_PRESETS = [
   'Custom Item',
 ];
 
-export function ManualOrderModal({ onClose, onOrdersCreated }: ManualOrderModalProps) {
-  const [inputText, setInputText] = useState('');
+export function ManualOrderModal({ onClose, onOrdersCreated, clone }: ManualOrderModalProps) {
+  const [inputText, setInputText] = useState(clone?.text ?? '');
   const [defaultPrice, setDefaultPrice] = useState<number>(1000);
   const [defaultItem, setDefaultItem] = useState<string>('Retratrutide Starter Kit');
-  const [defaultPaymentMethod, setDefaultPaymentMethod] = useState<'prepay' | 'cod'>('prepay');
-  const [defaultDeliveryOption, setDefaultDeliveryOption] = useState<'normal' | 'fast'>('normal');
+  const [defaultPaymentMethod, setDefaultPaymentMethod] = useState<'prepay' | 'cod'>(
+    clone?.suggestedPaymentMethod ?? 'prepay',
+  );
+  const [defaultDeliveryOption, setDefaultDeliveryOption] = useState<'normal' | 'fast'>(
+    clone?.suggestedDeliveryOption ?? 'normal',
+  );
 
   // Parsed items list that the user can interactively edit
   const [items, setItems] = useState<ParsedManualOrder[]>([]);
@@ -196,9 +203,13 @@ export function ManualOrderModal({ onClose, onOrdersCreated }: ManualOrderModalP
               <Package className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900">Create Manual / Bulk Orders</h2>
+              <h2 className="text-lg font-bold text-slate-900">
+                {clone ? `Repeat order — ${clone.customerName}` : 'Create Manual / Bulk Orders'}
+              </h2>
               <p className="text-xs text-slate-500">
-                Paste address text from WhatsApp/Notes → Auto-creates in Airtable & routes to Innofulfill or Shiprocket
+                {clone
+                  ? `Customer details copied from #${clone.sourceOrderId || 'previous order'}. Choose the products below.`
+                  : 'Paste address text from WhatsApp/Notes → Auto-creates in Airtable & routes to Innofulfill or Shiprocket'}
               </p>
             </div>
           </div>
@@ -338,6 +349,20 @@ export function ManualOrderModal({ onClose, onOrdersCreated }: ManualOrderModalP
           {/* TAB 1: INPUT */}
           {activeTab === 'input' && (
             <div className="space-y-4">
+              {/* Repeat orders carry the customer only. Saying so up front stops
+                  anyone assuming the old products and price came along too. */}
+              {clone && (
+                <div className="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
+                  <Copy className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-blue-900 leading-relaxed">
+                    <span className="font-bold">{clone.customerName}</span>'s delivery details have been
+                    filled in from {clone.sourceOrderId ? <>order <span className="font-mono font-semibold">#{clone.sourceOrderId}</span></> : 'their previous order'}.
+                    {' '}Products and price are <span className="font-bold">not</span> copied — set them below so a repeat
+                    never ships at a stale price.
+                  </p>
+                </div>
+              )}
+
               <div className="flex items-center justify-between">
                 <label className="text-sm font-semibold text-slate-800 flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-blue-600" />

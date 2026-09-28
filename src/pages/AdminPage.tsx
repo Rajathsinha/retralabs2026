@@ -34,6 +34,7 @@ import { QuickActions } from '../components/admin/QuickActions';
 import { BulkAddressLabelModal } from '../components/admin/BulkAddressLabelModal';
 import { OrderInvoiceModal } from '../components/admin/OrderInvoiceModal';
 import { ManualOrderModal } from '../components/admin/ManualOrderModal';
+import { buildCloneSeed, type CloneSeed } from '../utils/cloneOrder';
 import { SmartOrderCleanerModal } from '../components/admin/SmartOrderCleanerModal';
 import { SmartOrderFormatterModal } from '../components/admin/SmartOrderFormatterModal';
 import { AdminAiCopilotModal } from '../components/admin/AdminAiCopilotModal';
@@ -209,6 +210,8 @@ export default function AdminPage() {
   const [showBulkLabels, setShowBulkLabels] = useState(false);
   const [invoiceModalRecords, setInvoiceModalRecords] = useState<AirtableRecord[] | null>(null);
   const [showManualModal, setShowManualModal] = useState(false);
+  /** Non-null when the create-order modal was opened to repeat an existing order. */
+  const [cloneSeed, setCloneSeed] = useState<CloneSeed | null>(null);
   const [showSmartCleaner, setShowSmartCleaner] = useState(false);
   const [showSmartFormatter, setShowSmartFormatter] = useState(false);
   const [showAiCopilot, setShowAiCopilot] = useState(false);
@@ -1085,6 +1088,11 @@ export default function AdminPage() {
             });
             await load();
           }}
+          onCloneOrder={(rec) => {
+            setCloneSeed(buildCloneSeed(rec));
+            setViewRecord(null);
+            setShowManualModal(true);
+          }}
           onOrderUpdated={load}
         />
       )}
@@ -1128,7 +1136,8 @@ export default function AdminPage() {
 
       {showManualModal && (
         <ManualOrderModal
-          onClose={() => setShowManualModal(false)}
+          clone={cloneSeed}
+          onClose={() => { setShowManualModal(false); setCloneSeed(null); }}
           onOrdersCreated={() => {
             load();
           }}

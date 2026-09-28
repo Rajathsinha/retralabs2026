@@ -29,6 +29,8 @@ interface OrderDrawerProps {
   onPrintInvoice?: (record: AirtableRecord) => void;
   onPrintLabel?: (record: AirtableRecord) => void;
   onDeleteOrder?: (record: AirtableRecord) => Promise<void> | void;
+  /** Opens the create-order flow prefilled with this customer's details. */
+  onCloneOrder?: (record: AirtableRecord) => void;
   onOrderUpdated?: () => Promise<void> | void;
 }
 
@@ -112,6 +114,7 @@ export function OrderDrawer({
   onPrintInvoice,
   onPrintLabel,
   onDeleteOrder,
+  onCloneOrder,
   onOrderUpdated,
 }: OrderDrawerProps) {
   const [verifying, setVerifying] = useState(false);
@@ -125,6 +128,13 @@ export function OrderDrawer({
   const [sessionPushedInnofulfill, setSessionPushedInnofulfill] = useState(false);
   const [pushSuccessMsg, setPushSuccessMsg] = useState<string | null>(null);
   const [editingContact, setEditingContact] = useState(false);
+  const [editingOrder, setEditingOrder] = useState(false);
+  const [editItems, setEditItems] = useState('');
+  const [editTotal, setEditTotal] = useState('');
+  const [editPaymentMethod, setEditPaymentMethod] = useState('UPI/Prepay');
+  const [editDelivery, setEditDelivery] = useState('Standard');
+  const [savingOrder, setSavingOrder] = useState(false);
+  const [orderSaveError, setOrderSaveError] = useState<string | null>(null);
   const [savingContact, setSavingContact] = useState(false);
   const [contactSaveError, setContactSaveError] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
@@ -393,6 +403,49 @@ export function OrderDrawer({
     setEditingContact(true);
   };
 
+  const startEditingOrder = () => {
+    const f2 = activeRecord.fields;
+    setEditItems(String(f2['Items'] ?? ''));
+    setEditTotal(String(Number(f2['Total (₹)'] ?? 0) || ''));
+    setEditPaymentMethod(String(f2['Payment'] ?? '').toUpperCase().includes('COD') ? 'COD' : 'UPI/Prepay');
+    setEditDelivery(String(f2['Delivery'] ?? '').toLowerCase().includes('express') ? 'Express' : 'Standard');
+    setOrderSaveError(null);
+    setEditingOrder(true);
+  };
+
+  const handleSaveOrder = async () => {
+    const total = Number(editTotal);
+    if (!editItems.trim()) {
+      setOrderSaveError('Items cannot be empty.');
+      return;
+    }
+    if (!Number.isFinite(total) || total < 0) {
+      setOrderSaveError('Total must be a number, and not negative.');
+      return;
+    }
+    setSavingOrder(true);
+    setOrderSaveError(null);
+    try {
+      // Payment/shipment columns are deliberately absent: an admin correcting
+      // what was ordered must not silently re-decide whether it was paid for.
+      const updates = {
+        Items: editItems.trim(),
+        'Total (₹)': total,
+        Payment: editPaymentMethod,
+        Delivery: editDelivery,
+      };
+      const res = await updateAdminOrders([{ id: activeRecord.id, fields: updates }]);
+      if (!res.success) throw new Error(res.error || 'Update failed');
+      setLocalRecord((prev) => (prev ? { ...prev, fields: { ...prev.fields, ...updates } } : null));
+      setEditingOrder(false);
+      await onOrderUpdated?.();
+    } catch (err) {
+      setOrderSaveError(String(err instanceof Error ? err.message : err));
+    } finally {
+      setSavingOrder(false);
+    }
+  };
+
   const handleSaveContact = async () => {
     if (!editName.trim() || !editAddress.trim()) {
       setContactSaveError('Name and address cannot be empty.');
@@ -623,9 +676,87 @@ export function OrderDrawer({
             )}
           </Section>
 
-          <Section icon={FileText} title="Products">
-            <p className="text-sm text-slate-700 whitespace-pre-line leading-relaxed">{String(f['Items'] ?? '—')}</p>
-            <div className="mt-2"><Row label="Total" value={`₹${Number(f['Total (₹)'] || 0).toLocaleString('en-IN')}`} /></div>
+          <Section
+            icon={FileText}
+            title="Products"
+            action={!editingOrder && (
+              <button
+                type="button"
+                onClick={startEditingOrder}
+                className="flex items-center gap-1 text-xs font-semibold text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
+              >
+                <Pencil className="w-3.5 h-3.5" /> Edit
+              </button>
+            )}
+          >
+            {editingOrder ? (
+              <div className="space-y-2.5">
+                <label className="block">
+                  <span className="block text-xs text-slate-500 mb-1">Items</span>
+                  <textarea
+                    value={editItems}
+                    onChange={(e) => setEditItems(e.target.value)}
+                    rows={3}
+                    className="w-full text-sm font-medium text-slate-900 border border-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10 transition-all resize-y"
+                  />
+                </label>
+                <EditField label="Total (₹)" value={editTotal} onChange={setEditTotal} type="number" />
+                <label className="block">
+                  <span className="block text-xs text-slate-500 mb-1">Payment method</span>
+                  <select
+                    value={editPaymentMethod}
+                    onChange={(e) => setEditPaymentMethod(e.target.value)}
+                    className="w-full text-sm font-medium text-slate-900 border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10 transition-all"
+                  >
+                    <option value="UPI/Prepay">UPI / Prepay</option>
+                    <option value="COD">COD</option>
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="block text-xs text-slate-500 mb-1">Delivery</span>
+                  <select
+                    value={editDelivery}
+                    onChange={(e) => setEditDelivery(e.target.value)}
+                    className="w-full text-sm font-medium text-slate-900 border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10 transition-all"
+                  >
+                    <option value="Standard">Standard</option>
+                    <option value="Express">Express</option>
+                  </select>
+                </label>
+
+                {orderSaveError && (
+                  <p className="text-xs text-red-600 font-semibold">{orderSaveError}</p>
+                )}
+                {/* Editing what was ordered does not touch what was paid — the
+                    Status column carries payment state and is left alone. */}
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  Changes the order contents only. Payment status and any booked shipment are untouched.
+                </p>
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleSaveOrder}
+                    disabled={savingOrder}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#2563EB] text-white text-xs font-bold hover:bg-[#1D4ED8] disabled:opacity-60 transition-colors"
+                  >
+                    {savingOrder ? 'Saving…' : 'Save changes'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setEditingOrder(false); setOrderSaveError(null); }}
+                    disabled={savingOrder}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-700 disabled:opacity-60 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-slate-700 whitespace-pre-line leading-relaxed">{String(f['Items'] ?? '—')}</p>
+                <div className="mt-2"><Row label="Total" value={`₹${Number(f['Total (₹)'] || 0).toLocaleString('en-IN')}`} /></div>
+              </>
+            )}
           </Section>
 
           <Section icon={CreditCard} title="Payment">
@@ -798,6 +929,16 @@ export function OrderDrawer({
             >
               <FileText className="w-4 h-4" /> Print Address Slip
             </button>
+
+            {onCloneOrder && (
+              <button
+                type="button"
+                onClick={() => onCloneOrder(activeRecord)}
+                className="col-span-2 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-violet-50 text-violet-700 border border-violet-200 text-sm font-semibold hover:bg-violet-100 transition-colors"
+              >
+                <Copy className="w-4 h-4" /> Repeat order for this customer
+              </button>
+            )}
           </div>
 
           {/* Quick Communication: WhatsApp & Phone */}
