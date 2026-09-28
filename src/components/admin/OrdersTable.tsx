@@ -188,7 +188,7 @@ export function OrdersTable({
           </div>
 
           {/* Line Items */}
-          {pageRows.map((r) => {
+          {pageRows.map((r, i) => {
             const f = r.fields;
             const isSel = selected.has(r.id);
             const timeInfo = formatExactOrderTime(r);
@@ -214,12 +214,23 @@ export function OrdersTable({
               <div
                 key={r.id}
                 onClick={() => onRowClick(r)}
-                className={`group relative rounded-xl border transition-all duration-150 cursor-pointer bg-white p-3.5 sm:p-4 shadow-2xs hover:shadow-md hover:border-blue-500/80 hover:bg-blue-50/20 ${
+                style={{
+                  opacity: 0,
+                  // Only the first screenful is staggered; beyond that the wait
+                  // before a row appears would cost more than the effect adds.
+                  animation: `rl-row-in 0.35s cubic-bezier(0.22,1,0.36,1) ${Math.min(i, 12) * 0.03}s forwards`,
+                }}
+                className={`group relative rounded-xl border transition-all duration-200 cursor-pointer bg-white p-3.5 sm:p-4 shadow-2xs hover:shadow-[0_10px_28px_-10px_rgba(37,99,235,0.35)] hover:border-blue-500/80 hover:bg-blue-50/20 hover:-translate-y-0.5 ${
                   isSel
                     ? 'border-blue-500 bg-blue-50/40 ring-1 ring-blue-500/20'
                     : 'border-slate-200/90'
                 }`}
               >
+                {/* Slides in on hover to mark the row being read. */}
+                <span
+                  aria-hidden="true"
+                  className="absolute left-0 top-3 bottom-3 w-[3px] rounded-full bg-gradient-to-b from-blue-500 to-indigo-500 origin-top scale-y-0 opacity-0 transition-all duration-300 group-hover:scale-y-100 group-hover:opacity-100"
+                />
                 <div className="grid grid-cols-1 lg:grid-cols-[repeat(14,minmax(0,1fr))] gap-3 sm:gap-4 items-center">
                   {/* Col 1: Checkbox + Customer Name & Mobile */}
                   <div className="lg:col-span-3 flex items-start sm:items-center gap-3 min-w-0">
