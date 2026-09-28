@@ -646,12 +646,12 @@ export default function AdminPage() {
                     type="button"
                     onClick={() => setShowBulkLabels(true)}
                     disabled={bulkLabelTargetRecords.length === 0}
-                    className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-blue-700 disabled:opacity-40"
+                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-700 shadow-2xs transition-all hover:border-slate-300 hover:bg-slate-50 hover:-translate-y-px active:translate-y-0 disabled:opacity-40 disabled:hover:translate-y-0"
                     title="Print up to 5 customer FROM & TO address labels per A4 sheet"
                   >
                     <FileText className="h-4 w-4" />
                     Print 5-per-A4 Labels
-                    <span className="rounded-md bg-white/20 px-1.5 py-0.5 text-xs font-mono">
+                    <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-mono text-slate-600">
                       {selectedRecords.length > 0 ? selectedRecords.length : sorted.length}
                     </span>
                   </button>
@@ -660,7 +660,7 @@ export default function AdminPage() {
                     type="button"
                     onClick={() => setInvoiceModalRecords(selectedRecords.length > 0 ? selectedRecords : sorted.slice(0, 10))}
                     disabled={sorted.length === 0}
-                    className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-slate-800 disabled:opacity-40"
+                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-700 shadow-2xs transition-all hover:border-slate-300 hover:bg-slate-50 hover:-translate-y-px active:translate-y-0 disabled:opacity-40 disabled:hover:translate-y-0"
                   >
                     <Printer className="h-4 w-4" />
                     Print Invoices
@@ -669,13 +669,13 @@ export default function AdminPage() {
                   <button
                     type="button"
                     onClick={() => setShowSmartFormatter(true)}
-                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 px-4 py-2.5 text-sm font-extrabold text-white shadow-md shadow-blue-500/20 transition-all hover:brightness-110 hover:scale-[1.02] active:scale-[0.98]"
+                    className="inline-flex items-center gap-2 rounded-xl border border-violet-200 bg-violet-50/80 px-3.5 py-2.5 text-sm font-bold text-violet-700 transition-all hover:bg-violet-100 hover:border-violet-300 hover:-translate-y-px active:translate-y-0"
                     title="Standardize customer names to Title Case, phone numbers strictly to 10 digits (+91/0 removed), and clean addresses"
                   >
-                    <Wand2 className="h-4 w-4 text-cyan-200" />
+                    <Wand2 className="h-4 w-4 text-violet-500" />
                     Smart AI Formatter
                     {needsFormattingCount > 0 && (
-                      <span className="rounded-full bg-white px-2 py-0.5 text-xs font-black text-indigo-700">
+                      <span className="rounded-full bg-violet-600 px-2 py-0.5 text-xs font-black text-white">
                         {needsFormattingCount}
                       </span>
                     )}
@@ -684,13 +684,13 @@ export default function AdminPage() {
                   <button
                     type="button"
                     onClick={() => setShowSmartCleaner(true)}
-                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 via-rose-600 to-amber-500 px-4 py-2.5 text-sm font-extrabold text-white shadow-md shadow-rose-500/20 transition-all hover:brightness-110 hover:scale-[1.02] active:scale-[0.98]"
+                    className="inline-flex items-center gap-2 rounded-xl border border-violet-200 bg-violet-50/80 px-3.5 py-2.5 text-sm font-bold text-violet-700 transition-all hover:bg-violet-100 hover:border-violet-300 hover:-translate-y-px active:translate-y-0"
                     title="Scan & delete duplicate submissions, fake numbers, and junk addresses"
                   >
-                    <Sparkles className="h-4 w-4 text-amber-300" />
+                    <Sparkles className="h-4 w-4 text-violet-500" />
                     Smart AI Cleaner
                     {flaggedJunkOrders.length > 0 && (
-                      <span className="rounded-full bg-white px-2 py-0.5 text-xs font-black text-rose-600">
+                      <span className="rounded-full bg-amber-500 px-2 py-0.5 text-xs font-black text-white">
                         {flaggedJunkOrders.length} Flagged
                       </span>
                     )}
@@ -699,7 +699,7 @@ export default function AdminPage() {
                   <button
                     type="button"
                     onClick={() => setShowManualModal(true)}
-                    className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm shadow-blue-500/20 transition-all hover:bg-blue-700 active:scale-[0.98]"
+                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-b from-blue-500 to-blue-600 px-4 py-2.5 text-sm font-bold text-white transition-all hover:-translate-y-px active:translate-y-0 shadow-[0_1px_0_rgba(255,255,255,0.3)_inset,0_10px_22px_-10px_rgba(37,99,235,0.9)]"
                   >
                     <Plus className="h-4 w-4" />
                     Paste / Create Orders
@@ -713,7 +713,7 @@ export default function AdminPage() {
                       setCopiedFormLink(true);
                       setTimeout(() => setCopiedFormLink(false), 2500);
                     }}
-                    className="inline-flex items-center gap-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-800 px-4 py-2.5 text-sm font-semibold transition-all"
+                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-700 shadow-2xs transition-all hover:border-slate-300 hover:bg-slate-50 hover:-translate-y-px active:translate-y-0"
                     title="Copy shareable customer order form link (/order)"
                   >
                     {copiedFormLink ? (
@@ -732,19 +732,19 @@ export default function AdminPage() {
                   <button
                     type="button"
                     onClick={() => setShowAiCopilot(true)}
-                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 px-4 py-2.5 text-sm font-extrabold text-white shadow-md shadow-blue-500/20 transition-all hover:brightness-110 hover:scale-[1.02] active:scale-[0.98]"
+                    className="inline-flex items-center gap-2 rounded-xl border border-violet-200 bg-violet-50/80 px-3.5 py-2.5 text-sm font-bold text-violet-700 transition-all hover:bg-violet-100 hover:border-violet-300 hover:-translate-y-px active:translate-y-0"
                     title="Ask RetraLabs AI Copilot questions about orders, revenue, UPI verification, AWBs, and anomalies"
                   >
-                    <Bot className="h-4 w-4 text-cyan-200" />
+                    <Bot className="h-4 w-4 text-violet-500" />
                     AI Copilot
-                    <span className="rounded-md bg-white/20 px-1.5 py-0.5 text-xs font-mono">⌘K</span>
+                    <span className="rounded-md bg-violet-200/70 px-1.5 py-0.5 text-xs font-mono text-violet-700">⌘K</span>
                   </button>
                 </div>
               </div>
 
               {/* Stat cards */}
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 mb-6">
-                {stats.map((s) => <StatCard key={s.key} card={s} />)}
+                {stats.map((s, i) => <StatCard key={s.key} card={s} index={i} />)}
               </div>
 
               {/* Quick Filter Pills Row */}

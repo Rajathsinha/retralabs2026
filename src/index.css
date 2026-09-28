@@ -442,3 +442,34 @@
     100% { opacity: 1; transform: none; filter: none; }
   }
 }
+
+/* ── Admin dashboard motion ──────────────────────────────────────────────
+   The admin is a tool people use all day, so entrances are short and run
+   once on mount; nothing loops in the background competing for attention. */
+@keyframes rl-card-in {
+  0%   { opacity: 0; transform: translateY(14px) scale(0.985); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes rl-spark-draw {
+  100% { stroke-dashoffset: 0; }
+}
+@keyframes rl-spark-fill {
+  100% { opacity: 1; }
+}
+@keyframes rl-row-in {
+  0%   { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+/* Sweeps once across a value that just changed, so a refresh is visible
+   without the number jumping under the reader's eye. */
+@keyframes rl-value-flash {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @keyframes rl-card-in { 0% { opacity: 0; } 100% { opacity: 1; transform: none; } }
+  @keyframes rl-row-in  { 0% { opacity: 0; } 100% { opacity: 1; transform: none; } }
+  @keyframes rl-spark-draw { 0%, 100% { stroke-dashoffset: 0; } }
+  @keyframes rl-spark-fill { 0%, 100% { opacity: 1; } }
+}
