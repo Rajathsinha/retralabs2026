@@ -17,6 +17,7 @@ import { handler as createCashfreeOrder } from './create-cashfree-order';
 import { handler as cashfreeWebhook } from './cashfree-webhook';
 import { handler as cashfreeOrderStatus } from './cashfree-order-status';
 import { handler as innofulfillWebhook } from './innofulfill-webhook';
+import { handler as retryFailedLogistics } from './retry-failed-logistics';
 
 // Polyfill globalThis.process for Node-style env access in Cloudflare edge runtime
 if (typeof globalThis.process === 'undefined') {
@@ -45,6 +46,7 @@ const HANDLERS: Record<string, (event: any, context?: any) => Promise<any>> = {
   'cashfree-webhook': cashfreeWebhook,
   'cashfree-order-status': cashfreeOrderStatus,
   'innofulfill-webhook': innofulfillWebhook,
+  'retry-failed-logistics': retryFailedLogistics,
 };
 
 export const onRequest: PagesFunction<Record<string, string>> = async (context) => {

@@ -1,4 +1,5 @@
 import { requireAdmin } from './admin-auth';
+import { resolveDestination } from './shiprocket-shared';
 import {
   corsHeaders,
   createInnofulfillOrder,
@@ -105,14 +106,22 @@ export const handler = async (event: { httpMethod?: string; body?: string; heade
     const total = Number(f['Total (₹)'] || 0);
     const declaredTotal = isCod ? total : total >= 10000 ? 3000 : 1000;
     const cartItems = [{ name: 'Cosmetic Research use', quantity: 1, unitPrice: declaredTotal, variant: 'MANUAL' }];
+    /*
+     * `City` and `State` are not columns in this base, so this used to fall
+     * back to Bengaluru / Karnataka for every order. Beyond mislabelling the
+     * parcel, a wrong state also mis-routes it: resolveDeliveryMode below
+     * treats the five southern states as surface-eligible, so a Mumbai order
+     * read as Karnataka ships surface when it should go by air.
+     */
+    const destination = resolveDestination(f as Record<string, unknown>);
     const customer = {
       name: String(f.Name || 'Customer'),
       email: String(f.Email || 'manual@retralabs.in'),
       phone: String(f.Phone || '9999999999'),
       address: String(f.Address || ''),
-      city: String(f.City || '').trim() || 'Bengaluru',
-      state: String(f.State || '').trim() || 'Karnataka',
-      pincode,
+      city: destination.city,
+      state: destination.state,
+      pincode: destination.pincode || pincode,
     };
     const isExpress = String(f.Delivery || '').toLowerCase().includes('express');
     const deliveryMode = resolveDeliveryMode(isExpress ? 'fast' : 'normal', customer.state);
