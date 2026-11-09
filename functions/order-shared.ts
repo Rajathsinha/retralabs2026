@@ -178,6 +178,12 @@ export async function generateOrderId(
   return `${datePrefix}${String(nextNum).padStart(3, '0')}`;
 }
 
+/**
+ * Columns this base has turned out not to have, remembered for the life of the
+ * isolate so repeated writes stop paying a round trip each to rediscover them.
+ */
+const missingColumns = new Set<string>();
+
 export async function patchAirtableRecord(
   baseId: string,
   table: string,
@@ -198,6 +204,17 @@ export async function patchAirtableRecord(
    * rather than vanishing.
    */
   const dropped: string[] = [];
+
+  /*
+   * Strip columns an earlier write already proved this base does not have.
+   * Airtable names only one unknown column per rejection, so without this a
+   * patch carrying six missing columns costs six extra round trips -- every
+   * time, for every order -- against a base limited to 5 requests a second.
+   * Learning them once per isolate turns that into one request.
+   */
+  for (const name of Object.keys(fields)) {
+    if (missingColumns.has(name)) delete fields[name];
+  }
 
   for (let attempt = 0; attempt < 20; attempt++) {
     if (Object.keys(fields).length === 0) break;
@@ -221,6 +238,7 @@ export async function patchAirtableRecord(
     const unknownMatch = detail.match(/Unknown field name: ["']?([^"')]+)["']?/i);
     if (unknownMatch) {
       dropped.push(unknownMatch[1]);
+      missingColumns.add(unknownMatch[1]);
       delete fields[unknownMatch[1]];
       continue;
     }
@@ -414,27 +432,16 @@ export async function createInnofulfillOrder(
   };
 }
 
-let cachedShiprocketToken: { token: string; expiresAt: number } | null = null;
 
-export async function getShiprocketToken(): Promise<string | null> {
-  const email = (process.env.SHIPROCKET_EMAIL || process.env.VITE_SHIPROCKET_EMAIL || '').trim();
-  const password = (process.env.SHIPROCKET_PASSWORD || process.env.VITE_SHIPROCKET_PASSWORD || '').trim();
-  if (!email || !password) return null;
-  if (cachedShiprocketToken && Date.now() < cachedShiprocketToken.expiresAt) return cachedShiprocketToken.token;
-
-  const res = await fetch('https://apiv2.shiprocket.in/v1/external/auth/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-  const json: { token?: string; message?: string; errors?: unknown } = await res.json().catch(() => ({}));
-  if (!res.ok || !json?.token) {
-    const detail = json?.message || (json?.errors ? JSON.stringify(json.errors) : `HTTP ${res.status}`);
-    throw new Error(`Shiprocket auth failed: ${detail}`);
-  }
-  cachedShiprocketToken = { token: json.token, expiresAt: Date.now() + 9 * 24 * 60 * 60 * 1000 };
-  return json.token;
-}
+/**
+ * Re-exported from the shared Shiprocket client.
+ *
+ * This used to hold the token in a module-level variable and call it a 9-day
+ * cache. On Workers that variable dies with the isolate, so in practice almost
+ * every order logged in again and Shiprocket throttled the account. The shared
+ * client keeps the token across isolates and backs off when throttled.
+ */
+export { getShiprocketToken } from './shiprocket-shared';
 
 export interface ShiprocketResult {
   provider: 'Shiprocket';
@@ -736,14 +743,41 @@ export async function confirmPaymentAndFulfill(
   }
 
   const isExpress = String(fields.Delivery || '').toLowerCase().includes('express');
+
+  /*
+   * This reads `City` and `State` off the record -- columns this base does not
+   * have -- and used to fall back to Bengaluru / Karnataka. Since prepaid
+   * orders are not booked at creation (payment is not confirmed yet) and reach
+   * the carrier through here instead, every prepaid order outside Karnataka was
+   * being handed to Shiprocket with a city and state that contradicted its own
+   * pincode, which Shiprocket rejects.
+   *
+   * Dynamic import for the same reason as extractPincodeFromAddress above:
+   * delivery-shared imports from this module, so a static import would close
+   * an import cycle.
+   */
+  const { resolveDestination } = await import('./shiprocket-shared');
+  let destination: { city: string; state: string; pincode: string };
+  try {
+    destination = resolveDestination(fields as Record<string, unknown>);
+  } catch (err) {
+    const why = err instanceof Error ? err.message : String(err);
+    console.warn(`[Cashfree] ${orderId}: ${why}`);
+    await patchAirtableRecord(baseId, table, token, recordId, {
+      'Innofulfill Error': why.slice(0, 950),
+      'Shipment Status': SHIPMENT_STATUS.FAILED,
+    });
+    return { alreadyConfirmed: false };
+  }
+
   const customer = {
     name: String(fields.Name || 'Customer'),
     email: String(fields.Email || 'orders@retralabs.in'),
     phone: String(fields.Phone || ''),
     address,
-    city: String(fields.City || '').trim() || 'Bengaluru',
-    state: String(fields.State || '').trim() || 'Karnataka',
-    pincode,
+    city: destination.city,
+    state: destination.state,
+    pincode: destination.pincode || pincode,
   };
   const declaredTotal = total >= 10000 ? 3000 : 1000;
   const cartItems: CartLineItem[] = [{ name: 'Cosmetic Research use', variant: 'ONLINE', quantity: 1, unitPrice: declaredTotal }];
